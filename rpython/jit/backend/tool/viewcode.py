@@ -264,7 +264,7 @@ class World(object):
                     continue     # empty line
                 baseaddr = long(pieces[1][1:], 16)
                 if baseaddr < 0:
-                    baseaddr += (2 * sys.maxint + 2)
+                    baseaddr += (2 * sys.maxsize + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
                 data = pieces[3].replace(':', '').decode('hex')
@@ -284,7 +284,7 @@ class World(object):
                 assert pieces[2].startswith('+')
                 baseaddr = long(pieces[1][1:], 16)
                 if baseaddr < 0:
-                    baseaddr += (2 * sys.maxint + 2)
+                    baseaddr += (2 * sys.maxsize + 2)
                 offset = int(pieces[2][1:])
                 addr = baseaddr + offset
                 self.logentries[addr] = pieces[3]

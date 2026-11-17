@@ -341,7 +341,8 @@ class BoolOption(Option):
             no_argnames = ["--" + _getnegation(argname.lstrip("-"))
                                for argname in argnames]
         callback = BoolConfigUpdate(config, self, False)
-        parser.add_option(help="unset option set by %s %%default" % (argname, ),
+        parser.add_option(help="unset option set by %s %%default" % (
+                                argnames[-1], ),
                           action='callback',
                           callback=callback, *no_argnames)
 

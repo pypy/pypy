@@ -6,11 +6,13 @@
 # Eli Bendersky [https://eli.thegreenplace.net/]
 # License: BSD
 # ------------------------------------------------------------------------------
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import (
     Any,
     Literal,
     NoReturn,
+    NotRequired,
     Optional,
     TypedDict,
     cast,
@@ -18,10 +20,11 @@ from typing import (
 
 from . import c_ast
 from .ast_transforms import fix_atomic_specifiers, fix_switch_cases
-from .c_lexer import CLexer, Token
+from .c_lexer import CLexer, Dialect, Token
 
 
-@dataclass
+# ASTs contain many coordinates, so slots reduce their memory overhead.
+@dataclass(slots=True)
 class Coord:
     """Coordinates of a syntactic element. Consists of:
     - File name
@@ -52,8 +55,12 @@ class CParser:
         ast = parser.parse(text, filename)
 
     The `lexer` parameter lets you inject a lexer class (defaults to CLexer).
-    The parameters after `lexer` are accepted for backward compatibility with
-    the old PLY-based parser and are otherwise unused.
+    The positional parameters other than `lexer` are accepted for backward
+    compatibility with the old PLY-based parser and are otherwise unused.
+
+    The keyword-only `dialect` parameter selects keyword recognition: "legacy"
+    preserves existing behavior, while "c23" enables C23 spellings, predefined
+    constants, and other C23-only features.
     """
 
     def __init__(
@@ -65,13 +72,14 @@ class CParser:
         yacctab: str = "pycparser.yacctab",
         yacc_debug: bool = False,
         taboutputdir: str = "",
+        *,
+        dialect: Dialect = "legacy",
     ) -> None:
         self.clex: CLexer = lexer(
             error_func=self._lex_error_func,
-            on_lbrace_func=self._lex_on_lbrace_func,
-            on_rbrace_func=self._lex_on_rbrace_func,
-            type_lookup_func=self._lex_type_lookup_func,
+            dialect=dialect,
         )
+        self._dialect = dialect
 
         # Stack of scopes for keeping track of symbols. _scope_stack[-1] is
         # the current (topmost) scope. Each scope is a dictionary that
@@ -82,7 +90,10 @@ class CParser:
         # If 'name' is not a key in _scope_stack[n] then 'name' was not defined
         # in this scope at all.
         self._scope_stack: list[dict[str, bool]] = [{}]
-        self._tokens: _TokenStream = _TokenStream(self.clex)
+        # Cache the token already checked for typedef-name status to avoid repeated
+        # lookups when peeking or consuming. Cleared when scopes or bindings change.
+        self._typedef_checked_token: Token | None = None
+        self._tokens: _TokenStream = _TokenStream(self.clex.token)
 
     def parse(
         self, text: str, filename: str = "", debug: bool = False
@@ -99,8 +110,9 @@ class CParser:
             Deprecated debug flag (unused); for backwards compatibility.
         """
         self._scope_stack = [{}]
+        self._typedef_checked_token = None
         self.clex.input(text, filename)
-        self._tokens = _TokenStream(self.clex)
+        self._tokens = _TokenStream(self.clex.token)
 
         ast = self._parse_translation_unit_or_empty()
         tok = self._peek()
@@ -111,19 +123,17 @@ class CParser:
     # ------------------------------------------------------------------
     # Scope and declaration helpers
     # ------------------------------------------------------------------
-    def _coord(self, lineno: int, column: int | None = None) -> Coord:
-        return Coord(file=self.clex.filename, line=lineno, column=column)
-
     def _parse_error(self, msg: str, coord: Coord | str | None) -> NoReturn:
         raise ParseError(f"{coord}: {msg}")
 
     def _push_scope(self) -> None:
         self._scope_stack.append({})
+        self._typedef_checked_token = None
 
     def _pop_scope(self) -> None:
-        if len(self._scope_stack) <= 1:
-            raise ParseError("Unmatched '}'")
+        assert len(self._scope_stack) > 1, "Cannot pop the global scope"
         self._scope_stack.pop()
+        self._typedef_checked_token = None
 
     def _add_typedef_name(self, name: str, coord: Coord | None) -> None:
         """Add a new typedef name (ie a TYPEID) to the current scope"""
@@ -133,6 +143,7 @@ class CParser:
                 coord,
             )
         self._scope_stack[-1][name] = True
+        self._typedef_checked_token = None
 
     def _add_identifier(self, name: str, coord: Coord | None) -> None:
         """Add a new object, function, or enum member name (ie an ID) to the
@@ -144,6 +155,7 @@ class CParser:
                 coord,
             )
         self._scope_stack[-1][name] = False
+        self._typedef_checked_token = None
 
     def _is_type_in_scope(self, name: str) -> bool:
         """Is *name* a typedef-name in the current scope?"""
@@ -155,20 +167,7 @@ class CParser:
         return False
 
     def _lex_error_func(self, msg: str, line: int, column: int) -> None:
-        self._parse_error(msg, self._coord(line, column))
-
-    def _lex_on_lbrace_func(self) -> None:
-        self._push_scope()
-
-    def _lex_on_rbrace_func(self) -> None:
-        self._pop_scope()
-
-    def _lex_type_lookup_func(self, name: str) -> bool:
-        """Looks up types that were previously defined with typedef.
-
-        Passed to the lexer for recognizing identifiers that are types.
-        """
-        return self._is_type_in_scope(name)
+        self._parse_error(msg, Coord(file=self.clex.filename, line=line, column=column))
 
     # To understand what's going on here, read sections A.8.5 and
     # A.8.6 of K&R2 very carefully.
@@ -251,7 +250,7 @@ class CParser:
     def _fix_decl_name_type(
         self,
         decl: c_ast.Decl | c_ast.Typedef | c_ast.Typename,
-        typename: list[Any],
+        typename: list[c_ast.Node],
     ) -> c_ast.Decl | c_ast.Typedef | c_ast.Typename:
         """Fixes a declaration. Modifies decl."""
         # Reach the underlying basic type
@@ -262,12 +261,32 @@ class CParser:
         decl.name = typ.declname
         typ.quals = decl.quals[:]
 
-        # The typename is a list of types. If any type in this
-        # list isn't an IdentifierType, it must be the only
-        # type in the list (it's illegal to declare "int enum ..")
+        # The typename is a list of types. Except for _BitInt with an
+        # optional signedness, any type that isn't an IdentifierType must
+        # be the only type in the list (it's illegal to declare "int enum ..").
         # If all the types are basic, they're collected in the
         # IdentifierType holder.
+        names: list[str] = []
         for tn in typename:
+            if isinstance(tn, c_ast.BitIntType):
+                signedness = None
+                for spec in typename:
+                    if spec is tn:
+                        continue
+                    if (
+                        signedness is not None
+                        or not isinstance(spec, c_ast.IdentifierType)
+                        or spec.names not in (["signed"], ["unsigned"])
+                    ):
+                        self._parse_error(
+                            "Invalid multiple types specified", spec.coord
+                        )
+                    signedness = spec.names[0]
+                # Specifiers are shared by comma-separated declarations;
+                # keep the parsed specifier unchanged when attaching the sign.
+                typ.type = c_ast.BitIntType(tn.width, signedness, tn.coord)
+                return decl
+
             if not isinstance(tn, c_ast.IdentifierType):
                 if len(typename) > 1:
                     self._parse_error("Invalid multiple types specified", tn.coord)
@@ -276,6 +295,7 @@ class CParser:
                     # Normalize atomic specifiers for declarations and type
                     # names alike (casts, sizeof, unnamed parameters, etc.).
                     return fix_atomic_specifiers(decl)
+            names.extend(tn.names)
 
         if not typename:
             # Functions default to returning int
@@ -283,21 +303,16 @@ class CParser:
                 self._parse_error("Missing type in declaration", decl.coord)
             typ.type = c_ast.IdentifierType(["int"], coord=decl.coord)
         else:
-            # At this point, we know that typename is a list of IdentifierType
-            # nodes. Concatenate all the names into a single list.
-            typ.type = c_ast.IdentifierType(
-                [name for id in typename for name in id.names], coord=typename[0].coord
-            )
+            typ.type = c_ast.IdentifierType(names, coord=typename[0].coord)
         return decl
 
     def _add_declaration_specifier(
         self,
         declspec: Optional["_DeclSpec"],
-        newspec: Any,
+        newspec: str | c_ast.Node,
         kind: "_DeclSpecKind",
-        append: bool = False,
     ) -> "_DeclSpec":
-        """See _DeclSpec for the specifier dictionary layout."""
+        """Append a specifier in source order; see _DeclSpec for the layout."""
         if declspec is None:
             spec: _DeclSpec = {
                 "qual": [],
@@ -305,16 +320,43 @@ class CParser:
                 "type": [],
                 "function": [],
                 "alignment": [],
+                "type_attributes": [],
             }
         else:
             spec = declspec
 
-        if append:
+        if kind == "type":
+            assert isinstance(newspec, c_ast.Node)
+            spec[kind].append(newspec)
+        elif kind == "alignment":
+            assert isinstance(newspec, c_ast.Alignas)
             spec[kind].append(newspec)
         else:
-            spec[kind].insert(0, newspec)
-
+            assert isinstance(newspec, str)
+            spec[kind].append(newspec)
         return spec
+
+    def _build_type_name(
+        self, spec: "_DeclSpec", decl: c_ast.Node | None, coord: Coord | None
+    ) -> c_ast.Typename:
+        """Build and normalize an abstract type, including its attributes.
+
+        Callers select the coordinate according to their grammar context.
+        The name, if any, is taken from the declarator by _fix_decl_name_type.
+        """
+        typename = c_ast.Typename(
+            name=None,
+            quals=spec["qual"][:],
+            align=None,
+            type=decl or c_ast.TypeDecl(None, None, None, None),
+            coord=coord,
+        )
+        return cast(
+            c_ast.Typename,
+            self._attach_type_attributes(
+                self._fix_decl_name_type(typename, spec["type"]), spec
+            ),
+        )
 
     def _build_declarations(
         self,
@@ -339,6 +381,7 @@ class CParser:
             if decls[0]["decl"] is None:
                 if (
                     len(spec["type"]) < 2
+                    or not isinstance(spec["type"][-1], c_ast.IdentifierType)
                     or len(spec["type"][-1].names) != 1
                     or not self._is_type_in_scope(spec["type"][-1].names[0])
                 ):
@@ -362,15 +405,13 @@ class CParser:
             # A similar problem can occur where the declaration ends up
             # looking like an abstract declarator.  Give it a name if this is
             # the case.
-            elif not isinstance(
-                decls[0]["decl"],
-                (c_ast.Enum, c_ast.Struct, c_ast.Union, c_ast.IdentifierType),
-            ):
+            elif isinstance(decls[0]["decl"], _DECLARATOR_NODES):
                 decls_0_tail = cast(Any, decls[0]["decl"])
                 while not isinstance(decls_0_tail, c_ast.TypeDecl):
                     decls_0_tail = decls_0_tail.type
                 if decls_0_tail.declname is None:
-                    decls_0_tail.declname = spec["type"][-1].names[0]
+                    type_name = cast(c_ast.IdentifierType, spec["type"][-1])
+                    decls_0_tail.declname = type_name.names[0]
                     del spec["type"][-1]
 
         for decl in decls:
@@ -396,23 +437,20 @@ class CParser:
                     coord=decl["decl"].coord,
                 )
 
-            if isinstance(
-                declaration.type,
-                (c_ast.Enum, c_ast.Struct, c_ast.Union, c_ast.IdentifierType),
-            ):
+            if not isinstance(declaration.type, _DECLARATOR_NODES):
                 fixed_decl = declaration
             else:
                 fixed_decl = self._fix_decl_name_type(declaration, spec["type"])
 
-            # Add the type name defined by typedef to a
-            # symbol table (for usage in the lexer)
+            # Record the declared name in the current scope so the parser can
+            # distinguish identifiers from typedef names.
             if typedef_namespace:
                 if is_typedef:
                     self._add_typedef_name(fixed_decl.name, fixed_decl.coord)
                 else:
                     self._add_identifier(fixed_decl.name, fixed_decl.coord)
 
-            declarations.append(fixed_decl)
+            declarations.append(self._attach_type_attributes(fixed_decl, spec))
 
         return declarations
 
@@ -429,7 +467,7 @@ class CParser:
 
         declaration = self._build_declarations(
             spec=spec,
-            decls=[{"decl": decl, "init": None, "bitsize": None}],
+            decls=[{"decl": decl}],
             typedef_namespace=True,
         )[0]
 
@@ -451,7 +489,18 @@ class CParser:
     # ------------------------------------------------------------------
     def _peek(self, k: int = 1) -> Token | None:
         """Return the k-th next token without consuming it (1-based)."""
-        return self._tokens.peek(k)
+        tok = self._tokens.peek(k)
+        if tok is not self._typedef_checked_token:
+            self._classify_identifier(tok)
+        return tok
+
+    def _classify_identifier(self, tok: Token | None) -> None:
+        # Buffered identifiers are interpreted in the current scope, including
+        # after backtracking. Peeking and consuming can reuse the classification
+        # until a scope or binding changes.
+        if tok is not None and tok.type in {"ID", "TYPEID"}:
+            tok.type = "TYPEID" if self._is_type_in_scope(tok.value) else "ID"
+        self._typedef_checked_token = tok
 
     def _peek_type(self, k: int = 1) -> str | None:
         """Return the type of the k-th next token, or None if absent (1-based)."""
@@ -462,8 +511,9 @@ class CParser:
         tok = self._tokens.next()
         if tok is None:
             self._parse_error("At end of input", self.clex.filename)
-        else:
-            return tok
+        if tok is not self._typedef_checked_token:
+            self._classify_identifier(tok)
+        return tok
 
     def _accept(self, token_type: str) -> Token | None:
         """Conditionally consume next token, only if it's of token_type.
@@ -489,7 +539,7 @@ class CParser:
         self._tokens.reset(mark)
 
     def _tok_coord(self, tok: Token) -> Coord:
-        return self._coord(tok.lineno, tok.column)
+        return Coord(file=tok.filename, line=tok.lineno, column=tok.column)
 
     def _starts_declaration(self, tok: Token | None = None) -> bool:
         tok = tok or self._peek()
@@ -504,6 +554,12 @@ class CParser:
         return tok.type in _STARTS_EXPRESSION
 
     def _starts_statement(self) -> bool:
+        if self._peek_type() == "ATTRIBUTE_BEGIN":
+            mark = self._mark()
+            self._parse_attribute_specifier_sequence()
+            starts = not self._starts_declaration()
+            self._reset(mark)
+            return starts
         tok_type = self._peek_type()
         if tok_type is None:
             return False
@@ -557,6 +613,7 @@ class CParser:
     def _scan_declarator_name_info(self) -> tuple[str | None, bool]:
         saw_paren = False
         while self._accept("TIMES"):
+            self._parse_attribute_specifier_sequence()
             while self._peek_type() in _TYPE_QUALIFIER:
                 self._advance()
 
@@ -598,30 +655,125 @@ class CParser:
 
     def _try_parse_paren_type_name(
         self,
-    ) -> tuple[c_ast.Typename, int, Token] | None:
+    ) -> tuple[c_ast.Typename, int, Token, list[str]] | None:
         """Parse and return a parenthesized type name if present.
 
-        Returns (typ, mark, lparen_tok) when the next tokens look like
+        Returns (typ, mark, lparen_tok, storage) when the next tokens look like
         '(' type_name ')', where typ is the parsed type name, mark is the
         token-stream position before parsing, and lparen_tok is the LPAREN
-        token. Returns None if no parenthesized type name is present.
+        token. C23 storage specifiers may precede the type name, but require a
+        following '{' for a compound literal. Returns None if no parenthesized
+        type name is present.
         """
-        mark = self._mark()
-        lparen_tok = self._accept("LPAREN")
-        if lparen_tok is None:
+        lparen_tok = self._peek()
+        # Avoid saving a backtracking position when there's no '(' to parse.
+        if lparen_tok is None or lparen_tok.type != "LPAREN":
             return None
+        mark = self._mark()
+        self._advance()
         if not self._starts_declaration():
             self._reset(mark)
             return None
+        storage = []
+        while self._peek_type() in _STORAGE_CLASS:
+            tok = self._advance()
+            if self._dialect != "c23":
+                self._parse_error(
+                    "Storage class specifiers in compound literals require C23",
+                    self._tok_coord(tok),
+                )
+            storage.append(tok.value)
         typ = self._parse_type_name()
         if self._accept("RPAREN") is None:
             self._reset(mark)
             return None
-        return typ, mark, lparen_tok
+        if storage and self._peek_type() != "LBRACE":
+            self._parse_error(
+                "Storage class specifiers require a compound literal initializer",
+                self._tok_coord(lparen_tok),
+            )
+        return typ, mark, lparen_tok, storage
 
     # ------------------------------------------------------------------
     # Top-level
     # ------------------------------------------------------------------
+    def _parse_attribute_specifier_sequence(self) -> list[c_ast.AttributeSpecifier]:
+        groups = []
+        while self._peek_type() == "ATTRIBUTE_BEGIN":
+            opening = self._advance()
+            if self._dialect != "c23":
+                self._parse_error("Attributes require C23", self._tok_coord(opening))
+            attributes = []
+            while self._peek_type() != "ATTRIBUTE_END":
+                if self._accept("COMMA"):
+                    continue
+                name = self._parse_identifier_or_typeid()
+                namespace = None
+                if self._accept("COLONCOLON"):
+                    namespace = name.name
+                    name = self._parse_identifier_or_typeid()
+                arguments = self._accept("ATTRIBUTE_ARGUMENTS")
+                attributes.append(
+                    c_ast.Attribute(
+                        name.name,
+                        namespace,
+                        arguments.value if arguments is not None else None,
+                        name.coord,
+                    )
+                )
+                if not self._accept("COMMA"):
+                    break
+            self._expect("ATTRIBUTE_END")
+            groups.append(
+                c_ast.AttributeSpecifier(attributes, self._tok_coord(opening))
+            )
+        return groups
+
+    def _attribute_declarations(
+        self, nodes: list[c_ast.Node], attributes: list[c_ast.AttributeSpecifier]
+    ) -> list[c_ast.Node]:
+        """Attach declaration prefixes, shared by comma-separated declarators."""
+        if not nodes or isinstance(nodes[0], c_ast.Pragma):
+            self._parse_error(
+                "Expected declaration after attributes", attributes[0].coord
+            )
+        for node in nodes:
+            # Trailing pragmas belong to the surrounding list, not to the
+            # declaration carrying these attributes.
+            if isinstance(node, c_ast.Pragma):
+                continue
+            decl = node.decl if isinstance(node, c_ast.FuncDef) else node
+            if not isinstance(decl, (c_ast.Decl, c_ast.Typedef)):
+                self._parse_error(
+                    "Expected declaration after attributes", attributes[0].coord
+                )
+            decl.attributes = attributes
+        return nodes
+
+    def _attribute_statement(
+        self, stmt: c_ast.Node, attributes: list[c_ast.AttributeSpecifier]
+    ) -> c_ast.Node:
+        if isinstance(stmt, (c_ast.Label, c_ast.Case, c_ast.Default)):
+            stmt.attributes = attributes
+            return stmt
+        return c_ast.AttributedStatement(attributes, stmt, attributes[0].coord)
+
+    def _attach_type_attributes(
+        self, decl: c_ast.Decl | c_ast.Typedef | c_ast.Typename, spec: "_DeclSpec"
+    ) -> c_ast.Decl | c_ast.Typedef | c_ast.Typename:
+        """Keep attributes after the base type, inside pointer/array modifiers."""
+        if spec["type_attributes"]:
+            target = decl
+            while isinstance(
+                target.type,
+                (c_ast.PtrDecl, c_ast.ArrayDecl, c_ast.FuncDecl, c_ast.TypeDecl),
+            ):
+                target = target.type
+            target.type = c_ast.AttributedType(
+                target.type, spec["type_attributes"], target.type.coord
+            )
+        return decl
+
     # BNF: translation_unit_or_empty : translation_unit | empty
     def _parse_translation_unit_or_empty(self) -> c_ast.FileAST:
         if self._peek() is None:
@@ -642,6 +794,13 @@ class CParser:
     #                           | static_assert
     #                           | ';'
     def _parse_external_declaration(self) -> list[c_ast.Node]:
+        if self._peek_type() == "ATTRIBUTE_BEGIN":
+            attributes = self._parse_attribute_specifier_sequence()
+            if self._accept("SEMI"):
+                return [c_ast.AttributeDeclaration(attributes, attributes[0].coord)]
+            return self._attribute_declarations(
+                self._parse_external_declaration(), attributes
+            )
         tok = self._peek()
         if tok is None:
             return []
@@ -665,7 +824,6 @@ class CParser:
             #
             # These get an implicit 'int' return type.
             decl = self._parse_id_declarator()
-            param_decls = None
             if self._peek_type() != "LBRACE":
                 self._parse_error("Invalid function definition", decl.coord)
             spec: _DeclSpec = {
@@ -674,66 +832,87 @@ class CParser:
                 "storage": [],
                 "type": [c_ast.IdentifierType(["int"], coord=decl.coord)],
                 "function": [],
+                "type_attributes": [],
             }
-            func = self._build_function_definition(
-                spec=spec,
-                decl=decl,
-                param_decls=param_decls,
-                body=self._parse_compound_statement(),
-            )
-            return [func]
+            return [self._parse_function_definition(spec, decl)]
 
         # From here on, parsing a standard declatation/definition.
         spec, saw_type, spec_coord = self._parse_declaration_specifiers(
             allow_no_type=True
         )
+        if self._is_inferred_auto(spec):
+            decls = self._parse_auto_declaration(spec)
+            return self._parse_declaration_end(decls)
 
         name_type, _ = self._peek_declarator_name_info()
         if name_type != "ID":
             decls = self._parse_decl_body_with_spec(spec, saw_type)
-            self._expect("SEMI")
-            return decls
+            return self._parse_declaration_end(decls)
 
         decl = self._parse_id_declarator()
 
         if self._peek_type() == "LBRACE" or self._starts_declaration():
-            param_decls = None
-            if self._starts_declaration():
-                param_decls = self._parse_declaration_list()
-            if self._peek_type() != "LBRACE":
-                self._parse_error("Invalid function definition", decl.coord)
             if not spec["type"]:
                 spec["type"] = [c_ast.IdentifierType(["int"], coord=spec_coord)]
-            func = self._build_function_definition(
-                spec=spec,
-                decl=decl,
-                param_decls=param_decls,
-                body=self._parse_compound_statement(),
-            )
-            return [func]
+            return [self._parse_function_definition(spec, decl)]
 
-        decl_dict: _DeclInfo = {"decl": decl, "init": None, "bitsize": None}
+        decl_dict: _DeclInfo = {"decl": decl}
         if self._accept("EQUALS"):
             decl_dict["init"] = self._parse_initializer()
         decls = self._parse_init_declarator_list(first=decl_dict)
         decls = self._build_declarations(spec=spec, decls=decls, typedef_namespace=True)
-        self._expect("SEMI")
-        return decls
+        return self._parse_declaration_end(decls)
+
+    def _parse_function_definition(
+        self, spec: "_DeclSpec", decl: c_ast.Node
+    ) -> c_ast.Node:
+        # Open the scope shared by parameters, old-style parameter declarations,
+        # and the outermost body.
+        self._push_scope()
+        if isinstance(decl, c_ast.FuncDecl) and decl.args is not None:
+            for param in decl.args.params:
+                name = getattr(param, "name", None)
+                if name:
+                    self._add_identifier(name, param.coord)
+        param_decls = (
+            self._parse_declaration_list() if self._starts_declaration() else None
+        )
+        if self._peek_type() != "LBRACE":
+            self._parse_error("Invalid function definition", decl.coord)
+        body = self._parse_compound_statement(new_scope=False)
+        self._pop_scope()
+        return self._build_function_definition(spec, decl, param_decls, body)
 
     # ------------------------------------------------------------------
     # Declarations
     #
     # Declarations always come as lists (because they can be several in one
     # line). When returning parsed declarations, a list is always returned -
-    # even if it contains a single element.
+    # even if it contains a single element. Pragmas before the final semicolon
+    # follow the declarations in that list.
     # ------------------------------------------------------------------
-    # BNF: declaration : decl_body ';' | static_assert
+    # BNF: declaration : decl_body pppragma_directive* ';' | static_assert
     def _parse_declaration(self) -> list[c_ast.Node]:
+        if self._peek_type() == "ATTRIBUTE_BEGIN":
+            attributes = self._parse_attribute_specifier_sequence()
+            if self._accept("SEMI"):
+                return [c_ast.AttributeDeclaration(attributes, attributes[0].coord)]
+            return self._attribute_declarations(self._parse_declaration(), attributes)
         if self._peek_type() == "_STATIC_ASSERT":
             return [self._parse_static_assert()]
         decls = self._parse_decl_body()
+        return self._parse_declaration_end(decls)
+
+    def _parse_declaration_end(self, decls: list[c_ast.Node]) -> list[c_ast.Node]:
+        """Consume a declaration's semicolon and retain preceding pragmas.
+
+        Macro expansions can place diagnostic pragmas just before the final
+        semicolon (issue #478). Represent them after the completed declarations
+        in the surrounding list, just like pragmas following the semicolon.
+        """
+        pragmas = self._parse_pppragma_directive_list()
         self._expect("SEMI")
-        return decls
+        return decls + pragmas
 
     # BNF: decl_body : declaration_specifiers decl_body_with_spec
     def _parse_decl_body(self) -> list[c_ast.Node]:
@@ -745,6 +924,9 @@ class CParser:
     def _parse_decl_body_with_spec(
         self, spec: "_DeclSpec", saw_type: bool
     ) -> list[c_ast.Node]:
+        if self._is_inferred_auto(spec):
+            return self._parse_auto_declaration(spec)
+
         # saw_type is True if the specifiers included an actual type (as
         # opposed to only storage/function/qualifiers).
         decl_infos: list[_DeclInfo] | None = None
@@ -760,23 +942,22 @@ class CParser:
             ty = spec["type"]
             s_u_or_e = (c_ast.Struct, c_ast.Union, c_ast.Enum)
             if len(ty) == 1 and isinstance(ty[0], s_u_or_e):
-                decls = [
-                    c_ast.Decl(
-                        name=None,
-                        quals=spec["qual"],
-                        align=spec["alignment"],
-                        storage=spec["storage"],
-                        funcspec=spec["function"],
-                        type=ty[0],
-                        init=None,
-                        bitsize=None,
-                        coord=ty[0].coord,
-                    )
-                ]
+                decl = c_ast.Decl(
+                    name=None,
+                    quals=spec["qual"],
+                    align=spec["alignment"],
+                    storage=spec["storage"],
+                    funcspec=spec["function"],
+                    type=ty[0],
+                    init=None,
+                    bitsize=None,
+                    coord=ty[0].coord,
+                )
+                decls = [self._attach_type_attributes(decl, spec)]
             else:
                 decls = self._build_declarations(
                     spec=spec,
-                    decls=[{"decl": None, "init": None, "bitsize": None}],
+                    decls=[{"decl": None}],
                     typedef_namespace=True,
                 )
         else:
@@ -786,11 +967,35 @@ class CParser:
 
         return decls
 
-    # BNF: declaration_list : declaration+
+    def _is_inferred_auto(self, spec: "_DeclSpec") -> bool:
+        return self._dialect == "c23" and "auto" in spec["storage"] and not spec["type"]
+
+    # C23 type inference uses one plain (possibly parenthesized) name and an
+    # expression initializer. Preserve its syntax without resolving the type.
+    def _parse_auto_declaration(self, spec: "_DeclSpec") -> list[c_ast.Node]:
+        decl = self._parse_id_declarator()
+        if not isinstance(decl, c_ast.TypeDecl):
+            self._parse_error(
+                "Inferred auto declaration requires a plain identifier", decl.coord
+            )
+        self._expect("EQUALS")
+        init = self._parse_assignment_expression()
+        spec["type"] = [c_ast.InferredType(coord=decl.coord)]
+        # Register the name only after parsing the initializer.
+        return self._build_declarations(
+            spec=spec,
+            decls=[{"decl": decl, "init": init}],
+            typedef_namespace=True,
+        )
+
+    # BNF: declaration_list : (declaration pppragma_directive*)+
     def _parse_declaration_list(self) -> list[c_ast.Node]:
         decls = []
         while self._starts_declaration():
             decls.extend(self._parse_declaration())
+            # K&R parameter declarations retain pragmas on either side of
+            # their semicolons, including when reparsing generated code.
+            decls.extend(self._parse_pppragma_directive_list())
         return decls
 
     # BNF: declaration_specifiers   : (storage_class_specifier
@@ -808,9 +1013,39 @@ class CParser:
 
         Returns:
             (spec, saw_type, first_coord) where spec is a dict with
-            qual/storage/type/function/alignment entries, saw_type is True
+            qual/storage/type/function/alignment/type_attributes entries, saw_type is True
             if a type specifier was consumed, and first_coord is the coord
             of the first specifier token (used for diagnostics).
+        """
+        spec, saw_type, first_coord = self._parse_specifiers(
+            allow_storage_and_function=True
+        )
+        if spec is None:
+            self._parse_error("Invalid declaration", self.clex.filename)
+        if not saw_type and not allow_no_type:
+            self._parse_error("Missing type in declaration", first_coord)
+        return spec, saw_type, first_coord
+
+    # BNF: specifier_qualifier_list : (type_specifier
+    #                               | type_qualifier
+    #                               | alignment_specifier)+
+    def _parse_specifier_qualifier_list(self) -> "_DeclSpec":
+        spec, saw_type, first_coord = self._parse_specifiers(
+            allow_storage_and_function=False
+        )
+        if spec is None:
+            self._parse_error("Invalid specifier list", self.clex.filename)
+        if not saw_type and not spec["alignment"]:
+            self._parse_error("Missing type in declaration", first_coord)
+        return spec
+
+    def _parse_specifiers(
+        self, *, allow_storage_and_function: bool
+    ) -> tuple["_DeclSpec | None", bool, Coord | None]:
+        """Consume specifiers shared by declarations, members, and type names.
+
+        Storage classes and function specifiers are only accepted in
+        declarations. Callers handle their own missing-specifier diagnostics.
         """
         spec = None
         saw_type = False
@@ -821,203 +1056,57 @@ class CParser:
             if tok is None:
                 break
 
-            if tok.type == "_ALIGNAS":
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_alignment_specifier(), "alignment", append=True
-                )
-                continue
-
-            if tok.type == "_ATOMIC" and self._peek_type(2) == "LPAREN":
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_atomic_specifier(), "type", append=True
-                )
-                saw_type = True
-                continue
-
-            if tok.type in _TYPE_QUALIFIER:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._advance().value, "qual", append=True
-                )
-                continue
-
-            if tok.type in _STORAGE_CLASS:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._advance().value, "storage", append=True
-                )
-                continue
-
-            if tok.type in _FUNCTION_SPEC:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._advance().value, "function", append=True
-                )
-                continue
-
-            if tok.type in _TYPE_SPEC_SIMPLE:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                tok = self._advance()
-                spec = self._add_declaration_specifier(
-                    spec,
-                    c_ast.IdentifierType([tok.value], coord=self._tok_coord(tok)),
-                    "type",
-                    append=True,
-                )
-                saw_type = True
-                continue
-
-            if tok.type == "TYPEID":
-                if saw_type:
-                    break
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                tok = self._advance()
-                spec = self._add_declaration_specifier(
-                    spec,
-                    c_ast.IdentifierType([tok.value], coord=self._tok_coord(tok)),
-                    "type",
-                    append=True,
-                )
-                saw_type = True
-                continue
-
-            if tok.type in {"STRUCT", "UNION"}:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_struct_or_union_specifier(), "type", append=True
-                )
-                saw_type = True
-                continue
-
-            if tok.type == "ENUM":
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_enum_specifier(), "type", append=True
-                )
-                saw_type = True
-                continue
-
-            break
-
-        if spec is None:
-            self._parse_error("Invalid declaration", self.clex.filename)
-
-        if not saw_type and not allow_no_type:
-            self._parse_error("Missing type in declaration", first_coord)
-
-        return spec, saw_type, first_coord
-
-    # BNF: specifier_qualifier_list : (type_specifier
-    #                               | type_qualifier
-    #                               | alignment_specifier)+
-    def _parse_specifier_qualifier_list(self) -> "_DeclSpec":
-        spec = None
-        saw_type = False
-        saw_alignment = False
-        first_coord = None
-
-        while True:
-            tok = self._peek()
-            if tok is None:
+            if tok.type == "ATTRIBUTE_BEGIN" and spec is not None:
+                spec["type_attributes"] = self._parse_attribute_specifier_sequence()
                 break
 
+            # Once a type has been seen, a typedef name can be the declarator
+            # (e.g. the second T in "T T"), rather than another type specifier.
+            if tok.type == "TYPEID" and saw_type:
+                break
+
+            # _Atomic is a type specifier with parentheses, a qualifier without.
+            is_atomic_specifier = (
+                tok.type == "_ATOMIC" and self._peek_type(2) == "LPAREN"
+            )
+            if first_coord is None:
+                first_coord = self._tok_coord(tok)
+
+            kind: _DeclSpecKind = "type"
+            newspec: str | c_ast.Node
             if tok.type == "_ALIGNAS":
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_alignment_specifier(), "alignment", append=True
-                )
-                saw_alignment = True
-                continue
-
-            if tok.type == "_ATOMIC" and self._peek_type(2) == "LPAREN":
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_atomic_specifier(), "type", append=True
-                )
-                saw_type = True
-                continue
-
-            if tok.type in _TYPE_QUALIFIER:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._advance().value, "qual", append=True
-                )
-                continue
-
-            if tok.type in _TYPE_SPEC_SIMPLE:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
+                kind = "alignment"
+                newspec = self._parse_alignment_specifier()
+            elif is_atomic_specifier:
+                newspec = self._parse_atomic_specifier()
+            elif tok.type in _TYPEOF_SPEC:
+                newspec = self._parse_typeof_specifier()
+            elif tok.type == "_BITINT":
+                newspec = self._parse_bitint_specifier()
+            elif tok.type in _TYPE_QUALIFIER:
+                kind = "qual"
+                newspec = self._advance().value
+            elif allow_storage_and_function and tok.type in _STORAGE_CLASS:
+                kind = "storage"
+                newspec = self._advance().value
+            elif allow_storage_and_function and tok.type in _FUNCTION_SPEC:
+                kind = "function"
+                newspec = self._advance().value
+            elif tok.type in _TYPE_SPEC_SIMPLE or tok.type == "TYPEID":
                 tok = self._advance()
-                spec = self._add_declaration_specifier(
-                    spec,
-                    c_ast.IdentifierType([tok.value], coord=self._tok_coord(tok)),
-                    "type",
-                    append=True,
-                )
+                newspec = c_ast.IdentifierType([tok.value], coord=self._tok_coord(tok))
+            elif tok.type in {"STRUCT", "UNION"}:
+                newspec = self._parse_struct_or_union_specifier()
+            elif tok.type == "ENUM":
+                newspec = self._parse_enum_specifier()
+            else:
+                break
+
+            spec = self._add_declaration_specifier(spec, newspec, kind)
+            if kind == "type":
                 saw_type = True
-                continue
 
-            if tok.type == "TYPEID":
-                if saw_type:
-                    break
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                tok = self._advance()
-                spec = self._add_declaration_specifier(
-                    spec,
-                    c_ast.IdentifierType([tok.value], coord=self._tok_coord(tok)),
-                    "type",
-                    append=True,
-                )
-                saw_type = True
-                continue
-
-            if tok.type in {"STRUCT", "UNION"}:
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_struct_or_union_specifier(), "type", append=True
-                )
-                saw_type = True
-                continue
-
-            if tok.type == "ENUM":
-                if first_coord is None:
-                    first_coord = self._tok_coord(tok)
-                spec = self._add_declaration_specifier(
-                    spec, self._parse_enum_specifier(), "type", append=True
-                )
-                saw_type = True
-                continue
-
-            break
-
-        if spec is None:
-            self._parse_error("Invalid specifier list", self.clex.filename)
-
-        if not saw_type and not saw_alignment:
-            self._parse_error("Missing type in declaration", first_coord)
-
-        if spec.get("storage") is None:
-            spec["storage"] = []
-        if spec.get("function") is None:
-            spec["function"] = []
-
-        return spec
+        return spec, saw_type, first_coord
 
     # BNF: type_qualifier_list : type_qualifier+
     def _parse_type_qualifier_list(self) -> list[str]:
@@ -1027,7 +1116,7 @@ class CParser:
         return quals
 
     # BNF: alignment_specifier : _ALIGNAS '(' type_name | constant_expression ')'
-    def _parse_alignment_specifier(self) -> c_ast.Node:
+    def _parse_alignment_specifier(self) -> c_ast.Alignas:
         tok = self._expect("_ALIGNAS")
         self._expect("LPAREN")
 
@@ -1049,6 +1138,25 @@ class CParser:
         typ.quals.append("_Atomic")
         return typ
 
+    # BNF: typeof_specifier : (TYPEOF | TYPEOF_UNQUAL) '(' (type_name | expression) ')'
+    def _parse_typeof_specifier(self) -> c_ast.TypeOf:
+        tok = self._advance()
+        self._expect("LPAREN")
+        if self._starts_declaration():
+            expr = self._parse_type_name()
+        else:
+            expr = self._parse_expression()
+        self._expect("RPAREN")
+        return c_ast.TypeOf(tok.value, expr, self._tok_coord(tok))
+
+    # BNF: bitint_specifier : _BITINT '(' constant_expression ')'
+    def _parse_bitint_specifier(self) -> c_ast.BitIntType:
+        tok = self._expect("_BITINT")
+        self._expect("LPAREN")
+        width = self._parse_constant_expression()
+        self._expect("RPAREN")
+        return c_ast.BitIntType(width, None, self._tok_coord(tok))
+
     # BNF: init_declarator_list : init_declarator (',' init_declarator)*
     def _parse_init_declarator_list(
         self, first: Optional["_DeclInfo"] = None, id_only: bool = False
@@ -1066,10 +1174,9 @@ class CParser:
     # BNF: init_declarator : declarator ('=' initializer)?
     def _parse_init_declarator(self, id_only: bool = False) -> "_DeclInfo":
         decl = self._parse_id_declarator() if id_only else self._parse_declarator()
-        init = None
         if self._accept("EQUALS"):
-            init = self._parse_initializer()
-        return {"decl": decl, "init": init, "bitsize": None}
+            return {"decl": decl, "init": self._parse_initializer()}
+        return {"decl": decl}
 
     # ------------------------------------------------------------------
     # Structs/unions/enums
@@ -1078,6 +1185,7 @@ class CParser:
     #                                | struct_or_union ID
     def _parse_struct_or_union_specifier(self) -> c_ast.Node:
         tok = self._advance()
+        attributes = self._parse_attribute_specifier_sequence()
         klass = self._select_struct_union_class(tok.value)
 
         if self._peek_type() in {"ID", "TYPEID"}:
@@ -1086,25 +1194,44 @@ class CParser:
                 self._advance()
                 if self._accept("RBRACE"):
                     return klass(
-                        name=name_tok.value, decls=[], coord=self._tok_coord(name_tok)
+                        attributes=attributes,
+                        name=name_tok.value,
+                        decls=[],
+                        coord=self._tok_coord(name_tok),
                     )
                 decls = self._parse_struct_declaration_list()
                 self._expect("RBRACE")
                 return klass(
-                    name=name_tok.value, decls=decls, coord=self._tok_coord(name_tok)
+                    attributes=attributes,
+                    name=name_tok.value,
+                    decls=decls,
+                    coord=self._tok_coord(name_tok),
                 )
 
             return klass(
-                name=name_tok.value, decls=None, coord=self._tok_coord(name_tok)
+                attributes=attributes,
+                name=name_tok.value,
+                decls=None,
+                coord=self._tok_coord(name_tok),
             )
 
         if self._peek_type() == "LBRACE":
             brace_tok = self._advance()
             if self._accept("RBRACE"):
-                return klass(name=None, decls=[], coord=self._tok_coord(brace_tok))
+                return klass(
+                    attributes=attributes,
+                    name=None,
+                    decls=[],
+                    coord=self._tok_coord(brace_tok),
+                )
             decls = self._parse_struct_declaration_list()
             self._expect("RBRACE")
-            return klass(name=None, decls=decls, coord=self._tok_coord(brace_tok))
+            return klass(
+                attributes=attributes,
+                name=None,
+                decls=decls,
+                coord=self._tok_coord(brace_tok),
+            )
 
         self._parse_error("Invalid struct/union declaration", self._tok_coord(tok))
 
@@ -1118,10 +1245,16 @@ class CParser:
             decls.extend(items)
         return decls
 
-    # BNF: struct_declaration   : specifier_qualifier_list struct_declarator_list? ';'
+    # BNF: struct_declaration   : specifier_qualifier_list struct_declarator_list?
+    #                            pppragma_directive* ';'
     #                           | static_assert
     #                           | pppragma_directive
     def _parse_struct_declaration(self) -> list[c_ast.Node] | None:
+        if self._peek_type() == "ATTRIBUTE_BEGIN":
+            attributes = self._parse_attribute_specifier_sequence()
+            return self._attribute_declarations(
+                self._parse_struct_declaration() or [], attributes
+            )
         if self._peek_type() == "_STATIC_ASSERT":
             return [self._parse_static_assert()]
         if self._peek_type() == "SEMI":
@@ -1137,8 +1270,9 @@ class CParser:
         if self._starts_declarator() or self._peek_type() == "COLON":
             decls = self._parse_struct_declarator_list()
         if decls is not None:
-            self._expect("SEMI")
-            return self._build_declarations(spec=spec, decls=decls)
+            return self._parse_declaration_end(
+                self._build_declarations(spec=spec, decls=decls)
+            )
 
         if len(spec["type"]) == 1:
             node = spec["type"][0]
@@ -1146,15 +1280,12 @@ class CParser:
                 decl_type = node
             else:
                 decl_type = c_ast.IdentifierType(node)
-            self._expect("SEMI")
-            return self._build_declarations(
-                spec=spec,
-                decls=[{"decl": decl_type, "init": None, "bitsize": None}],
+            return self._parse_declaration_end(
+                self._build_declarations(spec=spec, decls=[{"decl": decl_type}])
             )
 
-        self._expect("SEMI")
-        return self._build_declarations(
-            spec=spec, decls=[{"decl": None, "init": None, "bitsize": None}]
+        return self._parse_declaration_end(
+            self._build_declarations(spec=spec, decls=[{"decl": None}])
         )
 
     # BNF: struct_declarator_list : struct_declarator (',' struct_declarator)*
@@ -1171,54 +1302,93 @@ class CParser:
             bitsize = self._parse_constant_expression()
             return {
                 "decl": c_ast.TypeDecl(None, None, None, None),
-                "init": None,
                 "bitsize": bitsize,
             }
 
         decl = self._parse_declarator()
         if self._accept("COLON"):
             bitsize = self._parse_constant_expression()
-            return {"decl": decl, "init": None, "bitsize": bitsize}
+            return {"decl": decl, "bitsize": bitsize}
 
-        return {"decl": decl, "init": None, "bitsize": None}
+        return {"decl": decl}
 
-    # BNF: enum_specifier : ENUM ID? '{' enumerator_list? '}'
-    #                     | ENUM ID
+    # BNF: enum_specifier : ENUM ID? enum_type_specifier? '{' enumerator_list '}'
+    #                     | ENUM ID enum_type_specifier?
     def _parse_enum_specifier(self) -> c_ast.Node:
         tok = self._expect("ENUM")
+        attributes = self._parse_attribute_specifier_sequence()
+        name = None
         if self._peek_type() in {"ID", "TYPEID"}:
-            name_tok = self._advance()
-            if self._peek_type() == "LBRACE":
-                self._advance()
-                enums = self._parse_enumerator_list()
-                self._expect("RBRACE")
-                return c_ast.Enum(name_tok.value, enums, self._tok_coord(tok))
-            return c_ast.Enum(name_tok.value, None, self._tok_coord(tok))
+            name = self._advance().value
 
-        self._expect("LBRACE")
-        enums = self._parse_enumerator_list()
-        self._expect("RBRACE")
-        return c_ast.Enum(None, enums, self._tok_coord(tok))
+        underlying_type = None
+        # A colon followed by an expression belongs to an unnamed bit-field,
+        # e.g. struct S { enum E : 3; }, rather than a fixed underlying type.
+        if self._peek_type() == "COLON" and self._starts_declaration(self._peek(2)):
+            underlying_type = self._parse_enum_type_specifier()
 
-    # BNF: enumerator_list : enumerator (',' enumerator)* ','?
+        enums = None
+        if name is None or self._peek_type() == "LBRACE":
+            self._expect("LBRACE")
+            enums = self._parse_enumerator_list()
+            self._expect("RBRACE")
+        return c_ast.Enum(
+            name,
+            enums,
+            underlying_type,
+            self._tok_coord(tok),
+            attributes=attributes,
+        )
+
+    # BNF: enum_type_specifier : ':' specifier_qualifier_list (C23)
+    def _parse_enum_type_specifier(self) -> c_ast.Typename:
+        colon = self._expect("COLON")
+        if self._dialect != "c23":
+            self._parse_error(
+                "Fixed underlying enum types require C23", self._tok_coord(colon)
+            )
+        # The base is a specifier-qualifier list, not a full type name: any
+        # following pointer, array, or function declarator belongs to the enum.
+        spec = self._parse_specifier_qualifier_list()
+        coord = spec["type"][0].coord if spec["type"] else self._tok_coord(colon)
+        return self._build_type_name(spec, None, coord)
+
+    # BNF: enumerator_list : pppragma_directive* enumerator pppragma_directive*
+    #                       (',' pppragma_directive* enumerator pppragma_directive*)*
+    #                       (',' pppragma_directive*)?
     def _parse_enumerator_list(self) -> c_ast.Node:
+        members = self._parse_pppragma_directive_list()
+        # Pragmas do not count as enumerators: even with leading directives,
+        # the list must contain at least one enumerator.
         enum = self._parse_enumerator()
-        enum_list = c_ast.EnumeratorList([enum], enum.coord)
-        while self._accept("COMMA"):
+        members.append(enum)
+        coord = enum.coord
+        while True:
+            # Directives may appear on either side of a separating comma, or
+            # after the last enumerator. They never replace the comma itself.
+            members.extend(self._parse_pppragma_directive_list())
+            if not self._accept("COMMA"):
+                break
+            members.extend(self._parse_pppragma_directive_list())
             if self._peek_type() == "RBRACE":
                 break
-            enum = self._parse_enumerator()
-            enum_list.enumerators.append(enum)
-        return enum_list
+            members.append(self._parse_enumerator())
+        return c_ast.EnumeratorList(members, coord)
 
     # BNF: enumerator : ID ('=' constant_expression)?
     def _parse_enumerator(self) -> c_ast.Node:
         name_tok = self._expect("ID")
+        attributes = self._parse_attribute_specifier_sequence()
         if self._accept("EQUALS"):
             value = self._parse_constant_expression()
         else:
             value = None
-        enum = c_ast.Enumerator(name_tok.value, value, self._tok_coord(name_tok))
+        enum = c_ast.Enumerator(
+            name_tok.value,
+            value,
+            self._tok_coord(name_tok),
+            attributes=attributes,
+        )
         self._add_identifier(enum.name, enum.coord)
         return enum
 
@@ -1276,6 +1446,7 @@ class CParser:
                 align=None,
                 coord=self._tok_coord(name_tok),
             )
+            decl.attributes = self._parse_attribute_specifier_sequence()
 
         return self._parse_decl_suffixes(decl)
 
@@ -1314,7 +1485,11 @@ class CParser:
 
         def make_array_decl(dim, dim_quals):
             return c_ast.ArrayDecl(
-                type=base_type, dim=dim, dim_quals=dim_quals, coord=coord
+                type=base_type,
+                dim=dim,
+                dim_quals=dim_quals,
+                coord=coord,
+                attributes=self._parse_attribute_specifier_sequence(),
             )
 
         if self._accept("STATIC"):
@@ -1361,20 +1536,17 @@ class CParser:
         else:
             args = (
                 self._parse_parameter_type_list()
-                if self._starts_declaration()
+                if self._starts_declaration() or self._peek_type() == "ELLIPSIS"
                 else self._parse_identifier_list_opt()
             )
             self._expect("RPAREN")
 
-        func = c_ast.FuncDecl(args=args, type=None, coord=base_decl.coord)
-
-        if self._peek_type() == "LBRACE" and func.args is not None:
-            for param in func.args.params:
-                if isinstance(param, c_ast.EllipsisParam):
-                    break
-                name = getattr(param, "name", None)
-                if name:
-                    self._add_identifier(name, param.coord)
+        func = c_ast.FuncDecl(
+            args=args,
+            type=None,
+            coord=base_decl.coord,
+            attributes=self._parse_attribute_specifier_sequence(),
+        )
 
         return func
 
@@ -1383,20 +1555,32 @@ class CParser:
         stars = []
         times_tok = self._accept("TIMES")
         while times_tok:
+            attributes = self._parse_attribute_specifier_sequence()
             quals = self._parse_type_qualifier_list() or []
-            stars.append((quals, self._tok_coord(times_tok)))
+            stars.append((quals, self._tok_coord(times_tok), attributes))
             times_tok = self._accept("TIMES")
 
         if not stars:
             return None
 
         ptr = None
-        for quals, coord in stars:
-            ptr = c_ast.PtrDecl(quals=quals, type=ptr, coord=coord)
+        for quals, coord, attributes in stars:
+            ptr = c_ast.PtrDecl(
+                quals=quals, type=ptr, coord=coord, attributes=attributes
+            )
         return ptr
 
     # BNF: parameter_type_list : parameter_list (',' ELLIPSIS)?
+    #                           | ELLIPSIS (C23)
     def _parse_parameter_type_list(self) -> c_ast.ParamList:
+        # C23 permits a variadic function with no preceding named parameters.
+        ell_tok = self._accept("ELLIPSIS")
+        if ell_tok:
+            coord = self._tok_coord(ell_tok)
+            if self._dialect != "c23":
+                self._parse_error("Ellipsis-only parameter lists require C23", coord)
+            return c_ast.ParamList([c_ast.EllipsisParam(coord)], coord)
+
         params = self._parse_parameter_list()
         if self._peek_type() == "COMMA" and self._peek_type(2) == "ELLIPSIS":
             self._advance()
@@ -1416,7 +1600,20 @@ class CParser:
     # BNF: parameter_declaration : declaration_specifiers declarator?
     #                            | declaration_specifiers abstract_declarator_opt
     def _parse_parameter_declaration(self) -> c_ast.Node:
+        attributes = self._parse_attribute_specifier_sequence()
+        decl = self._parse_parameter_declaration_body()
+        assert isinstance(decl, (c_ast.Decl, c_ast.Typename))
+        decl.attributes = attributes
+        return decl
+
+    def _parse_parameter_declaration_body(self) -> c_ast.Node:
         spec, _, spec_coord = self._parse_declaration_specifiers(allow_no_type=True)
+
+        if self._is_inferred_auto(spec):
+            self._parse_error("Cannot infer the type of a parameter", spec_coord)
+
+        if "typedef" in spec["storage"]:
+            self._parse_error("Invalid storage class for a parameter", spec_coord)
 
         if not spec["type"]:
             spec["type"] = [c_ast.IdentifierType(["int"], coord=spec_coord)]
@@ -1428,7 +1625,7 @@ class CParser:
             if is_named:
                 return self._build_declarations(
                     spec=spec,
-                    decls=[{"decl": decl, "init": None, "bitsize": None}],
+                    decls=[{"decl": decl}],
                 )[0]
             return self._build_parameter_declaration(spec, decl, spec_coord)
 
@@ -1440,21 +1637,13 @@ class CParser:
     ) -> c_ast.Node:
         if (
             len(spec["type"]) > 1
+            and isinstance(spec["type"][-1], c_ast.IdentifierType)
             and len(spec["type"][-1].names) == 1
             and self._is_type_in_scope(spec["type"][-1].names[0])
         ):
-            return self._build_declarations(
-                spec=spec, decls=[{"decl": decl, "init": None, "bitsize": None}]
-            )[0]
+            return self._build_declarations(spec=spec, decls=[{"decl": decl}])[0]
 
-        decl = c_ast.Typename(
-            name="",
-            quals=spec["qual"],
-            align=None,
-            type=decl or c_ast.TypeDecl(None, None, None, None),
-            coord=spec_coord,
-        )
-        return self._fix_decl_name_type(decl, spec["type"])
+        return self._build_type_name(spec, decl, spec_coord)
 
     # BNF: identifier_list_opt : identifier_list | empty
     def _parse_identifier_list_opt(self) -> c_ast.Node | None:
@@ -1484,14 +1673,7 @@ class CParser:
         elif spec["type"]:
             coord = spec["type"][0].coord
 
-        typename = c_ast.Typename(
-            name="",
-            quals=spec["qual"][:],
-            align=None,
-            type=decl or c_ast.TypeDecl(None, None, None, None),
-            coord=coord,
-        )
-        return cast(c_ast.Typename, self._fix_decl_name_type(typename, spec["type"]))
+        return self._build_type_name(spec, decl, coord)
 
     # BNF: abstract_declarator_opt : pointer? direct_abstract_declarator?
     def _parse_abstract_declarator_opt(self) -> c_ast.Node | None:
@@ -1515,13 +1697,17 @@ class CParser:
     def _parse_direct_abstract_declarator(self) -> c_ast.Node:
         lparen_tok = self._accept("LPAREN")
         if lparen_tok:
-            if self._starts_declaration() or self._peek_type() == "RPAREN":
+            if self._starts_declaration() or self._peek_type() in {
+                "RPAREN",
+                "ELLIPSIS",
+            }:
                 params = self._parse_parameter_type_list_opt()
                 self._expect("RPAREN")
                 decl = c_ast.FuncDecl(
                     args=params,
                     type=c_ast.TypeDecl(None, None, None, None),
                     coord=self._tok_coord(lparen_tok),
+                    attributes=self._parse_attribute_specifier_sequence(),
                 )
             else:
                 decl = self._parse_abstract_declarator_opt()
@@ -1554,6 +1740,11 @@ class CParser:
     #                | jump_statement | expression_statement
     #                | pppragma_directive
     def _parse_statement(self) -> c_ast.Node:
+        if self._peek_type() == "ATTRIBUTE_BEGIN":
+            attributes = self._parse_attribute_specifier_sequence()
+            if self._accept("SEMI"):
+                return c_ast.AttributeDeclaration(attributes, attributes[0].coord)
+            return self._attribute_statement(self._parse_statement(), attributes)
         tok_type = self._peek_type()
         match tok_type:
             case "CASE" | "DEFAULT":
@@ -1583,6 +1774,15 @@ class CParser:
 
     # BNF: block_item : declaration | statement
     def _parse_block_item(self) -> c_ast.Node | list[c_ast.Node]:
+        if self._peek_type() == "ATTRIBUTE_BEGIN":
+            attributes = self._parse_attribute_specifier_sequence()
+            if self._accept("SEMI"):
+                return c_ast.AttributeDeclaration(attributes, attributes[0].coord)
+            if self._starts_declaration():
+                return self._attribute_declarations(
+                    self._parse_declaration(), attributes
+                )
+            return self._attribute_statement(self._parse_statement(), attributes)
         if self._peek_type() == "_STATIC_ASSERT":
             return self._parse_static_assert()
         if self._starts_declaration():
@@ -1601,12 +1801,16 @@ class CParser:
         return items
 
     # BNF: compound_statement : '{' block_item_list? '}'
-    def _parse_compound_statement(self) -> c_ast.Node:
+    def _parse_compound_statement(self, *, new_scope: bool = True) -> c_ast.Node:
         lbrace_tok = self._expect("LBRACE")
-        if self._accept("RBRACE"):
-            return c_ast.Compound(block_items=None, coord=self._tok_coord(lbrace_tok))
-        block_items = self._parse_block_item_list()
-        self._expect("RBRACE")
+        if new_scope:
+            self._push_scope()
+        block_items = None
+        if not self._accept("RBRACE"):
+            block_items = self._parse_block_item_list()
+            self._expect("RBRACE")
+        if new_scope:
+            self._pop_scope()
         return c_ast.Compound(
             block_items=block_items, coord=self._tok_coord(lbrace_tok)
         )
@@ -1692,6 +1896,8 @@ class CParser:
             case "FOR":
                 self._expect("LPAREN")
                 if self._peek_type() == "_STATIC_ASSERT" or self._starts_declaration():
+                    # Names declared here are scoped to the loop (C11 6.8.5p5)
+                    self._push_scope()
                     decls = self._parse_declaration()
                     init = c_ast.DeclList(decls, self._tok_coord(tok))
                     cond = self._parse_expression_opt()
@@ -1699,6 +1905,7 @@ class CParser:
                     next_expr = self._parse_expression_opt()
                     self._expect("RPAREN")
                     stmt = self._parse_pragmacomp_or_statement()
+                    self._pop_scope()
                     return c_ast.For(init, cond, next_expr, stmt, self._tok_coord(tok))
 
                 init = self._parse_expression_opt()
@@ -1766,12 +1973,6 @@ class CParser:
     # BNF: assignment_expression : conditional_expression
     #                            | unary_expression assignment_op assignment_expression
     def _parse_assignment_expression(self) -> c_ast.Node:
-        if self._peek_type() == "LPAREN" and self._peek_type(2) == "LBRACE":
-            self._advance()
-            comp = self._parse_compound_statement()
-            self._expect("RPAREN")
-            return comp
-
         expr = self._parse_conditional_expression()
         if self._is_assignment_op():
             op = self._advance().value
@@ -1828,7 +2029,7 @@ class CParser:
     def _parse_cast_expression(self) -> c_ast.Node:
         result = self._try_parse_paren_type_name()
         if result is not None:
-            typ, mark, lparen_tok = result
+            typ, mark, lparen_tok, _ = result
             if self._peek_type() == "LBRACE":
                 # (type){...} is a compound literal, not a cast. Examples:
                 #   (int){1}      -> compound literal, handled in postfix
@@ -1862,8 +2063,12 @@ class CParser:
             tok = self._advance()
             result = self._try_parse_paren_type_name()
             if result is not None:
-                typ, _, _ = result
-                return c_ast.UnaryOp(tok.value, typ, self._tok_coord(tok))
+                typ, mark, _, _ = result
+                if self._peek_type() != "LBRACE":
+                    return c_ast.UnaryOp(tok.value, typ, self._tok_coord(tok))
+                # sizeof (type){...} has an expression operand, including
+                # any postfix operators following the compound literal.
+                self._reset(mark)
             expr = self._parse_unary_expression()
             return c_ast.UnaryOp(tok.value, expr, self._tok_coord(tok))
 
@@ -1877,36 +2082,37 @@ class CParser:
         return self._parse_postfix_expression()
 
     # BNF: postfix_expression   : primary_expression postfix_suffix*
-    #                           | '(' type_name ')' '{' initializer_list ','? '}'
+    #                           | compound_literal postfix_suffix*
+    #      compound_literal : '(' storage_class_specifiers? type_name ')'
+    #                         braced_initializer
     def _parse_postfix_expression(self) -> c_ast.Node:
+        expr = None
         result = self._try_parse_paren_type_name()
         if result is not None:
-            typ, mark, _ = result
+            typ, mark, lparen_tok, storage = result
             # Disambiguate between casts and compound literals:
             #   (int) x   -> cast
             #   (int) {1} -> compound literal
-            lbrace_tok = self._accept("LBRACE")
-            if lbrace_tok is not None:
-                if self._accept("RBRACE"):
-                    # Empty compound literal, e.g. (int){} (C99 empty braces).
-                    return c_ast.CompoundLiteral(
-                        typ, c_ast.InitList([], self._tok_coord(lbrace_tok))
-                    )
-                init = self._parse_initializer_list()
-                self._accept("COMMA")
-                self._expect("RBRACE")
-                return c_ast.CompoundLiteral(typ, init)
+            if self._peek_type() == "LBRACE":
+                init = self._parse_initializer()
+                expr = c_ast.CompoundLiteral(
+                    typ, init, storage, self._tok_coord(lparen_tok)
+                )
             else:
                 self._reset(mark)
 
-        expr = self._parse_primary_expression()
+        if expr is None:
+            expr = self._parse_primary_expression()
         while True:
-            if self._accept("LBRACKET"):
+            tok_type = self._peek_type()
+            if tok_type == "LBRACKET":
+                self._advance()
                 sub = self._parse_expression()
                 self._expect("RBRACKET")
                 expr = c_ast.ArrayRef(expr, sub, expr.coord)
                 continue
-            if self._accept("LPAREN"):
+            if tok_type == "LPAREN":
+                self._advance()
                 if self._peek_type() == "RPAREN":
                     self._advance()
                     args = None
@@ -1915,7 +2121,7 @@ class CParser:
                     self._expect("RPAREN")
                 expr = c_ast.FuncCall(expr, args, expr.coord)
                 continue
-            if self._peek_type() in {"PERIOD", "ARROW"}:
+            if tok_type in {"PERIOD", "ARROW"}:
                 op_tok = self._advance()
                 name_tok = self._advance()
                 if name_tok.type not in {"ID", "TYPEID"}:
@@ -1925,7 +2131,7 @@ class CParser:
                 field = c_ast.ID(name_tok.value, self._tok_coord(name_tok))
                 expr = c_ast.StructRef(expr, op_tok.value, field, expr.coord)
                 continue
-            if self._peek_type() in {"PLUSPLUS", "MINUSMINUS"}:
+            if tok_type in {"PLUSPLUS", "MINUSMINUS"}:
                 tok = self._advance()
                 expr = c_ast.UnaryOp("p" + tok.value, expr, expr.coord)
                 continue
@@ -1934,6 +2140,9 @@ class CParser:
 
     # BNF: primary_expression : ID | constant | string_literal
     #                        | '(' expression ')' | generic_selection | offsetof
+    #                        | '(' compound_statement ')'
+    #                        | '__builtin_va_arg' '('
+    #                          assignment_expression ',' type_name ')'
     def _parse_primary_expression(self) -> c_ast.Node:
         tok_type = self._peek_type()
         if tok_type == "ID":
@@ -1942,17 +2151,36 @@ class CParser:
             tok_type in _INT_CONST
             or tok_type in _FLOAT_CONST
             or tok_type in _CHAR_CONST
+            or tok_type in _PREDEFINED_CONST
         ):
             return self._parse_constant()
         if tok_type in _STRING_LITERAL:
             return self._parse_unified_string_literal()
         if tok_type == "LPAREN":
             self._advance()
-            expr = self._parse_expression()
+            if self._peek_type() == "LBRACE":
+                # GNU statement expressions participate in all expression
+                # operators, including postfix operators.
+                expr = self._parse_compound_statement()
+            else:
+                expr = self._parse_expression()
             self._expect("RPAREN")
             return expr
         if tok_type == "_GENERIC":
             return self._parse_generic_selection()
+        if tok_type == "__BUILTIN_VA_ARG":
+            tok = self._advance()
+            self._expect("LPAREN")
+            expr = self._parse_assignment_expression()
+            self._expect("COMMA")
+            typ = self._parse_type_name()
+            self._expect("RPAREN")
+            coord = self._tok_coord(tok)
+            return c_ast.FuncCall(
+                c_ast.ID(tok.value, coord),
+                c_ast.ExprList([expr, typ], coord),
+                coord,
+            )
         if tok_type == "OFFSETOF":
             off_tok = self._advance()
             self._expect("LPAREN")
@@ -2031,16 +2259,34 @@ class CParser:
         return c_ast.ID(tok.value, self._tok_coord(tok))
 
     # BNF: identifier_or_typeid : ID | TYPEID
-    def _parse_identifier_or_typeid(self) -> c_ast.Node:
+    def _parse_identifier_or_typeid(self) -> c_ast.ID:
         tok = self._advance()
         if tok.type not in {"ID", "TYPEID"}:
             self._parse_error("Expected identifier", self._tok_coord(tok))
         return c_ast.ID(tok.value, self._tok_coord(tok))
 
-    # BNF: constant : INT_CONST | FLOAT_CONST | CHAR_CONST
+    # BNF: constant : INT_CONST | FLOAT_CONST | CHAR_CONST | predefined_constant
     def _parse_constant(self) -> c_ast.Node:
         tok = self._advance()
+        if tok.type in _PREDEFINED_CONST:
+            return c_ast.Constant(
+                _PREDEFINED_CONST[tok.type], tok.value, self._tok_coord(tok)
+            )
+
         if tok.type in _INT_CONST:
+            # Integer suffixes are at most three characters (e.g. ull, wbu).
+            suffix = tok.value[-3:].lower()
+            if suffix.endswith(("wb", "wbu")):
+                if self._dialect != "c23":
+                    self._parse_error(
+                        "Bit-precise integer constants require C23",
+                        self._tok_coord(tok),
+                    )
+                # Classify by suffix, as with other integer constants; retain
+                # the spelling without computing the value or its bit width.
+                t = "unsigned _BitInt" if "u" in suffix else "_BitInt"
+                return c_ast.Constant(t, tok.value, self._tok_coord(tok))
+
             u_count = 0
             l_count = 0
             for ch in tok.value[-3:]:
@@ -2056,12 +2302,25 @@ class CParser:
             return c_ast.Constant(prefix + "int", tok.value, self._tok_coord(tok))
 
         if tok.type in _FLOAT_CONST:
-            if tok.value[-1] in ("f", "F"):
+            if tok.value[-2:] in {"df", "DF"}:
+                t = "_Decimal32"
+            elif tok.value[-2:] in {"dd", "DD"}:
+                t = "_Decimal64"
+            elif tok.value[-2:] in {"dl", "DL"}:
+                t = "_Decimal128"
+            elif tok.value[-1] in ("f", "F"):
                 t = "float"
             elif tok.value[-1] in ("l", "L"):
                 t = "long double"
             else:
                 t = "double"
+            if (
+                t in {"_Decimal32", "_Decimal64", "_Decimal128"}
+                and self._dialect != "c23"
+            ):
+                self._parse_error(
+                    "Decimal floating constants require C23", self._tok_coord(tok)
+                )
             return c_ast.Constant(t, tok.value, self._tok_coord(tok))
 
         if tok.type in _CHAR_CONST:
@@ -2198,10 +2457,10 @@ class CParser:
     # BNF: designator : '[' constant_expression ']'
     #                | '.' identifier_or_typeid
     def _parse_designator(self) -> c_ast.Node:
-        if self._accept("LBRACKET"):
+        if tok := self._accept("LBRACKET"):
             expr = self._parse_constant_expression()
             self._expect("RBRACKET")
-            return expr
+            return c_ast.ArrayDesignator(expr, self._tok_coord(tok))
         if self._accept("PERIOD"):
             return self._parse_identifier_or_typeid()
         self._parse_error("Invalid designator", self.clex.filename)
@@ -2293,11 +2552,21 @@ _BINARY_PRECEDENCE = {
     "MOD": 9,
 }
 
-_STORAGE_CLASS = {"AUTO", "REGISTER", "STATIC", "EXTERN", "TYPEDEF", "_THREAD_LOCAL"}
+_STORAGE_CLASS = {
+    "AUTO",
+    "CONSTEXPR",
+    "REGISTER",
+    "STATIC",
+    "EXTERN",
+    "TYPEDEF",
+    "_THREAD_LOCAL",
+}
 
 _FUNCTION_SPEC = {"INLINE", "_NORETURN"}
 
 _TYPE_QUALIFIER = {"CONST", "RESTRICT", "VOLATILE", "_ATOMIC"}
+
+_TYPEOF_SPEC = {"TYPEOF", "TYPEOF_UNQUAL"}
 
 _TYPE_SPEC_SIMPLE = {
     "VOID",
@@ -2308,18 +2577,34 @@ _TYPE_SPEC_SIMPLE = {
     "LONG",
     "FLOAT",
     "DOUBLE",
+    "_DECIMAL32",
+    "_DECIMAL64",
+    "_DECIMAL128",
     "_COMPLEX",
     "SIGNED",
     "UNSIGNED",
     "__INT128",
 }
 
+# Struct members without declarators carry a type specifier directly instead.
+_DECLARATOR_NODES = (c_ast.TypeDecl, c_ast.PtrDecl, c_ast.ArrayDecl, c_ast.FuncDecl)
+
 _DECL_START = (
     _STORAGE_CLASS
     | _FUNCTION_SPEC
     | _TYPE_QUALIFIER
     | _TYPE_SPEC_SIMPLE
-    | {"TYPEID", "STRUCT", "UNION", "ENUM", "_ALIGNAS", "_ATOMIC"}
+    | _TYPEOF_SPEC
+    | {
+        "TYPEID",
+        "STRUCT",
+        "UNION",
+        "ENUM",
+        "_ALIGNAS",
+        "_ATOMIC",
+        "_BITINT",
+        "ATTRIBUTE_BEGIN",
+    }
 )
 
 _EXPR_START = {
@@ -2337,6 +2622,7 @@ _EXPR_START = {
     "_ALIGNOF",
     "_GENERIC",
     "OFFSETOF",
+    "__BUILTIN_VA_ARG",
 }
 
 _INT_CONST = {
@@ -2348,6 +2634,8 @@ _INT_CONST = {
 }
 
 _FLOAT_CONST = {"FLOAT_CONST", "HEX_FLOAT_CONST"}
+
+_PREDEFINED_CONST = {"BOOL_CONST": "bool", "NULLPTR": "nullptr_t"}
 
 _CHAR_CONST = {
     "CHAR_CONST",
@@ -2366,7 +2654,12 @@ _STRING_LITERAL = {
 }
 
 _STARTS_EXPRESSION = (
-    _EXPR_START | _INT_CONST | _FLOAT_CONST | _CHAR_CONST | _STRING_LITERAL
+    _EXPR_START
+    | _INT_CONST
+    | _FLOAT_CONST
+    | _CHAR_CONST
+    | _STRING_LITERAL
+    | _PREDEFINED_CONST.keys()
 )
 
 _STARTS_STATEMENT = {
@@ -2389,13 +2682,10 @@ _STARTS_STATEMENT = {
 
 
 class _TokenStream:
-    """Wraps a lexer to provide convenient, buffered access to the underlying
-    token stream. The lexer is expected to be initialized with the input
-    string already.
-    """
+    """Provides buffered access to tokens supplied by a reader."""
 
-    def __init__(self, lexer: CLexer) -> None:
-        self._lexer = lexer
+    def __init__(self, read_token: Callable[[], Token | None]) -> None:
+        self._read_token = read_token
         self._buffer: list[Token | None] = []
         self._index = 0
 
@@ -2408,12 +2698,15 @@ class _TokenStream:
         """
         if k <= 0:
             return None
-        self._fill(k)
-        return self._buffer[self._index + k - 1]
+        pos = self._index + k - 1
+        if pos >= len(self._buffer):
+            self._fill(k)
+        return self._buffer[pos]
 
     def next(self) -> Token | None:
         """Consume a single token and return it."""
-        self._fill(1)
+        if self._index >= len(self._buffer):
+            self._fill(1)
         tok = self._buffer[self._index]
         self._index += 1
         return tok
@@ -2431,7 +2724,7 @@ class _TokenStream:
 
     def _fill(self, n: int) -> None:
         while len(self._buffer) < self._index + n:
-            tok = self._lexer.token()
+            tok = self._read_token()
             self._buffer.append(tok)
             if tok is None:
                 break
@@ -2443,12 +2736,14 @@ class _TokenStream:
 # - type: a list of type specifiers
 # - function: a list of function specifiers
 # - alignment: a list of alignment specifiers
+# - type_attributes: attribute groups following the specifier sequence
 class _DeclSpec(TypedDict):
-    qual: list[Any]
-    storage: list[Any]
-    type: list[Any]
-    function: list[Any]
-    alignment: list[Any]
+    qual: list[str]
+    storage: list[str]
+    type: list[c_ast.Node]
+    function: list[str]
+    alignment: list[c_ast.Alignas]
+    type_attributes: list[c_ast.AttributeSpecifier]
 
 
 _DeclSpecKind = Literal["qual", "storage", "type", "function", "alignment"]
@@ -2457,8 +2752,8 @@ _DeclSpecKind = Literal["qual", "storage", "type", "function", "alignment"]
 class _DeclInfo(TypedDict):
     # Declarator payloads used by declaration/initializer parsing:
     # - decl: the declarator node (may be None for abstract/implicit cases)
-    # - init: optional initializer expression
-    # - bitsize: optional bit-field width expression (for struct declarators)
+    # - init: initializer expression; the key may be omitted when absent
+    # - bitsize: bit-field width expression; the key may be omitted when absent
     decl: c_ast.Node | None
-    init: c_ast.Node | None
-    bitsize: c_ast.Node | None
+    init: NotRequired[c_ast.Node | None]
+    bitsize: NotRequired[c_ast.Node | None]

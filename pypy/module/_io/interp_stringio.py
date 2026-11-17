@@ -1,3 +1,5 @@
+import sys
+
 from rpython.rlib.rutf8 import (
     codepoints_in_utf8, codepoint_at_pos, Utf8StringIterator,
     Utf8StringBuilder)
@@ -267,6 +269,8 @@ class W_StringIO(W_TextIOBase):
         orig_size = space.len_w(w_obj)
         if not string:
             return space.newint(orig_size)
+        if self.pos > sys.maxint - length:
+            raise oefmt(space.w_OverflowError, "new position too large")
         if self.state == READING:
             if self.pos == self.get_length():
                 # switch to ACCUMULATING
@@ -304,8 +308,8 @@ class W_StringIO(W_TextIOBase):
         self.state = READING
 
     def read_w(self, space, w_size=None):
-        self._check_closed(space)
         size = convert_size(space, w_size)
+        self._check_closed(space)
         if self.pos >= self.get_length():
             return W_UnicodeObject.EMPTY
         if self.state == ACCUMULATING:
@@ -327,8 +331,8 @@ class W_StringIO(W_TextIOBase):
         return W_UnicodeObject.from_utf8builder(result_builder)
 
     def readline_w(self, space, w_limit=None):
-        self._check_closed(space)
         limit = convert_size(space, w_limit)
+        self._check_closed(space)
         if self.pos >= self.get_length():
             return W_UnicodeObject.EMPTY
         if self.state == ACCUMULATING:
@@ -422,11 +426,11 @@ class W_StringIO(W_TextIOBase):
         return space.newint(pos)
 
     def truncate_w(self, space, w_size=None):
-        self._check_closed(space)
         if space.is_none(w_size):
             size = self.pos
         else:
             size = space.int_w(w_size)
+        self._check_closed(space)
         if size < 0:
             raise oefmt(space.w_ValueError, "Negative size value %d", size)
         if self.state == ACCUMULATING:

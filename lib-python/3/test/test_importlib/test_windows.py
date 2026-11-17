@@ -6,7 +6,7 @@ import re
 import sys
 import unittest
 import warnings
-from test.support import import_helper
+from test.support import import_helper, impl_detail
 from contextlib import contextmanager
 from test.test_importlib.util import temp_module
 
@@ -110,6 +110,9 @@ class WindowsRegistryFinderTests:
 
 @unittest.skipUnless(sys.platform.startswith('win'), 'requires Windows')
 class WindowsExtensionSuffixTests:
+    # PyPy's tagged suffix is .pypy3XY-<abi>-<plat>.pyd, so the .cp3XY-<plat>.pyd
+    # this looks for is never present
+    @impl_detail("requires CPython's extension suffix naming", cpython=True)
     def test_tagged_suffix(self):
         suffixes = self.machinery.EXTENSION_SUFFIXES
         expected_tag = ".cp{0.major}{0.minor}-{1}.pyd".format(sys.version_info,

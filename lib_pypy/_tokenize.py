@@ -55,6 +55,19 @@ def _compile(expr):
     return re.compile(expr, re.UNICODE)
 
 
+def _extend_name(text, end):
+    """Return the end of an identifier that starts before `end`.
+
+    re's \\w misses characters that are XID_Continue but not alphanumeric
+    (combining marks, e.g. U+0301 or U+E0100), which the C tokenizer accepts
+    inside a name.
+    """
+    n = len(text)
+    while end < n and ('a' + text[end]).isidentifier():
+        end += 1
+    return end
+
+
 def _all_string_prefixes():
     _valid = ['b', 'r', 'u', 'f', 'br', 'fr']
     result = {''}
@@ -123,26 +136,192 @@ def _fstring_info(s):
     return None, None
 
 
+# -- F-string extent scanner --------------------------------------------------
+
+# _fstring_extent() results other than a real offset
+_FS_MORE = -1    # the f-string is still open at the end of the text
+_FS_EOL = -2     # a newline ended the literal part of a single-quoted f-string
+
+
+def _fstring_extent(text, i, quote, raw):
+    """Find the end of the f-string whose body starts at index `i` of `text`.
+
+    `quote` is the opening quote, `raw` whether the prefix contains an r.
+    Returns the index just past the closing quote, or _FS_MORE if more input is
+    needed, or _FS_EOL if the literal part of a single-quoted f-string runs
+    into a newline (an unterminated literal).
+
+    Replacement fields are only scanned for nesting, not tokenized, but PEP 701
+    lets them contain newlines, comments and strings that reuse the enclosing
+    quote, so the scan has to know where it is: the stack holds one
+    [in_format_spec, bracket_depth] entry per open field.  Quotes and '#' are
+    literal text in a format spec but start a string or a comment in an
+    expression, and the enclosing quote ends the f-string anywhere outside a
+    string.
+    """
+    n = len(text)
+    qlen = len(quote)
+    stack = []
+    while i < n:
+        ch = text[i]
+        in_spec = stack[-1][0] if stack else True
+
+        if in_spec:                 # literal text of the f-string or of a spec
+            if text.startswith(quote, i):
+                return i + qlen
+            if ch == '\\':
+                nxt = text[i + 1:i + 2]
+                if not nxt:
+                    return _FS_MORE
+                if nxt in '{}':
+                    # a backslash never escapes a brace: f"\{x}" is a field
+                    i += 1
+                elif nxt == 'N' and not raw and text[i + 2:i + 3] == '{':
+                    # \N{NAME}: those braces belong to the character name
+                    j = text.find('}', i + 3)
+                    if j < 0:
+                        return _FS_MORE
+                    i = j + 1
+                else:
+                    i += 2
+            elif ch == '{':
+                if not stack and text[i + 1:i + 2] == '{':
+                    i += 2          # escaped {{ (no such escape in a spec)
+                    continue
+                if not stack and i + 1 == n:
+                    return _FS_MORE
+                stack.append([False, 0])
+                i += 1
+            elif ch == '}':
+                if stack:
+                    stack.pop()     # ends the format spec and its field
+                    i += 1
+                elif text[i + 1:i + 2] == '}':
+                    i += 2          # escaped }}
+                else:
+                    i += 1          # stray '}'; leave the error to the parser
+            elif ch == '\n' and qlen == 1:
+                if not stack:
+                    return _FS_EOL
+                stack[-1][0] = False    # the spec ends; an expression resumes
+                i += 1
+            else:
+                i += 1
+            continue
+
+        # expression part of a replacement field
+        field = stack[-1]
+        if ch == '\\':
+            if i + 1 == n:
+                return _FS_MORE
+            i += 2
+            continue
+        if ch == '#':
+            j = text.find('\n', i)
+            if j < 0:
+                return _FS_MORE
+            i = j
+            continue
+        if ch == '"' or ch == "'":
+            i = _nested_string_extent(text, i)
+            if i < 0:
+                return i
+            continue
+        if ch in '([{':
+            field[1] += 1
+        elif ch in ')]':
+            field[1] -= 1
+        elif ch == '}':
+            if field[1]:
+                field[1] -= 1
+            else:
+                stack.pop()
+        elif ch == ':' and not field[1]:
+            field[0] = True         # the format spec starts here
+        i += 1
+
+    return _FS_MORE
+
+
+def _nested_string_extent(text, i):
+    """Skip the string literal whose opening quote is at index `i` of `text`.
+
+    Its prefix, if any, is the run of letters just before the quote.  Returns
+    the index just past the string, or _FS_MORE/_FS_EOL as above.
+    """
+    n = len(text)
+    j = i
+    while j > 0 and i - j < 3 and text[j - 1].isalpha():
+        j -= 1
+    prefix = text[j:i]
+    while prefix and prefix not in _ALL_STRING_PREFIXES:
+        prefix = prefix[1:]
+    ch = text[i]
+    quote = ch * 3 if text[i:i + 3] == ch * 3 else ch
+    k = i + len(quote)
+    if 'f' in prefix.lower():
+        return _fstring_extent(text, k, quote, 'r' in prefix.lower())
+    qlen = len(quote)
+    while k < n:
+        c = text[k]
+        if c == '\\':                   # escapes the quote even in raw strings
+            if k + 1 >= n:
+                return _FS_MORE
+            k += 2
+            continue
+        if text.startswith(quote, k):
+            return k + qlen
+        if c == '\n' and qlen == 1:
+            return _FS_EOL
+        k += 1
+    return _FS_MORE
+
+
 # -- F-string body scanner ----------------------------------------------------
 
 class _FStr:
     """Cursor for scanning text in a (possibly nested) f-string body."""
 
-    __slots__ = ('body', 'pos', 'row', 'col', 'source_lines', 'n')
+    __slots__ = ('body', 'pos', 'row', 'col', 'source_lines', 'n', 'multiline',
+                 'raw')
 
-    def __init__(self, body, start_row, start_col, source_lines):
+    def __init__(self, body, start_row, start_col, source_lines,
+                 multiline=False, raw=False):
         self.body = body
         self.pos = 0
         self.row = start_row
         self.col = start_col
         self.source_lines = source_lines
         self.n = len(body)
+        # True for a triple-quoted f-string, where a newline is literal text;
+        # in a single-quoted one a newline inside a field is an NL token.
+        self.multiline = multiline
+        self.raw = raw          # no \N{NAME} escapes in a raw f-string
 
-    def src_line(self, r=None):
+    def named_escape(self):
+        """If a \\N{NAME} escape starts here, return it, else ''."""
+        if (self.raw or self.peek() != '\\' or self.peek(1) != 'N'
+                or self.peek(2) != '{'):
+            return ''
+        j = self.pos - 1
+        while j >= 0 and self.body[j] == '\\':
+            j -= 1
+        if (self.pos - 1 - j) % 2:
+            return ''           # this backslash is itself escaped
+        end = self.body.find('}', self.pos + 3)
+        if end < 0:
+            return ''
+        return self.body[self.pos:end + 1]
+
+    def src_line(self, r=None, end_r=None):
         if r is None:
             r = self.row
         sl = self.source_lines
-        if sl and 1 <= r <= len(sl):
+        if not sl:
+            return ''
+        if end_r is not None and end_r > r:
+            return ''.join(sl[r - 1:min(end_r, len(sl))])
+        if 1 <= r <= len(sl):
             return sl[r - 1]
         return ''
 
@@ -187,7 +366,18 @@ def _scan_body(fs):
     while not fs.at_end():
         ch = fs.peek()
 
-        if ch == '{':
+        escape = fs.named_escape()
+        if escape:
+            # \N{NAME} names a character: its braces are not a field, and like
+            # {{ and }} the escape ends this segment.
+            seg.append(escape)
+            fs.advance_by(escape)
+            yield (FSTRING_MIDDLE, ''.join(seg),
+                   (seg_row, seg_col), (fs.row, fs.col),
+                   fs.src_line(seg_row, fs.row))
+            seg = []
+            seg_row, seg_col = fs.row, fs.col
+        elif ch == '{':
             if fs.peek(1) == '{':
                 # {{ collapses to a single { that ENDS this segment; the end
                 # column is the first brace + 1 and the second brace column is
@@ -195,7 +385,7 @@ def _scan_body(fs):
                 seg.append('{')
                 yield (FSTRING_MIDDLE, ''.join(seg),
                        (seg_row, seg_col), (fs.row, fs.col + 1),
-                       fs.src_line(seg_row))
+                       fs.src_line(seg_row, fs.row))
                 fs.advance()
                 fs.advance()
                 seg = []
@@ -205,7 +395,7 @@ def _scan_body(fs):
                 if seg:
                     yield (FSTRING_MIDDLE, ''.join(seg),
                            (seg_row, seg_col), (fs.row, fs.col),
-                           fs.src_line(seg_row))
+                           fs.src_line(seg_row, fs.row))
                     seg = []
                 open_r, open_c = fs.row, fs.col
                 fs.advance()
@@ -219,7 +409,7 @@ def _scan_body(fs):
                 seg.append('}')
                 yield (FSTRING_MIDDLE, ''.join(seg),
                        (seg_row, seg_col), (fs.row, fs.col + 1),
-                       fs.src_line(seg_row))
+                       fs.src_line(seg_row, fs.row))
                 fs.advance()
                 fs.advance()
                 seg = []
@@ -235,7 +425,7 @@ def _scan_body(fs):
     if seg:
         yield (FSTRING_MIDDLE, ''.join(seg),
                (seg_row, seg_col), (fs.row, fs.col),
-               fs.src_line(seg_row))
+               fs.src_line(seg_row, fs.row))
 
 
 def _scan_expr(fs):
@@ -288,8 +478,9 @@ def _scan_expr(fs):
                    fs.src_line(close_r))
             return
 
-        # Colon at depth 0: format spec follows
-        if initial == ':' and raw_tok == ':' and paren_depth == 0:
+        # Colon at depth 0: format spec follows.  A ':=' here is a colon and
+        # a spec starting with '=', not a walrus (which needs parentheses).
+        if initial == ':' and paren_depth == 0:
             col_r, col_c = fs.row, fs.col
             fs.advance()
             yield (OP, ':', (col_r, col_c), (fs.row, fs.col),
@@ -340,7 +531,7 @@ def _scan_expr(fs):
                                                fs.source_lines)
                 else:
                     yield (STRING, full_tok, (tok_r, tok_c),
-                           (fs.row, fs.col), fs.src_line(tok_r))
+                           (fs.row, fs.col), fs.src_line(tok_r, fs.row))
             else:
                 # Unterminated triple-quoted string: just yield what we have
                 yield (ERRORTOKEN, raw_tok, (tok_r, tok_c),
@@ -379,6 +570,7 @@ def _scan_expr(fs):
 
         # --- Identifier ---
         if raw_tok.replace('_', 'a').isidentifier():
+            raw_tok = fs.body[tok_start:_extend_name(fs.body, tok_end)]
             fs.advance_by(raw_tok)
             yield (NAME, raw_tok, (tok_r, tok_c), (fs.row, fs.col),
                    fs.src_line(tok_r))
@@ -413,39 +605,58 @@ def _scan_format_spec(fs):
     while not fs.at_end():
         ch = fs.peek()
 
-        if ch == '{':
-            if fs.peek(1) == '{':
-                seg.append('{')
-                fs.advance()
-                fs.advance()
-            else:
-                if seg:
-                    yield (FSTRING_MIDDLE, ''.join(seg),
-                           (seg_row, seg_col), (fs.row, fs.col),
-                           fs.src_line(seg_row))
-                    seg = []
-                open_r, open_c = fs.row, fs.col
-                fs.advance()
-                yield (OP, '{', (open_r, open_c), (fs.row, fs.col),
-                       fs.src_line(open_r))
-                yield from _scan_expr(fs)
-                seg_row, seg_col = fs.row, fs.col
+        escape = fs.named_escape()
+        if escape:
+            # see _scan_body()
+            seg.append(escape)
+            fs.advance_by(escape)
+            yield (FSTRING_MIDDLE, ''.join(seg),
+                   (seg_row, seg_col), (fs.row, fs.col),
+                   fs.src_line(seg_row, fs.row))
+            seg = []
+            seg_row, seg_col = fs.row, fs.col
+        elif ch == '{':
+            # A format spec has no '{{' escape: a brace always opens a nested
+            # field.  CPython emits the preceding literal run even when it is
+            # empty if the next character is another brace.
+            if seg or fs.peek(1) == '{':
+                yield (FSTRING_MIDDLE, ''.join(seg),
+                       (seg_row, seg_col), (fs.row, fs.col),
+                       fs.src_line(seg_row, fs.row))
+                seg = []
+            open_r, open_c = fs.row, fs.col
+            fs.advance()
+            yield (OP, '{', (open_r, open_c), (fs.row, fs.col),
+                   fs.src_line(open_r))
+            yield from _scan_expr(fs)
+            seg_row, seg_col = fs.row, fs.col
         elif ch == '}':
-            if fs.peek(1) == '}':
-                seg.append('}')
-                fs.advance()
-                fs.advance()
-            else:
-                if seg:
-                    yield (FSTRING_MIDDLE, ''.join(seg),
-                           (seg_row, seg_col), (fs.row, fs.col),
-                           fs.src_line(seg_row))
-                    seg = []
-                close_r, close_c = fs.row, fs.col
-                fs.advance()
-                yield (OP, '}', (close_r, close_c), (fs.row, fs.col),
-                       fs.src_line(close_r))
-                return
+            # Likewise no '}}' escape: this ends the spec.  Its literal run is
+            # always emitted, even when empty -- CPython does, and without it
+            # untokenize() would glue this '}' to the previous one.
+            close_r, close_c = fs.row, fs.col
+            yield (FSTRING_MIDDLE, ''.join(seg),
+                   (seg_row, seg_col), (close_r, close_c),
+                   fs.src_line(seg_row, fs.row))
+            seg = []
+            fs.advance()
+            yield (OP, '}', (close_r, close_c), (fs.row, fs.col),
+                   fs.src_line(close_r))
+            return
+        elif ch == '\n' and not fs.multiline:
+            # In a single-quoted f-string a newline ends the format spec --
+            # the field itself may still span lines (PEP 701) -- and what
+            # follows is tokenized as an expression again, as CPython does.
+            yield (FSTRING_MIDDLE, ''.join(seg),
+                   (seg_row, seg_col), (fs.row, fs.col),
+                   fs.src_line(seg_row, fs.row))
+            seg = []
+            nl_r, nl_c = fs.row, fs.col
+            fs.advance()
+            yield (NL, '\n', (nl_r, nl_c), (nl_r, nl_c + 1),
+                   fs.src_line(nl_r))
+            yield from _scan_expr(fs)
+            return
         else:
             seg.append(ch)
             fs.advance()
@@ -474,7 +685,8 @@ def _fstring_tokens(token, srow, scol, source_lines):
     yield (FSTRING_START, fstart,
            (srow, scol), (srow, scol + body_offset), sl0)
 
-    fs = _FStr(body, srow, scol + body_offset, source_lines)
+    fs = _FStr(body, srow, scol + body_offset, source_lines,
+               multiline=len(quote) == 3, raw='r' in prefix.lower())
     yield from _scan_body(fs)
 
     end_r, end_c = fs.row, fs.col
@@ -503,23 +715,24 @@ def _generate(readline, encoding, extra_tokens):
     endprog = _compile(Single)  # placeholder
     strstart = (0, 0)
 
-    while True:
+    def read_line():
         try:
-            last_line = line
-            raw = readline()
+            data = readline()
         except StopIteration:
-            raw = b'' if encoding else ''
-
+            data = b'' if encoding else ''
         if encoding is not None:
             # bytes mode (tokenize): readline must yield bytes
-            if not isinstance(raw, (bytes, bytearray)):
+            if not isinstance(data, (bytes, bytearray)):
                 raise TypeError("readline() returned a non-bytes object")
-            line = raw.decode(encoding)
-        else:
-            # str mode (generate_tokens): readline must yield str
-            if not isinstance(raw, str):
-                raise TypeError("readline() returned a non-string object")
-            line = raw
+            return data.decode(encoding)
+        # str mode (generate_tokens): readline must yield str
+        if not isinstance(data, str):
+            raise TypeError("readline() returned a non-string object")
+        return data
+
+    while True:
+        last_line = line
+        line = read_line()
 
         source_lines.append(line)
         lnum += 1
@@ -616,6 +829,43 @@ def _generate(readline, encoding, extra_tokens):
                     continue
                 token, initial = line[start:end], line[start]
 
+                fprefix, fquote = _fstring_info(line[start:])
+                if fprefix is not None:
+                    # An f-string cannot be matched with a regex (PEP 701: its
+                    # fields can hold strings reusing the enclosing quote, and
+                    # can span lines), so find its end by scanning, reading
+                    # more lines as needed.
+                    text = line
+                    bstart = start + len(fprefix) + len(fquote)
+                    fraw = 'r' in fprefix.lower()
+                    fstart_lnum = lnum
+                    while True:
+                        res = _fstring_extent(text, bstart, fquote, fraw)
+                        if res != _FS_MORE:
+                            break
+                        nextline = read_line()
+                        if not nextline:
+                            break
+                        source_lines.append(nextline)
+                        lnum += 1
+                        text += nextline
+                    if res < 0:
+                        raise _syntax_error(
+                            "unterminated %sf-string literal (detected at"
+                            " line %d)" % ('triple-quoted '
+                                           if len(fquote) == 3 else '', lnum),
+                            fstart_lnum, start + 1)
+                    yield from _fstring_tokens(text[start:res], fstart_lnum,
+                                               start, source_lines)
+                    nl = text.rfind('\n', 0, res)
+                    if nl < 0:
+                        pos = res
+                    else:
+                        line = text[nl + 1:]
+                        maxpos = len(line)
+                        pos = res - (nl + 1)
+                    continue
+
                 if (initial in '0123456789' or
                         (initial == '.' and token not in ('.', '...'))):
                     yield (NUMBER, token, spos, epos, line)
@@ -671,6 +921,9 @@ def _generate(readline, encoding, extra_tokens):
                             yield (STRING, token, spos, epos, line)
 
                 elif initial.isidentifier():
+                    if end < maxpos:
+                        end = _extend_name(line, end)
+                        token, epos, pos = line[start:end], (lnum, end), end
                     yield (NAME, token, spos, epos, line)
 
                 elif initial == '\\':

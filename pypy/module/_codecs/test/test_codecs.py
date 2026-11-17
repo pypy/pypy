@@ -806,7 +806,7 @@ class AppTestPartialEvaluation:
         _codecs.register(search_function)
         raises(TypeError, b"hello".decode, "test.mytestenc")
         raises(TypeError, "hello".encode, "test.mytestenc")
-        assert _codecs.unregister(search_function) == 0
+        assert _codecs.unregister(search_function) is None
         # Make sure the function was actually unregistered
         raises(LookupError, u"abc".encode, "test.mytestenc")
 

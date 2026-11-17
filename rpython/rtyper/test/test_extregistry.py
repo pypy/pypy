@@ -128,8 +128,8 @@ def test_register_unhashable():
     py.test.raises(KeyError, "extregistry.lookup(lst2)")
 
 def test_register_non_weakly_refable():
-    n1 = sys.maxint // 2
-    n2 = sys.maxint // 2
+    n1 = sys.maxsize // 2
+    n2 = sys.maxsize // 2
     class Entry(ExtRegistryEntry):
         _about_ = n1
     assert isinstance(extregistry.lookup(n1), Entry)

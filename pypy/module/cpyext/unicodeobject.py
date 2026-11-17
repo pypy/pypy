@@ -496,17 +496,28 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     copied or -1 in case of an error.  Note that the resulting wchar_t
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
-    required by the application."""
+    required by the application.
+
+    If w is NULL, return the size of the buffer needed, 0-termination
+    included."""
     if not pyunicode_check(ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
     w_unicode = from_ref(space, rffi.cast(PyObject, ref))
     u = space.utf8_w(w_unicode)
-    c_length = space.len_w(w_unicode)
-    if rffi.sizeof(lltype.UniChar) == 2:
-        # Handle surrogates
-        c_buffer = rffi.utf82wcharp_ex(u, c_length)
+    u_length = space.len_w(w_unicode)
+    handle_surrogates = rffi.sizeof(lltype.UniChar) == 2
+    if handle_surrogates:
+        # a codepoint outside the BMP takes two wide chars, so the buffer
+        # can be longer than the string
+        c_length = rffi.utf82wcharp_ex_len(u)
     else:
-        c_buffer = rffi.utf82wcharp(u, c_length)
+        c_length = u_length
+    if not buf:
+        return c_length + 1
+    if handle_surrogates:
+        c_buffer = rffi.utf82wcharp_ex(u, u_length)
+    else:
+        c_buffer = rffi.utf82wcharp(u, u_length)
     try:
         # If possible, try to copy the 0-termination as well
         if size > c_length:

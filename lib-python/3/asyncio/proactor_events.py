@@ -321,7 +321,9 @@ class _ProactorReadPipeTransport(_ProactorBasePipeTransport,
             if not self._paused:
                 self._read_fut.add_done_callback(self._loop_reading)
         finally:
-            if length > -1:
+            # PyPy change: on windows, there is a race condition
+            #if length > -1:
+            if length > -1 and not self._closing:
                 self._data_received(data, length)
 
 

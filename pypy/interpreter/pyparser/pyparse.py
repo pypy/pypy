@@ -54,7 +54,9 @@ def _check_line_for_encoding(line):
     for i in range(len(line)):
         if line[i] == '#':
             break
-        if line[i] not in ' \t\014':
+        # '\r' is whitespace here: CPython translates newlines before it
+        # looks for the cookie, so it never sees the '\r' of a '\r\n'
+        if line[i] not in ' \t\014\r':
             return None, False  # Not a comment, don't read the second line.
     return pytokenizer.match_encoding_declaration(line[i:]), True
 

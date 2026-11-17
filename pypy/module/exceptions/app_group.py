@@ -30,7 +30,6 @@ def check_new_args(cls, message, exceptions):
 
 def subgroup(self, condition):
     condition = get_condition_filter(condition)
-    modified = False
     if condition(self):
         return self
 
@@ -43,21 +42,12 @@ def subgroup(self, condition):
             sub = subgroup(exc, condition)
             if sub is not None:
                 exceptions.append(sub)
-            if sub is not exc:
-                modified = True
         elif condition(exc):
             exceptions.append(exc)
-        else:
-            modified = True
 
-    if not modified:
-        # this is the difference to split!
-        return self
-    elif exceptions:
-        group = _derive_and_copy_attrs(self, exceptions)
-        return group
-    else:
-        return None
+    if exceptions:
+        return _derive_and_copy_attrs(self, exceptions)
+    return None
 
 def split(self, condition):
     condition = get_condition_filter(condition)

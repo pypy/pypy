@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import pytest
 import sys
@@ -53,21 +55,21 @@ class BaseTestWithUnroll(BaseTest):
         preamble.check_consistency(check_descr=False)
 
         #
-        print
-        print "Preamble:"
+        print()
+        print("Preamble:")
         if preamble.operations:
-            print '\n'.join([str(o) for o in preamble.operations])
+            print('\n'.join([str(o) for o in preamble.operations]))
         else:
-            print 'Failed!'
-        print
-        print "Loop:"
-        print '\n'.join([str(o) for o in loop.operations])
-        print
+            print('Failed!')
+        print()
+        print("Loop:")
+        print('\n'.join([str(o) for o in loop.operations]))
+        print()
         if expected_short or getattr(info, 'short_preamble', None):
-            print "Short Preamble:"
+            print("Short Preamble:")
             short = info.short_preamble
-            print '\n'.join([str(o) for o in short])
-            print
+            print('\n'.join([str(o) for o in short]))
+            print()
 
         assert expected != "crash!", "should have raised an exception"
         loop.check_consistency(check_descr=False)
@@ -157,7 +159,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
             if opnum == rop.INT_SIGNEXT:
                 # 2nd arg is number of bytes to extend from ---
                 # must not be too random
-                args[-1] = random.choice([1, 2] if sys.maxint < 2**32 else
+                args[-1] = random.choice([1, 2] if sys.maxsize < 2**32 else
                                          [1, 2, 4])
             ops = """
             []
@@ -3136,7 +3138,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_add(i0, %s)
         i4 = int_add(i3, %s)
         jump(i4)
-        """ % (sys.maxint - 1, sys.maxint - 2, -sys.maxint, -sys.maxint + 1)
+        """ % (sys.maxsize - 1, sys.maxsize - 2, -sys.maxsize, -sys.maxsize + 1)
         expected = """
         [i0]
         i1 = int_add(i0, %s)
@@ -3144,7 +3146,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_add(i0, %s)
         i4 = int_add(i0, %s)
         jump(i4)
-        """ % (sys.maxint - 1, -5, -sys.maxint, 3)
+        """ % (sys.maxsize - 1, -5, -sys.maxsize, 3)
         self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op(self):
@@ -5083,7 +5085,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
             i6 = uint_rshift(i5, %d)
             i2 = int_xor(i6, i3)
             jump(i2)
-            """ % (63 if sys.maxint > 2**32 else 31, intmask(kk), ii)
+            """ % (63 if sys.maxsize > 2**32 else 31, intmask(kk), ii)
             self.optimize_loop(ops, expected)
 
     def test_subsub_ovf(self):

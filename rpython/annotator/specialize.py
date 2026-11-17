@@ -131,7 +131,7 @@ class MemoTable(object):
             return
         assert self.graph is None, "MemoTable already finished"
         # list of which argument positions can take more than one value
-        example_args, example_value = self.table.iteritems().next()
+        example_args, example_value = next(iter(self.table.items()))
         nbargs = len(example_args)
         # list of sets of possible argument values -- one set per argument index
         sets = [set() for i in range(nbargs)]
@@ -299,7 +299,7 @@ def memo(funcdesc, args_s):
         bookkeeper.all_specializations[funcdesc] = memotables
 
     # merge the MemoTables for the individual argument combinations
-    firstvalues = possiblevalues.next()
+    firstvalues = next(possiblevalues)
     _, _, memotable = memotables.find(firstvalues)
     for values in possiblevalues:
         _, _, memotable = memotables.union(firstvalues, values)

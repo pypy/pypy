@@ -236,6 +236,36 @@ def test_pipe_transport_write_bytearray_then_resize():
 # alive either.
 
 
+def _run_selector(coro):
+    # these tests are about the data the socket could not take, which only
+    # the selector transport buffers: the win32 default proactor transport
+    # hands the whole write to an overlapped send instead
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        return runner.run(coro)
+
+
+def _small_socketpair():
+    # the write only stays in the transport's buffer if the socket cannot take
+    # all of it: windows otherwise accepts megabytes in a single send()
+    a, b = socket.socketpair()
+    for sock in (a, b):
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 16 * 1024)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 16 * 1024)
+    return a, b
+
+
+def _write_until_buffered(transport, write, size):
+    # only the data that the socket could not take reaches the transport's
+    # buffer, and a single send() may swallow megabytes: windows ignores the
+    # SO_SNDBUF of a connection that is already established.  Returns the
+    # number of bytes handed to the transport.
+    sent = 0
+    while transport.get_write_buffer_size() == 0:
+        write()
+        sent += size
+    return sent
+
+
 def _transport_send(write):
     async def main():
         loop = asyncio.get_running_loop()
@@ -285,17 +315,18 @@ def test_transport_buffered_bytearray_then_resize():
 
     async def main():
         loop = asyncio.get_running_loop()
-        a, b = socket.socketpair()
+        a, b = _small_socketpair()
         b.setblocking(False)
         with b:
             transport, _ = await loop.create_connection(asyncio.Protocol,
                                                         sock=a)
-            transport.write(fill)
-            assert transport.get_write_buffer_size() > 0
+            sent = _write_until_buffered(transport,
+                                         lambda: transport.write(fill),
+                                         len(fill))
             transport.write(view)
             transport.writelines(data)
             received = b""
-            while len(received) < len(fill) + 5:
+            while len(received) < sent + 5:
                 try:
                     received += b.recv(1 << 16)
                 except BlockingIOError:
@@ -305,7 +336,7 @@ def test_transport_buffered_bytearray_then_resize():
 
     gc.disable()
     try:
-        assert asyncio.run(main()) == b"abcde"
+        assert _run_selector(main()) == b"abcde"
         assert view.tobytes() == b"abc"
         for item in data:
             item.clear()
@@ -321,30 +352,31 @@ def test_transport_partial_send_keeps_export():
 
     async def main():
         loop = asyncio.get_running_loop()
-        a, b = socket.socketpair()
+        a, b = _small_socketpair()
         b.setblocking(False)
         with b:
             transport, _ = await loop.create_connection(asyncio.Protocol,
                                                         sock=a)
-            transport.write(data)
-            assert transport.get_write_buffer_size() > 0
+            sent = _write_until_buffered(transport,
+                                         lambda: transport.write(data),
+                                         len(data))
             gc.collect()
             with pytest.raises(BufferError):
                 data.clear()
-            received = []
             size = 0
-            while size < len(data):
+            while size < sent:
                 try:
                     chunk = b.recv(1 << 20)
                 except BlockingIOError:
                     await asyncio.sleep(0.001)
                     continue
-                received.append(chunk)
+                assert not chunk.strip(b"x")
                 size += len(chunk)
             transport.close()
-            return b"".join(received)
+            return size, sent
 
-    assert asyncio.run(main()) == b"x" * (4 * 1024 * 1024)
+    size, sent = _run_selector(main())
+    assert size == sent
     gc.collect()
     gc.collect()
     data.clear()
@@ -359,19 +391,21 @@ def test_transport_write_memoryview_then_release(writelines):
 
     async def main():
         loop = asyncio.get_running_loop()
-        a, b = socket.socketpair()
+        a, b = _small_socketpair()
         b.setblocking(False)
         with b:
             transport, _ = await loop.create_connection(asyncio.Protocol,
                                                         sock=a)
-            with memoryview(data) as view:
-                if writelines:
-                    transport.writelines([view])
-                else:
-                    transport.write(view)
-            assert transport.get_write_buffer_size() > 0
+            def write():
+                with memoryview(data) as view:
+                    if writelines:
+                        transport.writelines([view])
+                    else:
+                        transport.write(view)
+
+            sent = _write_until_buffered(transport, write, len(data))
             received = 0
-            while received < len(data):
+            while received < sent:
                 try:
                     chunk = b.recv(1 << 20)
                 except BlockingIOError:
@@ -381,9 +415,10 @@ def test_transport_write_memoryview_then_release(writelines):
                     break
                 received += len(chunk)
             transport.close()
-            return received
+            return received, sent
 
-    assert asyncio.run(main()) == len(data)
+    received, sent = _run_selector(main())
+    assert received == sent
 
 
 def test_blob_slice_assignment_bytearray_then_resize():

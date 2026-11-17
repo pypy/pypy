@@ -289,7 +289,7 @@ MP_OPCODE = (0x10, "s")
 del marks
 del start
 
-IS_32_BIT = sys.maxint == 2**31-1
+IS_32_BIT = sys.maxsize == 2**31-1
 
 MACHINE_NAME = platform.machine()
 

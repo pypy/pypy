@@ -758,8 +758,8 @@ if _WIN32:
                                        "win32_attributes_from_dir failed")
                 if widen(fileInfo.c_dwFileAttributes) & traits.FILE_ATTRIBUTE_REPARSE_POINT:
                     if traverse or not IsReparseTagNameSurrogate(tagInfo.c_ReparseTag):
-                        raise WindowsError(rwin32.GetLastError_saved(),
-                                           "win32_xstat failed")
+                        # the stat has to traverse but cannot
+                        raise WindowsError(errcode, "win32_xstat failed")
             elif errcode == traits.ERROR_INVALID_PARAMETER:
                 # \\.\con requires read or write access.
                 with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
@@ -848,11 +848,22 @@ if _WIN32:
                         rwin32.CloseHandle(hFile)
                         return win32_xstat_impl(traits, path, True, fileInfo, tagInfo)
 
-        res = traits.GetFileInformationByHandle(hFile, fileInfo)
-        errcode = rwin32.GetLastError_saved()
-        rwin32.CloseHandle(hFile)
-        if res == 0:
-            raise WindowsError(errcode, "GetFileInformationByHandle failed")
+            res = traits.GetFileInformationByHandle(hFile, fileInfo)
+            errcode = rwin32.GetLastError_saved()
+            rwin32.CloseHandle(hFile)
+            if res == 0:
+                if errcode in (traits.ERROR_INVALID_PARAMETER,
+                               traits.ERROR_INVALID_FUNCTION,
+                               traits.ERROR_NOT_SUPPORTED):
+                    # a volume or a physical disk, e.g. \\.\C: or
+                    # \\.\PhysicalDrive0, which are block devices
+                    S_IFBLK = 0x6000
+                    return make_stat_result((S_IFBLK,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+                raise WindowsError(errcode,
+                                   "GetFileInformationByHandle failed")
+        # without a handle, fileInfo was filled in from the parent directory
+
         result = win32_by_handle_info_to_stat(traits, fileInfo, tagInfo.c_ReparseTag)
         
         # TBD: adjust the file execute permissions by finding the file extension
@@ -926,4 +937,4 @@ if _WIN32:
         attr = widen(filedata.c_dwFileAttributes)
         if attr & traits.FILE_ATTRIBUTE_REPARSE_POINT:
             return filedata.c_dwReserved0
-        return 0
+        return rffi.cast(rwin32.DWORD, 0)

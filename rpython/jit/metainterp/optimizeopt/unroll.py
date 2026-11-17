@@ -269,7 +269,7 @@ class OptUnroll(Optimization):
                 count += 1
         if count > maxguards:
             assert isinstance(target_token, TargetToken)
-            target_token.targeting_jitcell_token.retraced_count = sys.maxint
+            target_token.targeting_jitcell_token.retraced_count = sys.maxsize
 
     def pick_virtual_state(self, my_vs, label_vs, target_tokens):
         if target_tokens is None:

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import sys
 from rpython.rtyper.lltypesystem.lltype import *
@@ -29,10 +31,10 @@ def test_basics():
     # simple array
     Ar = GcArray(('v', Signed))
     x = malloc(Ar,0)
-    print x
+    print(x)
     assert len(x) == 0
     x = malloc(Ar,3)
-    print x
+    print(x)
     assert typeOf(x) == Ptr(Ar)
     assert isweak(x[0], Ar.OF)
     x[0].v = 1
@@ -545,7 +547,7 @@ class Frozen(object):
         return True
 
 @py.test.mark.parametrize('x', [
-    1, sys.maxint, 1.5, 'a', 'abc', u'abc', None, [],
+    1, sys.maxsize, 1.5, 'a', 'abc', u'abc', None, [],
     lambda: None,
     {1.23: 'abc'},
     (1, 'x', [2, 3.],),
@@ -837,7 +839,7 @@ class TestTrackAllocation:
         assert 'malloc(' in lines[-1] and 'flavor="raw")' in lines[-1]
 
         # The traceback should not be too long
-        print traceback
+        print(traceback)
 
         free(buf, flavor="raw")
 

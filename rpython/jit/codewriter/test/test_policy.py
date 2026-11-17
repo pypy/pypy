@@ -35,7 +35,7 @@ def test_contains_unsupported_variable_type():
         for sll in [False, True]:
             for ssf in [False, True]:
                 res = contains_unsupported_variable_type(graph, sf, sll, ssf)
-                assert res == (sys.maxint == 2147483647 and not sll)
+                assert res == (sys.maxsize == 2147483647 and not sll)
 
 
 def test_regular_function():

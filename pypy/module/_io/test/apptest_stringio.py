@@ -1,3 +1,4 @@
+import sys
 from pytest import raises
 from _io import StringIO
 
@@ -365,3 +366,29 @@ def test_issue5140():
     except:
         pass
     assert obj.__next__() == "1"
+
+def test_write_position_overflow():
+    f = StringIO("abc")
+    f.seek(sys.maxsize)
+    with raises(OverflowError):
+        f.write("x")
+    assert f.tell() == sys.maxsize
+    assert f.getvalue() == "abc"
+    assert f.read() == ""
+    g = StringIO("abc", newline="\r\n")
+    g.seek(sys.maxsize - 1)
+    with raises(OverflowError):
+        g.write("\0abbb\r")
+    assert g.readline() == ""
+
+def test_size_index_closes():
+    class ClosingIndex:
+        def __init__(self, f):
+            self.f = f
+        def __index__(self):
+            self.f.close()
+            return 1
+    for name in ["read", "readline", "truncate"]:
+        f = StringIO("abc")
+        with raises(ValueError):
+            getattr(f, name)(ClosingIndex(f))

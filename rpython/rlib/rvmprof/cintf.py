@@ -6,7 +6,6 @@ import sys
 import shutil
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
-from rpython.tool import leakfinder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -19,10 +18,15 @@ from rpython.jit.backend import detect_cpu
 class VMProfPlatformUnsupported(Exception):
     pass
 
-# vmprof works only on x86 for now
+# the sampling profiler works only on x86, aarch64 and riscv64 for now
 IS_SUPPORTED = False
+# the shadow stack and vmprof_get_traceback() need neither signals nor native
+# unwinding, so they are available where the profiler is not.  faulthandler
+# only needs these
+STACK_SUPPORTED = False
 NATIVE_PROFILING_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
+    STACK_SUPPORTED = True
     try:
         proc = detect_cpu.autodetect()
         IS_SUPPORTED = (proc.startswith('x86')
@@ -31,6 +35,8 @@ if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('fre
         NATIVE_PROFILING_SUPPORTED = proc.startswith('x86')
     except detect_cpu.ProcessorAutodetectError:
         print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
+elif sys.platform == 'win32':
+    STACK_SUPPORTED = True
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
@@ -108,10 +114,7 @@ def configure_libbacktrace_linux():
     config = BACKTRACE.join('config.h')
     shutil.copy(str(BACKTRACE.join(specific_config)), str(config))
 
-def setup():
-    if not IS_SUPPORTED:
-        raise VMProfPlatformUnsupported
-
+def _build_eci():
     if sys.platform.startswith('linux'):
         configure_libbacktrace_linux()
 
@@ -119,6 +122,58 @@ def setup():
     eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
                         **eci_kwds))
+    return eci
+
+_cached_eci = []
+
+def get_eci():
+    """Also used by the faulthandler module: faulthandler.c calls
+    vmprof_get_traceback(), so it needs vmprof_common.c linked in even in a
+    build where the _vmprof module is disabled.
+    """
+    if not _cached_eci:
+        _cached_eci.append(_build_eci())
+    return _cached_eci[0]
+
+
+def setup_stack():
+    """The shadow stack half of vmprof: what faulthandler needs to walk
+    python frames, without the sampling profiler.  Raises
+    VMProfPlatformUnsupported where even that does not build.
+    """
+    if not STACK_SUPPORTED:
+        raise VMProfPlatformUnsupported
+
+    eci = get_eci()
+
+    vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
+                                  [PVMPROFSTACK, llmemory.Address,
+                                   rffi.VOIDPP, lltype.Signed],
+                                  lltype.Signed, compilation_info=eci,
+                                  _nowrapper=True)
+    # reachable through VMProf.register_code() even though a stack-only
+    # VMProf never enables itself, so it has to link
+    vmprof_register_virtual_function = rffi.llexternal(
+                                           "vmprof_register_virtual_function",
+                                           [rffi.CCHARP, rffi.LONG, rffi.INT],
+                                           rffi.INT, compilation_info=eci)
+    # _continuation calls rvmprof.start_sampling()/stop_sampling() around a
+    # stacklet switch, and rvmprof.save_stack() does too.  Both only toggle
+    # a flag and read a fileno, which is harmless without a sampler
+    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                           rffi.INT_real, compilation_info=eci,
+                                           _nowrapper=True)
+    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                            lltype.Void, compilation_info=eci,
+                                            _nowrapper=True)
+    return CInterface(locals())
+
+
+def setup():
+    if not IS_SUPPORTED:
+        raise VMProfPlatformUnsupported
+
+    eci = get_eci()
 
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
@@ -197,9 +252,8 @@ def _pop_freelist_or_malloc():
     if s:
         vmprof_tl_freelist.setraw(s.c_next)
         return s
-    s = lltype.malloc(VMPROFSTACK, flavor='raw')
-    if not we_are_translated() and id(s._obj0) in leakfinder.ALLOCATED:
-        leakfinder.remember_free(s._obj0)
+    # immortal per-thread pool nodes
+    s = lltype.malloc(VMPROFSTACK, flavor='raw', track_allocation=False)
     return s
 
 @jit.dont_look_inside

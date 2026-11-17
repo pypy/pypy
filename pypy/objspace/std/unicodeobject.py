@@ -4,7 +4,7 @@ import sys
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
-    enforceargs, newlist_hint, specialize, we_are_translated)
+    enforceargs, newlist_hint, not_rpython, specialize, we_are_translated)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib.rstring import (
@@ -53,6 +53,9 @@ class BadUtf8(Exception):
 CHECK_ALL_STRINGS = False
 # CHECK_ALL_STRINGS: after translation.  Set to False to avoid overhead!
 
+def _ascii_islinebreak(ch):
+    # \n \x0b \x0c \r \x1c \x1d \x1e
+    return '\n' <= ch <= '\r' or '\x1c' <= ch <= '\x1e'
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
@@ -94,9 +97,11 @@ class W_UnicodeObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%r)" % (self.__class__.__name__, self._utf8)
 
+    @not_rpython
     def unwrap(self, space):
-        # for testing
-        return space.realunicode_w(self)
+        # only used by the test/debug tooling that calls space.unwrap()
+        from pypy.interpreter.unicodehelper import decode_utf8sp
+        return decode_utf8sp(space, space.utf8_w(self))[0].decode('utf8')
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
@@ -341,9 +346,7 @@ class W_UnicodeObject(W_Root):
 
     def hash_w(self):
         # shortcut for UnicodeDictStrategy
-        x = compute_hash(self._utf8)
-        x -= (x == -1) # convert -1 to -2 without creating a bridge
-        return x
+        return utf8_hash_w(self._utf8)
 
     def descr_hash(self, space):
         return space.newint(self.hash_w())
@@ -1637,8 +1640,17 @@ def unicode_splitlines(value, keepends):
     while pos < length:
         sol = pos
         lgt = 0
-        while pos < length and not rutf8.islinebreak(value, pos):
-            pos = rutf8.next_codepoint_pos(value, pos)
+        while pos < length:
+            ch = value[pos]
+            if ch < '\x80':
+                # ASCII: no need to look at the following bytes
+                if _ascii_islinebreak(ch):
+                    break
+                pos += 1
+            else:
+                if rutf8.islinebreak(value, pos):
+                    break
+                pos = rutf8.next_codepoint_pos(value, pos)
             lgt += 1
         eol = pos
         if pos < length:
@@ -2445,3 +2457,16 @@ def _unicode_to_decimal_w(space, w_unistr):
 _repr_function = rutf8.make_utf8_escape_function(
     pass_printable=True, quotes=True, prefix='',
     unicodedb=unicodedb)
+
+
+def utf8_hash_w(utf8):
+    x = compute_hash(utf8)
+    x -= (x == -1) # convert -1 to -2 without creating a bridge
+    return x
+
+
+class W_UnicodeDictProbe(W_UnicodeObject):
+    """Prebuilt lookup key for UnicodeDictStrategy.getitem_str: lets an
+    RPython str be looked up in a dict of W_UnicodeObject keys without
+    allocating. Never stored in a dict."""
+    key = ''

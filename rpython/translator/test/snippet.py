@@ -1033,11 +1033,11 @@ def add_func(i=numtype):
     except OverflowError:
         raise
 
-from sys import maxint
+from sys import maxsize
 
 def div_func(i=numtype):
     try:
-        return ovfcheck((-maxint-1) // i)
+        return ovfcheck((-maxsize-1) // i)
     except (OverflowError, ZeroDivisionError):
         raise
 
@@ -1049,7 +1049,7 @@ def mul_func(x=numtype, y=numtype):
 
 def mod_func(i=numtype):
     try:
-        return ovfcheck((-maxint-1) % i)
+        return ovfcheck((-maxsize-1) % i)
     except OverflowError:
         raise
     except ZeroDivisionError:
@@ -1057,7 +1057,7 @@ def mod_func(i=numtype):
 
 def rshift_func(i=numtype):
     try:
-        return (-maxint-1) >> i
+        return (-maxsize-1) >> i
     except ValueError:
         raise
 
@@ -1069,7 +1069,7 @@ def hugo(a, b, c):pass
 def lshift_func(i=numtype):
     try:
         hugo(2, 3, 5)
-        return ovfcheck((-maxint-1) << i)
+        return ovfcheck((-maxsize-1) << i)
     except (hugelmugel, OverflowError, StandardError, ValueError):
         raise
 

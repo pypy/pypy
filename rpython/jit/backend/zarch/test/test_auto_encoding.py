@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os, random, struct
 import subprocess
 import py
@@ -262,12 +264,12 @@ class TestZARCH(object):
         argmodes = self.modes(argmodes)
 
         if self.should_skip_instruction(instrname, argmodes):
-            print "Skipping %s" % methname
+            print("Skipping %s" % methname)
             return
 
         instr_suffix = None
 
-        print "Testing %s with argmodes=%r" % (instrname, argmodes)
+        print("Testing %s with argmodes=%r" % (instrname, argmodes))
         self.methname = methname
         ilist = self.make_all_tests(methname, argmodes)
         oplist, as_code = self.run_test(methname, instrname, argmodes, ilist,

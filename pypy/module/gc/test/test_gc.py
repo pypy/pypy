@@ -87,6 +87,18 @@ class AppTestGC(object):
         assert gc.isenabled()
         assert self.rgc_isenabled()
 
+    def test_callbacks(self):
+        import gc
+        assert gc.callbacks == []
+        def cb(phase, info):
+            pass
+        gc.callbacks.append(cb)
+        try:
+            assert cb in gc.callbacks
+        finally:
+            gc.callbacks.remove(cb)
+        assert gc.callbacks == []
+
     def test_gc_collect_overrides_gc_disable(self):
         import gc
         deleted = []

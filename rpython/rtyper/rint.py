@@ -48,7 +48,7 @@ class IntegerRepr(FloatRepr):
     get_ll_le_function = get_ll_ge_function
 
     def get_ll_hash_function(self):
-        if (sys.maxint == 2147483647 and
+        if (sys.maxsize == 2147483647 and
             self.lowleveltype in (SignedLongLong, UnsignedLongLong)):
             return ll_hash_long_long
         return ll_hash_int
@@ -423,7 +423,7 @@ def ll_int_py_div_zer(x, y):
 def ll_int_py_div_ovf(x, y):
     # JIT: intentionally not short-circuited to produce only one guard
     # and to remove the check fully if one of the arguments is known
-    if (x == -sys.maxint - 1) & (y == -1):
+    if (x == -sys.maxsize - 1) & (y == -1):
         raise OverflowError("integer division")
     return ll_int_py_div(x, y)
 
@@ -514,7 +514,7 @@ def ll_int_py_mod_zer(x, y):
 
 def ll_int_py_mod_ovf(x, y):
     # see comment in ll_int_py_div_ovf
-    if (x == -sys.maxint - 1) & (y == -1):
+    if (x == -sys.maxsize - 1) & (y == -1):
         raise OverflowError
     return ll_int_py_mod(x, y)
 

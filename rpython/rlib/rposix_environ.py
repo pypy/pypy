@@ -153,7 +153,7 @@ def make_env_impls(win32=False):
     else:
         traits = utf8_traits
         get_environ, getenv, putenv = get__wenviron, _wgetenv, _wputenv
-        byname, eq = envkeepalive.bywname, '='
+        eq = '='
         from rpython.rlib.rwin32 import lastSavedWindowsError as last_error
 
     def envitems_llimpl():
@@ -175,22 +175,39 @@ def make_env_impls(win32=False):
             l_result = getenv(l_name)
             return traits.charp2str(l_result) if l_result else None
 
-    def putenv_llimpl(name, value):
-        l_string = traits.str2charp(name + eq + value)
-        error = rffi.cast(lltype.Signed, putenv(l_string))
-        if error:
+    if win32:
+        # _wputenv() copies the string, so unlike posix putenv() there is
+        # nothing that has to be kept alive afterwards
+        def putenv_llimpl(name, value):
+            l_string = traits.str2charp(name + eq + value)
+            error = rffi.cast(lltype.Signed, putenv(l_string))
             traits.free_charp(l_string)
-            last_error("putenv failed")
-        # keep 'l_string' alive - we know that the C library needs it
-        # until the next call to putenv() with the same 'name'.
-        l_oldstring = byname.get(name, lltype.nullptr(traits.CCHARP.TO))
-        byname[name] = l_string
-        if l_oldstring:
-            traits.free_charp(l_oldstring)
+            if error:
+                last_error("putenv failed")
 
-    return envitems_llimpl, getenv_llimpl, putenv_llimpl
+        def unsetenv_llimpl(name):
+            putenv_llimpl(name, '')   # 'name=' deletes the variable
+    else:
+        def putenv_llimpl(name, value):
+            l_string = traits.str2charp(name + eq + value)
+            error = rffi.cast(lltype.Signed, putenv(l_string))
+            if error:
+                traits.free_charp(l_string)
+                last_error("putenv failed")
+            # keep 'l_string' alive - we know that the C library needs it
+            # until the next call to putenv() with the same 'name'.
+            l_oldstring = byname.get(name, lltype.nullptr(traits.CCHARP.TO))
+            byname[name] = l_string
+            if l_oldstring:
+                traits.free_charp(l_oldstring)
 
-envitems_llimpl, getenv_llimpl, putenv_llimpl = make_env_impls()
+        # posix has a real unsetenv(), see REAL_UNSETENV below
+        unsetenv_llimpl = None
+
+    return (envitems_llimpl, getenv_llimpl, putenv_llimpl,
+            unsetenv_llimpl)
+
+envitems_llimpl, getenv_llimpl, putenv_llimpl, _ = make_env_impls()
 
 register_external(r_envitems, [], [(str0, str0)],
                   export_name='ll_os.ll_os_envitems',

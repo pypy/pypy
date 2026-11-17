@@ -44,9 +44,9 @@ def entry_point(argv):
     assert isinstance(x, C)
     assert x.smallint == 42
 
-    x = makeint(sys.maxint)
+    x = makeint(sys.maxsize)
     assert isinstance(x, B)
-    assert x.normalint == sys.maxint
+    assert x.normalint == sys.maxsize
 
     x = makeint2(12)
     assert x.meth(1000) == 1015

@@ -66,6 +66,11 @@ typedef struct {
     HANDLE hStdError;
 } STARTUPINFO, *LPSTARTUPINFO;
 
+typedef struct {
+    STARTUPINFO StartupInfo;
+    void *lpAttributeList;
+} STARTUPINFOEX, *LPSTARTUPINFOEX;
+
 typedef struct _SECURITY_ATTRIBUTES {
     DWORD nLength;
     LPVOID lpSecurityDescriptor;
@@ -133,6 +138,10 @@ BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
 HANDLE WINAPI GetCurrentProcess(void);
 HANDLE OpenProcess(DWORD, BOOL, DWORD);
 UINT WINAPI GetACP(VOID);
+/* the last three arguments are an LPNLSVERSIONINFO, a reserved LPVOID and
+   an LPARAM sort handle; only NULL/0 is passed for all of them */
+int WINAPI LCMapStringEx(LPCWSTR, DWORD, LPCWSTR, int, LPWSTR, int,
+                         void *, void *, intptr_t);
 void ExitProcess(UINT);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);
@@ -142,6 +151,10 @@ BOOL WINAPI CreateProcessA(char *, char *, void *,
 BOOL WINAPI CreateProcessW(wchar_t *, wchar_t *, void *,
                            void *, BOOL, DWORD, wchar_t *,
                            wchar_t *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
+BOOL WINAPI InitializeProcThreadAttributeList(void *, DWORD, DWORD, SIZE_T *);
+BOOL WINAPI UpdateProcThreadAttribute(void *, DWORD, size_t, PVOID, SIZE_T,
+                                      PVOID, SIZE_T *);
+VOID WINAPI DeleteProcThreadAttributeList(void *);
 DWORD WINAPI WaitForSingleObject(HANDLE, DWORD);
 DWORD WaitForMultipleObjects(DWORD, HANDLE*, BOOL, DWORD);
 BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
@@ -149,7 +162,7 @@ BOOL WINAPI TerminateProcess(HANDLE, UINT);
 HANDLE WINAPI GetStdHandle(DWORD);
 DWORD WINAPI GetModuleFileNameW(HANDLE, wchar_t *, DWORD);
 UINT WINAPI SetErrorMode(UINT);
-UINT WINAPI GetErrorMode(UINT);
+UINT WINAPI GetErrorMode(void);
 #define SEM_FAILCRITICALERRORS     0x0001
 #define SEM_NOGPFAULTERRORBOX      0x0002
 #define SEM_NOALIGNMENTFAULTEXCEPT 0x0004

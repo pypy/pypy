@@ -567,6 +567,42 @@ class AppTestRange:
         y.__setstate__(idx)
         assert list(y) == list(x)
 
+    def test_range_iter_setstate(self):
+        # the state is the number of items already consumed, like CPython
+        it = iter(range(10, 20, 2))
+        it.__setstate__(2)
+        assert list(it) == [14, 16, 18]
+        it = iter(range(10, 20))
+        it.__setstate__(2)
+        assert list(it) == [12, 13, 14, 15, 16, 17, 18, 19]
+        it = iter(range(10))
+        it.__setstate__(2)
+        assert list(it) == [2, 3, 4, 5, 6, 7, 8, 9]
+        it = iter(range(-2**65, 20, 2))
+        it.__setstate__(2**64 + 7)
+        assert list(it) == [14, 16, 18]
+        it = reversed(range(10, 20, 2))
+        it.__setstate__(3)
+        assert list(it) == [12, 10]
+        it = reversed(range(10, 2**65, 2))
+        it.__setstate__(2**64 - 7)
+        assert list(it) == [12, 10]
+        # out of range states are clipped
+        for r in range(10, 20, 2), range(10, 20), range(10):
+            it = iter(r)
+            it.__setstate__(-5)
+            assert list(it) == list(r)
+            it = iter(r)
+            it.__setstate__(len(r) + 5)
+            assert list(it) == []
+
+    def test_range_iter_unpickle_compat(self):
+        # a pickle made by CPython: iter(range(10, 20, 2)) at index 2
+        import pickle
+        it = pickle.loads(b'\x80\x03cbuiltins\niter\ncbuiltins\nrange\n'
+                          b'K\nK\x14K\x02\x87R\x85RK\x02b.')
+        assert list(it) == [14, 16, 18]
+
     def test_lib_python_range_optimization(self):
         x = range(1)
         assert type(reversed(x)) == type(iter(x))

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import gc, sys
 import py
 import platform
@@ -35,14 +37,14 @@ class Runner:
 
     @here_is_a_test
     def test_new(self):
-        print 'start'
+        print('start')
         h = self.sthread.new(empty_callback, rffi.cast(llmemory.Address, 123))
-        print 'end', h
+        print('end', h)
         assert self.sthread.is_empty_handle(h)
 
     def nextstatus(self, nextvalue):
-        print 'expected nextvalue to be %d, got %d' % (nextvalue,
-                                                       self.status + 1)
+        print('expected nextvalue to be %d, got %d' % (nextvalue,
+                                                       self.status + 1))
         assert self.status + 1 == nextvalue
         self.status = nextvalue
 
@@ -55,7 +57,7 @@ class Runner:
         self.nextstatus(2)
         h = self.sthread.switch(h)
         self.nextstatus(4)
-        print 'end', h
+        print('end', h)
         assert self.sthread.is_empty_handle(h)
 
     @here_is_a_test
@@ -98,7 +100,7 @@ class Runner:
         assert self.sthread.is_empty_handle(self.main_h)
         #
         # check that self.steps == [0,1,2, 3,4,5,6, 3,4,5,6, 3,4,5,6,..., 9]
-        print self.steps
+        print(self.steps)
         expected = 0
         assert self.steps[-1] == 9
         for i in range(len(self.steps)-1):
@@ -142,7 +144,7 @@ class Task:
                                not runner.tasks[n].h):
                 return 1
 
-            print "status == %d, self.n = %d" % (runner.status, self.n)
+            print("status == %d, self.n = %d" % (runner.status, self.n))
             assert not self.h
             assert runner.nextstep == -1
             runner.status += 1
@@ -152,18 +154,18 @@ class Task:
             task = runner.tasks[n]
             if not task.h:
                 # start a new stacklet
-                print "NEW", n
+                print("NEW", n)
                 h = runner.sthread.new(variousstackdepths_callback,
                                        rffi.cast(llmemory.Address, n))
             else:
                 # switch to this stacklet
-                print "switch to", n
+                print("switch to", n)
                 h = task.h
                 task.h = runner.sthread.get_null_handle()
                 h = runner.sthread.switch(h)
 
-            print "back in self.n = %d, coming from %d" % (self.n,
-                                                           runner.comefrom)
+            print("back in self.n = %d, coming from %d" % (self.n,
+                                                           runner.comefrom))
             assert runner.nextstep == runner.status
             runner.nextstep = -1
             assert runner.gointo == self.n
@@ -186,12 +188,12 @@ runner = Runner()
 
 
 def empty_callback(h, arg):
-    print 'in empty_callback:', h, arg
+    print('in empty_callback:', h, arg)
     assert rffi.cast(lltype.Signed, arg) == 123
     return h
 
 def switchbackonce_callback(h, arg):
-    print 'in switchbackonce_callback:', h, arg
+    print('in switchbackonce_callback:', h, arg)
     assert rffi.cast(lltype.Signed, arg) == 321
     runner.nextstatus(1)
     assert not runner.sthread.is_empty_handle(h)
@@ -234,7 +236,7 @@ def variousstackdepths_callback(h, arg):
     assert runner.nextstep == -1
     runner.status += 1
     runner.nextstep = runner.status
-    print "LEAVING %d to go to %d" % (self.n, n)
+    print("LEAVING %d to go to %d" % (self.n, n))
     return h
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType(
@@ -297,9 +299,9 @@ def entry_point(argv):
         seed = int(argv[1])
     runner.init(seed)
     for name, meth in Runner.TESTS:
-        print '-----', name, '-----'
+        print('-----', name, '-----')
         meth(runner)
-    print '----- all done -----'
+    print('----- all done -----')
     runner.done()
     return 0
 
@@ -329,8 +331,8 @@ class BaseTestStacklet(StandaloneTests):
                 env = {}
             else:
                 env = {'PYPY_GC_NURSERY': '2k'}
-            print 'running %s/%s with arg=%d and env=%r' % (
-                self.gc, self.gcrootfinder, i, env)
+            print('running %s/%s with arg=%d and env=%r' % (
+                self.gc, self.gcrootfinder, i, env))
             data = cbuilder.cmdexec('%d' % i, env=env)
             assert data.endswith("----- all done -----\n")
             for name, meth in Runner.TESTS:

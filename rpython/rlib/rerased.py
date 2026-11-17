@@ -31,7 +31,7 @@ from rpython.rlib import jit
 def erase_int(x):
     assert is_valid_int(x)
     res = 2 * x + 1
-    if res > sys.maxint or res < -sys.maxint - 1:
+    if res > sys.maxsize or res < -sys.maxsize - 1:
         raise OverflowError
     return Erased(x, _identity_for_ints)
 

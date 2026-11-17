@@ -2,7 +2,7 @@
 
 import sys
 
-assert sys.maxint == (2**63 - 1)
+assert sys.maxsize == (2**63 - 1)
 
 # General purpose register width (in bytes)
 XLEN = 8

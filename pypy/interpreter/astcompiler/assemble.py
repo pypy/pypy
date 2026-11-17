@@ -274,6 +274,16 @@ class Block(object):
             target_instr = target.instructions[0]
             target_lineno = target_instr.position_info[0]
             target_opcode = target_instr.opcode
+            if ((opcode == ops.JUMP_ABSOLUTE or opcode == ops.JUMP_FORWARD) and
+                    target_opcode == ops.RETURN_VALUE and
+                    target_instr is not instr):
+                # Inline the return instead of jumping to it, like CPython's
+                # inline_small_exit_blocks.  The position comes along, so the
+                # lineno check below does not apply to this case.
+                instr.opcode = ops.RETURN_VALUE
+                instr.jump = None
+                instr.position_info = target_instr.position_info
+                continue
             if ((target_opcode == ops.JUMP_ABSOLUTE or target_opcode == ops.JUMP_FORWARD) and
                     target_instr.jump.instructions and
                     target_instr.jump.instructions[0].position_info[0] == target_lineno):
@@ -295,11 +305,6 @@ class Block(object):
                 elif target_opcode == ops.JUMP_FORWARD:
                     instr.jump = target_instr.jump
                     i -= 1 # look at this instruction again
-                elif target_opcode == ops.RETURN_VALUE:
-                    # Replace JUMP_* to a RETURN into
-                    # just a RETURN
-                    instr.opcode = ops.RETURN_VALUE
-                    instr.jump = None
                 continue
             if opcode == ops.JUMP_IF_FALSE_OR_POP:
                 if (target_opcode == ops.JUMP_ABSOLUTE or

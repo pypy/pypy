@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 
 import operator
 import sys, os
@@ -8,8 +8,8 @@ from random import random, randint, sample
 try:
     import pytest
 except ImportError:
-    print 'cwd', os.getcwd()
-    print 'sys.path', sys.path
+    print('cwd', os.getcwd())
+    print('sys.path', sys.path)
     raise
 
 from rpython.rlib import rbigint as lobj
@@ -19,7 +19,8 @@ from rpython.rlib.rbigint import (frombytes_int, rbigint, SHIFT, MASK, KARATSUBA
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
     _format_lowest_level_divmod_int_results, _format_int10_18digits,
-    bit_length_int, _bitcount64, tobytes_int)
+    bit_length_int, _bitcount64, tobytes_int, _lehmer_update,
+    _AsULonglong_shifted, _AsULonglong_mask)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -31,8 +32,8 @@ from hypothesis import given, strategies, example, settings, assume, HealthCheck
 
 longs = strategies.builds(
     long, strategies.integers())
-ints = strategies.integers(-sys.maxint-1, sys.maxint)
-_BIG_INT_MAX = 10000 if sys.maxint > 2 ** 32 else 2000
+ints = strategies.integers(-sys.maxsize-1, sys.maxsize)
+_BIG_INT_MAX = 10000 if sys.maxsize > 2 ** 32 else 2000
 
 
 def makelong(data):
@@ -95,8 +96,8 @@ def makerarithint(data):
     classlist = platform.numbertype_to_rclass.values()
     cls = data.draw(strategies.sampled_from(classlist))
     if cls is int:
-        minimum = -sys.maxint-1
-        maximum = sys.maxint
+        minimum = -sys.maxsize-1
+        maximum = sys.maxsize
     else:
         BITS = cls.BITS
         if cls.SIGNED:
@@ -120,7 +121,7 @@ def gen_signs(l):
 
 long_vals_not_too_big = range(17) + [
         37, 39, 50,
-        127, 128, 129, 511, 512, 513, sys.maxint, sys.maxint + 1,
+        127, 128, 129, 511, 512, 513, sys.maxsize, sys.maxsize + 1,
         12345678901234567890,
         123456789123456789000000,
 ]
@@ -131,9 +132,9 @@ long_vals = long_vals_not_too_big + [
 int_vals = range(33) + [
         1000,
         0x11111111, 0x11111112, 8888,
-        9999, sys.maxint, 2 ** 19, 2 ** 18 - 1
+        9999, sys.maxsize, 2 ** 19, 2 ** 18 - 1
 ]
-signed_int_vals = list(gen_signs(int_vals)) + [-sys.maxint-1]
+signed_int_vals = list(gen_signs(int_vals)) + [-sys.maxsize-1]
 
 class TestRLong(object):
     def test_simple(self):
@@ -191,7 +192,7 @@ class TestRLong(object):
             r.int_floordiv(0)
 
         # Error pointed out by Armin Rigo
-        n = sys.maxint+1
+        n = sys.maxsize+1
         r = rbigint.fromlong(n)
         assert r.int_floordiv(int(-n)).tolong() == -1
 
@@ -208,8 +209,8 @@ class TestRLong(object):
             assert res3.tolong() == -1
 
     def test_floordiv2(self):
-        n1 = rbigint.fromlong(sys.maxint + 1)
-        n2 = rbigint.fromlong(-(sys.maxint + 1))
+        n1 = rbigint.fromlong(sys.maxsize + 1)
+        n2 = rbigint.fromlong(-(sys.maxsize + 1))
         assert n1.floordiv(n2).tolong() == -1
         assert n2.floordiv(n1).tolong() == -1
 
@@ -278,6 +279,24 @@ class TestRLong(object):
 
                 assert r1.tolong() == r2
 
+    def test_mod_one_digit_bigint_avoids_quotient(self, monkeypatch):
+        def unexpected_divmod(self, other):
+            raise AssertionError("modulo should not compute a quotient")
+
+        monkeypatch.setattr(rbigint, 'divmod', unexpected_divmod)
+        values = [0, 1, 2, 3, (1 << (2 * SHIFT)) + 7]
+        divisors = [1, 2, 3, MASK]
+        for value in values:
+            for divisor in divisors:
+                for sign_a in (-1, 1):
+                    for sign_b in (-1, 1):
+                        a = value * sign_a
+                        b = divisor * sign_b
+                        assert rbigint.fromlong(a).mod(
+                            rbigint.fromlong(b)).tolong() == a % b
+        with pytest.raises(ZeroDivisionError):
+            rbigint.fromlong(123).mod(rbigint.fromlong(0))
+
     def test_int_mod(self):
         for x in gen_signs(long_vals):
             op1 = rbigint.fromlong(x)
@@ -316,7 +335,7 @@ class TestRLong(object):
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
-            for op2 in [0, 1, 2, 8, 9, 10, 11]:
+            for op2 in [0, 1, 2, 3, 4, 8, 9, 10, 11]:
                 rl_op2 = rbigint.fromint(op2)
                 r1 = rl_op1.pow(rl_op2)
                 r2 = op1 ** op2
@@ -332,7 +351,7 @@ class TestRLong(object):
     def test_int_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
-            for op2 in [0, 1, 2, 8, 9, 10, 11, 127, 128, 129]:
+            for op2 in [0, 1, 2, 3, 4, 8, 9, 10, 11, 127, 128, 129]:
                 r1 = rl_op1.int_pow(op2)
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
@@ -345,13 +364,13 @@ class TestRLong(object):
                     assert r3.tolong() == r4
 
     def test_int_pow_big(self):
-        if sys.maxint < 2**32:
+        if sys.maxsize < 2**32:
             pytest.skip("64-bit only")
         for op1 in gen_signs(int_vals):
             rl_op1 = rbigint.fromint(op1)
             for op2 in [2**31, 2**32-1, 2**32]:
-                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxint))
-                r2 = pow(op1, op2, sys.maxint)
+                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxsize))
+                r2 = pow(op1, op2, sys.maxsize)
                 assert r1.tolong() == r2
 
     def test_pow_raises(self):
@@ -363,8 +382,8 @@ class TestRLong(object):
             r1.pow(r1, r0)
 
     def test_touint(self):
-        result = r_uint(sys.maxint + 42)
-        rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
+        result = r_uint(sys.maxsize + 42)
+        rl = rbigint.fromint(sys.maxsize).add(rbigint.fromint(42))
         assert rl.touint() == result
 
     def test_eq_ne_operators(self):
@@ -437,8 +456,8 @@ class Test_rbigint(object):
         assert rbigint.fromlong(-(BASE-1)).eq(bigint([intmask(BASE-1)], -1))
         assert rbigint.fromlong(-BASE).eq(bigint([0, 1], -1))
         assert rbigint.fromlong(-(BASE**2)).eq(bigint([0, 0, 1], -1))
-#        assert rbigint.fromlong(-sys.maxint-1).eq(
-#            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
+#        assert rbigint.fromlong(-sys.maxsize-1).eq(
+#            rbigint.digits_for_most_neg_long(-sys.maxsize-1), -1)
 
     def test_args_from_int(self):
         BASE = 1 << 31 # Can't can't shift here. Shift might be from longlonglong
@@ -455,8 +474,8 @@ class Test_rbigint(object):
         """assert rbigint.fromrarith_int(-MAX-1).eq(bigint([0, 1], -1))
         assert rbigint.fromrarith_int(r_longlong(-(BASE**2))).eq(
             bigint([0, 0, 1], -1))"""
-#        assert rbigint.fromrarith_int(-sys.maxint-1).eq((
-#            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
+#        assert rbigint.fromrarith_int(-sys.maxsize-1).eq((
+#            rbigint.digits_for_most_neg_long(-sys.maxsize-1), -1)
 
     def test_args_from_uint(self):
         BASE = 1 << SHIFT
@@ -465,12 +484,12 @@ class Test_rbigint(object):
         assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(bigint([intmask(BASE-1)], 1))
         assert rbigint.fromrarith_int(r_uint(BASE)).eq(bigint([0, 1], 1))
         #assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(bigint([0], 0))
-        assert rbigint.fromrarith_int(r_uint(sys.maxint)).eq(
-            rbigint.fromint(sys.maxint))
-        assert rbigint.fromrarith_int(r_uint(sys.maxint+1)).eq(
-            rbigint.fromlong(sys.maxint+1))
-        assert rbigint.fromrarith_int(r_uint(2*sys.maxint+1)).eq(
-            rbigint.fromlong(2*sys.maxint+1))
+        assert rbigint.fromrarith_int(r_uint(sys.maxsize)).eq(
+            rbigint.fromint(sys.maxsize))
+        assert rbigint.fromrarith_int(r_uint(sys.maxsize+1)).eq(
+            rbigint.fromlong(sys.maxsize+1))
+        assert rbigint.fromrarith_int(r_uint(2*sys.maxsize+1)).eq(
+            rbigint.fromlong(2*sys.maxsize+1))
 
     def test_fromdecimalstr(self):
         x = rbigint.fromdecimalstr("12345678901234567890523897987")
@@ -624,6 +643,19 @@ class Test_rbigint(object):
             result = f1.mul(f1)
             assert result.tolong() == x * x
 
+    def test_mul_lopsided(self):
+        smallsize = KARATSUBA_CUTOFF + 1
+        a = (1 << (smallsize * SHIFT)) - 1
+        for largesize in (2 * smallsize, 2 * smallsize + 1,
+                          4 * smallsize + 3, 16 * smallsize + 1):
+            for b in ((1 << (largesize * SHIFT)) - 1,
+                      (1 << (largesize * SHIFT - 1)) + 1):
+                for sign_a, sign_b in ((1, 1), (-1, 1), (1, -1)):
+                    x = sign_a * a
+                    y = sign_b * b
+                    assert rbigint.fromlong(x).mul(
+                        rbigint.fromlong(y)).tolong() == x * y
+
     def test_int_mul(self):
         for x in gen_signs(long_vals):
             f1 = rbigint.fromlong(x)
@@ -774,7 +806,7 @@ class Test_rbigint(object):
         assert type(u) is r_uint
 
     def test_conversions(self):
-        for v in (0, 1, -1, sys.maxint, -sys.maxint-1):
+        for v in (0, 1, -1, sys.maxsize, -sys.maxsize-1):
             assert rbigint.fromlong(long(v)).tolong() == long(v)
             l = rbigint.fromint(v)
             assert l.toint() == v
@@ -786,22 +818,22 @@ class Test_rbigint(object):
                 with pytest.raises(ValueError):
                     l.touint()
 
-        toobig_lv1 = rbigint.fromlong(sys.maxint+1)
-        assert toobig_lv1.tolong() == sys.maxint+1
-        toobig_lv2 = rbigint.fromlong(sys.maxint+2)
-        assert toobig_lv2.tolong() == sys.maxint+2
-        toobig_lv3 = rbigint.fromlong(-sys.maxint-2)
-        assert toobig_lv3.tolong() == -sys.maxint-2
+        toobig_lv1 = rbigint.fromlong(sys.maxsize+1)
+        assert toobig_lv1.tolong() == sys.maxsize+1
+        toobig_lv2 = rbigint.fromlong(sys.maxsize+2)
+        assert toobig_lv2.tolong() == sys.maxsize+2
+        toobig_lv3 = rbigint.fromlong(-sys.maxsize-2)
+        assert toobig_lv3.tolong() == -sys.maxsize-2
 
         for lv in (toobig_lv1, toobig_lv2, toobig_lv3):
             with pytest.raises(OverflowError):
                 lv.toint()
 
-        lmaxuint = rbigint.fromlong(2*sys.maxint+1)
-        toobig_lv4 = rbigint.fromlong(2*sys.maxint+2)
+        lmaxuint = rbigint.fromlong(2*sys.maxsize+1)
+        toobig_lv4 = rbigint.fromlong(2*sys.maxsize+2)
 
         u = lmaxuint.touint()
-        assert u == 2*sys.maxint+1
+        assert u == 2*sys.maxsize+1
 
         with pytest.raises(ValueError):
             toobig_lv3.touint()
@@ -846,7 +878,7 @@ class Test_rbigint(object):
                 t = t.add(rbigint.fromint(1))
             if i not in enabled:
                 continue    # don't take forever
-            n = randint(1, sys.maxint)
+            n = randint(1, sys.maxsize)
             v = two.pow(t, rbigint.fromint(n))
             assert v.toint() == pow(2, t.tolong(), n)
 
@@ -911,7 +943,7 @@ class Test_rbigint(object):
 
     def test_shift_optimization(self):
         # does not crash with memory error
-        assert rbigint.fromint(0).lshift(sys.maxint).tolong() == 0
+        assert rbigint.fromint(0).lshift(sys.maxsize).tolong() == 0
 
     def test_qshift(self):
         for x in range(10):
@@ -958,6 +990,20 @@ class Test_rbigint(object):
                     res1 = getattr(lx, mod)(ly).tolong()
                     res2 = getattr(operator, mod)(x, y)
                     assert res1 == res2
+
+    def test_bitwise_unequal_lengths(self):
+        large = (1 << (100 * SHIFT)) | (1 << (17 * SHIFT)) | 7
+        small = (1 << SHIFT) | 3
+        for x, y in ((large, small), (small, large)):
+            for sign_x in (-1, 1):
+                for sign_y in (-1, 1):
+                    a = sign_x * x
+                    b = sign_y * y
+                    ra = rbigint.fromlong(a)
+                    rb = rbigint.fromlong(b)
+                    for mod in "xor and_ or_".split():
+                        assert getattr(ra, mod)(rb).tolong() == getattr(
+                            operator, mod)(a, b)
 
     def test_int_bitwise(self):
         for x in gen_signs(long_vals):
@@ -1024,12 +1070,12 @@ class Test_rbigint(object):
     def test_bit_length_int(self):
         assert bit_length_int(0) == 0
         assert bit_length_int(1) == 1
-        assert bit_length_int(sys.maxint) in (31, 63)
-        assert bit_length_int(-sys.maxint-1) in (32, 64)
+        assert bit_length_int(sys.maxsize) in (31, 63)
+        assert bit_length_int(-sys.maxsize-1) in (32, 64)
 
     def test_hash(self):
         for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-                  sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
+                  sys.maxsize-3, sys.maxsize-2, sys.maxsize-1, sys.maxsize,
                   ]:
             # hash of machine-sized integers
             assert rbigint.fromint(i).hash() == i
@@ -1160,7 +1206,7 @@ def test_frombytes_int():
         frombytes_int(s, byteorder='big', signed=False)
     # Test minint (two's complement asymmetry)
     import sys
-    minint = -sys.maxint - 1
+    minint = -sys.maxsize - 1
     # minint in 8 bytes (for 64-bit) or 4 bytes (for 32-bit)
     nbytes = LONG_BIT // 8
     s = tobytes_int(minint, nbytes, 'big', signed=True)
@@ -1214,12 +1260,22 @@ def test_frombytes_tobytes_int_hypothesis(s, big, signed):
     try:
         value2 = frombytes_int(s, byteorder, signed)
     except OverflowError:
-        assert not (-sys.maxint-1 <= bigint.tolong() <= sys.maxint)
+        assert not (-sys.maxsize-1 <= bigint.tolong() <= sys.maxsize)
     else:
         assert bigint.bit_length() <= LONG_BIT
         assert value2 == bigint.toint()
 
 class TestInternalFunctions(object):
+    def test__int_rem_core(self):
+        # Include unreduced top digits and maximal two-digit dividends.
+        values = [0, 1, MASK, MASK + 1,
+                  (1 << (2 * SHIFT)) - 1, (1 << (4 * SHIFT)) - 1]
+        for digit in [1, 2, 3, MASK // 2, MASK - 1, MASK]:
+            for value in values + [digit - 1, digit, digit + 1]:
+                for sign in [1, -1]:
+                    a = rbigint.fromlong(sign * value)
+                    assert lobj._int_rem_core(a, digit) == value % digit
+
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
         for x, y in [(1238585838347, 3), (1234123412311231, 1231231), (99, 100)]:
@@ -1329,13 +1385,13 @@ class TestInternalFunctions(object):
 
     def test_int_divmod(self):
         for x in long_vals:
-            for y in int_vals + [-sys.maxint-1]:
+            for y in int_vals + [-sys.maxsize-1]:
                 if not y:
                     continue
                 for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
                     sx *= x
                     sy *= y
-                    if sy == sys.maxint + 1:
+                    if sy == sys.maxsize + 1:
                         continue
                     f1 = rbigint.fromlong(sx)
                     div, rem = f1.int_divmod(sy)
@@ -1395,16 +1451,16 @@ class TestInternalFunctions(object):
     def test_uintmask(self):
         assert rbigint.fromint(-1).uintmask() == r_uint(-1)
         assert rbigint.fromint(0).uintmask() == r_uint(0)
-        assert (rbigint.fromint(sys.maxint).uintmask() ==
-                r_uint(sys.maxint))
-        assert (rbigint.fromlong(sys.maxint+1).uintmask() ==
-                r_uint(-sys.maxint-1))
+        assert (rbigint.fromint(sys.maxsize).uintmask() ==
+                r_uint(sys.maxsize))
+        assert (rbigint.fromlong(sys.maxsize+1).uintmask() ==
+                r_uint(-sys.maxsize-1))
 
     def test_ulonglongmask(self):
         assert rbigint.fromlong(-1).ulonglongmask() == r_ulonglong(-1)
         assert rbigint.fromlong(0).ulonglongmask() == r_ulonglong(0)
-        assert (rbigint.fromlong(sys.maxint).ulonglongmask() ==
-                r_ulonglong(sys.maxint))
+        assert (rbigint.fromlong(sys.maxsize).ulonglongmask() ==
+                r_ulonglong(sys.maxsize))
         assert (rbigint.fromlong(9**50).ulonglongmask() ==
                 r_ulonglong(9**50))
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
@@ -1418,10 +1474,10 @@ class TestInternalFunctions(object):
         assert rbigint.fromlong(0).fits_int()
         assert rbigint.fromlong(42).fits_int()
         assert rbigint.fromlong(-42).fits_int()
-        assert rbigint.fromlong(sys.maxint).fits_int()
-        assert not rbigint.fromlong(sys.maxint + 1).fits_int()
-        assert rbigint.fromlong(-sys.maxint - 1).fits_int()
-        assert not rbigint.fromlong(-sys.maxint - 2).fits_int()
+        assert rbigint.fromlong(sys.maxsize).fits_int()
+        assert not rbigint.fromlong(sys.maxsize + 1).fits_int()
+        assert rbigint.fromlong(-sys.maxsize - 1).fits_int()
+        assert not rbigint.fromlong(-sys.maxsize - 2).fits_int()
         assert not rbigint.fromlong(-73786976294838206459).fits_int()
         assert not rbigint.fromlong(1 << 1000).fits_int()
 
@@ -1481,6 +1537,70 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_tofloat_one_limb(self):
+        def fn(x):
+            a = rbigint.fromint(x)
+            # Construct the scale without shifting a signed machine int
+            # into its sign bit in translated code.
+            scale = float(1 << (SHIFT - 1)) * 2.0
+            return a.tofloat() == a.lshift(SHIFT).tofloat() / scale
+        for value in [0, 1, -1, MASK - 1, MASK, -MASK]:
+            assert interpret(fn, [value])
+
+    def test_tofloat_sticky_bits(self):
+        def fn(tail, shift):
+            a = rbigint.fromint(1).lshift(54).int_add(2)
+            return a.lshift(shift).int_add(tail).tofloat()
+        for shift in [SHIFT, SHIFT + 1]:
+            for tail in [0, 1]:
+                expected = float((((1 << 54) + 2) << shift) + tail)
+                assert interpret(fn, [tail, shift]) == expected
+
+    def test_negative_rshift(self):
+        def fn(x, shift):
+            a = rbigint.fromint(x).lshift(2 * SHIFT).int_sub(1)
+            return a.rshift(shift).eq(a.invert().rshift(shift).invert())
+        for args in [(-MASK, 1), (-1, SHIFT), (0, sys.maxsize)]:
+            assert interpret(fn, list(args))
+
+    def test_lehmer_update(self):
+        def fn(x, y, s, t):
+            a = rbigint.fromint(x).lshift(SHIFT).int_add(x)
+            b = rbigint.fromint(y)
+            c, d = _lehmer_update(a, b, s, t, -s, -t)
+            return c.eq(d) and c.eq(a.int_mul(s).add(b.int_mul(t)).abs())
+        assert interpret(fn, [MASK, MASK, MASK, -MASK])
+        assert interpret(fn, [MASK, MASK, -MASK, -MASK])
+
+    def test_pow(self):
+        def fn(base, exponent, modulus):
+            a = rbigint.fromint(base)
+            e = rbigint.fromint(exponent).lshift(SHIFT + 3).int_add(31)
+            m = rbigint.fromint(modulus)
+            return a.int_pow(exponent, m).toint(), a.pow(e, m).toint()
+        for args in [(-17, 3, -1009), (17, sys.maxsize, 1009)]:
+            a, e, m = args
+            expected = pow(a, e, m), pow(a, (e << (SHIFT + 3)) + 31, m)
+            result = interpret(fn, list(args))
+            assert (result.item0, result.item1) == expected
+
+    def test_int_mod_int_result(self):
+        def fn(x, divisor):
+            a = rbigint.fromint(x).lshift(2 * SHIFT).int_add(x)
+            return a.int_mod_int_result(divisor)
+        expected = ((MASK << (2 * SHIFT)) + MASK) % 3
+        assert interpret(fn, [MASK, 3]) == expected
+
+    def test_mod_one_digit_bigint(self):
+        def fn(x, divisor):
+            a = rbigint.fromint(x).lshift(2 * SHIFT).int_add(x)
+            return a.mod(rbigint.fromint(divisor)).toint()
+
+        for x, divisor in [(MASK, 3), (-MASK, 3),
+                           (MASK, -3), (-MASK, -3), (MASK, MASK)]:
+            expected = ((x << (2 * SHIFT)) + x) % divisor
+            assert interpret(fn, [x, divisor]) == expected
+
     def test_square(self):
         def test():
             xlo = rbigint.fromint(1410065408)
@@ -1511,7 +1631,7 @@ class TestTranslatable(object):
             if r in (r_int, r_int_real, r_uint_real):  # and also r_longlong on 64-bit
                 continue
             if r is int:
-                mask = sys.maxint*2+1
+                mask = sys.maxsize*2+1
                 signed = True
             else:
                 mask = r.MASK
@@ -1560,28 +1680,136 @@ class TestTranslatable(object):
         def fn(x, y):
             res = rbigint.mul_int_int_bigint_result(x, y)
             return len(res.str())
-        res = interpret(fn, [sys.maxint, sys.maxint])
+        res = interpret(fn, [sys.maxsize, sys.maxsize])
 
 
 class TestTranslated(StandaloneTests):
 
     def test_gcc_4_9(self):
-        MIN = -sys.maxint-1
+        MIN = -sys.maxsize-1
 
         def entry_point(argv):
-            print rbigint.fromint(MIN+1)._digits
-            print rbigint.fromint(MIN)._digits
+            print(rbigint.fromint(MIN+1)._digits)
+            print(rbigint.fromint(MIN)._digits)
             return 0
 
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         if SHIFT == LONG_BIT-1:
-            assert data == '[%d]\n[0, 1]\n' % sys.maxint
+            assert data == '[%d]\n[0, 1]\n' % sys.maxsize
         else:
             # assume 64-bit without native 128-bit type
             assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
+    @given(strategies.data())
+    def test_tofloat_one_limb(self, data):
+        boundaries = [0, 1, 2, MASK - 1, MASK]
+        for bit in [53, 54, SHIFT - 1]:
+            if bit <= SHIFT:
+                boundaries.extend([max(0, (1 << bit) - 1),
+                                   min(MASK, 1 << bit),
+                                   min(MASK, (1 << bit) + 1)])
+        magnitude = data.draw(strategies.one_of(
+            strategies.integers(0, MASK),
+            strategies.sampled_from(boundaries)))
+        sign = data.draw(strategies.sampled_from([-1, 1]))
+        value = sign * magnitude
+        a = rbigint.fromlong(value)
+        direct = a.tofloat()
+        assert direct == float(value)
+        # Multiplying by a limb base forces the general conversion path.
+        # Scaling its result back by the same power of two is exact.
+        general = a.lshift(SHIFT).tofloat() / float(1 << SHIFT)
+        assert direct == general
+
+    @given(strategies.data())
+    def test_as_ulonglong_shifted(self, data):
+        shift = data.draw(strategies.one_of(
+            strategies.integers(0, 2000),
+            strategies.sampled_from([0, 1, SHIFT - 1, SHIFT, SHIFT + 1,
+                                    2 * SHIFT - 1, 2 * SHIFT, 2 * SHIFT + 1])))
+        # Construct the retained word and discarded region independently.
+        # Include full-width words, limb boundaries, and sparse/dense tails.
+        boundaries = {0, 1, (1 << 64) - 1, 1 << 63}
+        for bit in range(SHIFT, 64, SHIFT):
+            boundaries.update([(1 << bit) - 1, 1 << bit, (1 << bit) + 1])
+        word = data.draw(strategies.one_of(
+            strategies.integers(0, (1 << 64) - 1),
+            strategies.sampled_from(sorted(boundaries))))
+        tail_max = (1 << shift) - 1
+        tail = data.draw(strategies.one_of(
+            strategies.integers(0, tail_max),
+            strategies.sampled_from([0, tail_max, (1 << (shift // 2)) - 1])))
+        n = rbigint.fromlong((word << shift) | tail)
+        actual = _AsULonglong_shifted(n, shift)
+        assert type(actual) is r_ulonglong
+        assert actual == _AsULonglong_mask(n.rshift(shift))
+        assert actual == word
+
+    @given(strategies.data())
+    def test_negative_rshift(self, data):
+        shift = data.draw(strategies.integers(0, 4 * SHIFT))
+        q = data.draw(strategies.one_of(
+            strategies.integers(0, (1 << (3 * SHIFT)) - 1),
+            strategies.sampled_from([0, 1, MASK, MASK + 1,
+                                      (1 << (3 * SHIFT)) - 1])))
+        limit = (1 << shift) - 1
+        tail = data.draw(strategies.one_of(
+            strategies.integers(0, limit),
+            strategies.sampled_from([0, min(1, limit), limit])))
+        x = -((q << shift) + tail)
+        a = rbigint.fromlong(x)
+        assert a.rshift(shift).tolong() == -(q + bool(tail))
+        assert a.rshift(shift, dont_invert=True).tolong() == -q
+        assert a.tolong() == x
+
+    @given(strategies.data())
+    def test_lehmer_update(self, data):
+        nbits = data.draw(strategies.integers(1, 5 * SHIFT))
+        values = strategies.one_of(
+            strategies.integers(0, (1 << nbits) - 1),
+            strategies.sampled_from([0, 1, (1 << nbits) - 1,
+                                      1 << (nbits - 1)]))
+        x, y = data.draw(values), data.draw(values)
+        if x < y:
+            x, y = y, x
+        coefficients = strategies.one_of(
+            strategies.integers(-MASK, MASK),
+            strategies.sampled_from([-MASK, -1, 0, 1, MASK]))
+        s, t, u, v = [data.draw(coefficients) for i in range(4)]
+        a, b = rbigint.fromlong(x), rbigint.fromlong(y)
+        c, d = _lehmer_update(a, b, s, t, u, v)
+        assert c.tolong() == abs(s * x + t * y)
+        assert d.tolong() == abs(u * x + v * y)
+        assert a.tolong() == x and b.tolong() == y
+
+    @given(strategies.data())
+    def test_pow_windows(self, data):
+        # Construct sparse/dense exponents and windows near digit and
+        # algorithm boundaries, rather than relying on arbitrary integers.
+        nbits = data.draw(strategies.sampled_from([
+            SHIFT - 1, SHIFT, SHIFT + 1, 2 * SHIFT - 1, 2 * SHIFT + 1,
+            lobj.EXP_WINDOW_CUTOFF - 1, lobj.EXP_WINDOW_CUTOFF,
+            lobj.EXP_WINDOW_CUTOFF + 1, 9 * SHIFT + 3]))
+        top = 1 << (nbits - 1)
+        exponent = data.draw(strategies.one_of(
+            strategies.integers(top, 2 * top - 1),
+            strategies.sampled_from([top, top + 1, 2 * top - 1,
+                                      top | (top >> 1) | 1])))
+        base = data.draw(strategies.integers(-(1 << (2 * SHIFT)),
+                                             1 << (2 * SHIFT)))
+        modulus = data.draw(strategies.integers(-(1 << (2 * SHIFT)),
+                                                1 << (2 * SHIFT)))
+        assume(modulus != 0)
+        a = rbigint.fromlong(base)
+        e = rbigint.fromlong(exponent)
+        m = rbigint.fromlong(modulus)
+        expected = pow(base, exponent, modulus)
+        assert a.pow(e, m).tolong() == expected
+        if exponent <= sys.maxsize:
+            assert a.int_pow(int(exponent), m).tolong() == expected
+
     @given(longs, longs, longs)
     def test_pow(self, x, y, z):
         f1 = rbigint.fromlong(x)
@@ -2007,7 +2235,7 @@ class TestHypothesis(object):
         res = rbigint.mul_int_int_bigint_result(a, b)
         assert res.tolong() == a * b
 
-    @example(-sys.maxint-1, 5)
+    @example(-sys.maxsize-1, 5)
     @example(-1, 10)
     @example(1, 1071)
     @given(ints, strategies.integers(0, 2000))
@@ -2023,7 +2251,7 @@ class TestHypothesis(object):
         assume(bool(b))
         atimesbplusb = rbigint.mul_int_int_bigint_result(a, b).int_add(c)
         div, mod = _format_lowest_level_divmod_int_results(atimesbplusb, b)
-        print a, b, c, atimesbplusb, div, mod
+        print(a, b, c, atimesbplusb, div, mod)
         assert (div, mod) == divmod(atimesbplusb.tolong(), b)
 
     @given(strategies.integers(0, 10**18-1))
@@ -2053,42 +2281,365 @@ class TestHypothesis(object):
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):
-    # run the TestHypothesis in a subprocess with a smaller SHIFT value
-    # the idea is that this finds hopefully finds edge cases more easily
+    # Run each property with 7-bit limbs and byte/short arithmetic.
     import subprocess, os
     # The cwd on the buildbot is actually in rpython
     # Add the pypy basedir so we get the local pytest
     env = os.environ.copy()
     parent = os.path.dirname
     env['PYTHONPATH'] = parent(parent(parent(parent(__file__))))
-    p = subprocess.Popen(" ".join([sys.executable, os.path.abspath(__file__), methname]),
+    command = [sys.executable, os.path.abspath(__file__), methname]
+    p = subprocess.Popen(command,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         shell=True, env=env)
+                         env=env)
     stdout, stderr = p.communicate()
     if p.returncode:
-        print stdout
-        print stderr
+        print(stdout)
+        print(stderr)
     assert not p.returncode
 
-def _get_hacked_rbigint(shift):
-    testpath = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(os.path.dirname(testpath), "rbigint.py")) as f:
-        s = f.read()
-    s = s.replace("SHIFT = 63", "SHIFT = %s" % (shift, ))
-    s = s.replace("SHIFT = 31", "SHIFT = %s" % (shift, ))
-    with open(os.path.join(testpath, "_hacked_rbigint.py"), "w") as f:
-        f.write(s)
+def _get_byte_limb_rbigint():
+    import types
 
-    from rpython.rlib.test import _hacked_rbigint
-    assert _hacked_rbigint.SHIFT == shift
-    return _hacked_rbigint
+    testpath = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(os.path.dirname(testpath), "rbigint.py")
+    with open(path) as f:
+        s = f.read()
+    name = 'rpython.rlib.test._byte_limb_rbigint'
+    mod = types.ModuleType(name)
+    mod.__file__ = path
+    mod.TEST_SMALL_DIGITS = True
+    sys.modules[name] = mod
+    # This test module uses future division; rbigint.py deliberately doesn't.
+    eval(compile(s, path, 'exec', 0, True), mod.__dict__)
+    assert mod.SHIFT == 7
+    return mod
+
+
+@pytest.fixture(scope='module')
+def byte_limb_rbigint():
+    return _get_byte_limb_rbigint()
+
+
+@pytest.fixture(params=[False, True], ids=['native', 'byte'])
+def arithmetic_rbigint(request, byte_limb_rbigint):
+    return byte_limb_rbigint if request.param else lobj
+
+
+def test_tofloat_sticky_bits(arithmetic_rbigint):
+    m = arithmetic_rbigint
+    # Exercise discarded regions ending within a limb and at limb boundaries.
+    shifts = list(range(1, 2 * m.SHIFT + 2)) + [969]
+    for shift in shifts:
+        positions = set([0, shift - 1])
+        positions.update(range(m.SHIFT - 1, shift, m.SHIFT))
+        # Both even and odd retained significands, just below/at/above a tie.
+        for significand in [(1 << 52), (1 << 52) + 1, (1 << 53) - 1]:
+            for low in [0, 1, 2, 3]:
+                top = (significand << 2) | low
+                tails = [0, (1 << shift) - 1]
+                tails.extend(1 << bit for bit in positions)
+                for tail in tails:
+                    value = (top << shift) | tail
+                    for sign in [-1, 1]:
+                        try:
+                            expected = float(sign * value)
+                        except OverflowError:
+                            with pytest.raises(OverflowError):
+                                m.rbigint.fromlong(sign * value).tofloat()
+                        else:
+                            assert m.rbigint.fromlong(sign * value).tofloat() == expected
+
+
+def test_tofloat_overflow_boundary(arithmetic_rbigint):
+    m = arithmetic_rbigint
+    # Halfway between the largest finite double and 2**1024: rounding
+    # reaches 2**1024 here, although the integer still has only 1024 bits.
+    boundary = (1 << 1024) - (1 << 970)
+    for sign in [-1, 1]:
+        for value in [boundary - 1, boundary - (1 << 970)]:
+            assert m.rbigint.fromlong(sign * value).tofloat() == float(sign * value)
+        for value in [boundary, boundary + 1, (1 << 1024) - 1,
+                      1 << 1024, 1 << 100000]:
+            with pytest.raises(OverflowError):
+                m.rbigint.fromlong(sign * value).tofloat()
+
+
+class TestPowAlgorithms(object):
+    def test_small_exponents(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
+        original = m._help_mult
+        calls = []
+
+        def counted(x, y, modulus):
+            calls.append(None)
+            return original(x, y, modulus)
+        monkeypatch.setattr(m, '_help_mult', counted)
+        for base in [-((1 << (2 * m.SHIFT)) + 3), -1, 0, 1,
+                     (1 << (2 * m.SHIFT)) + 3]:
+            a = m.rbigint.fromlong(base)
+            for exponent in range(4):
+                e = m.rbigint.fromint(exponent)
+                for modulus in [None, -1009, -1, 1, 1009]:
+                    c = None if modulus is None else m.rbigint.fromint(modulus)
+                    expected = base ** exponent if modulus is None else pow(base, exponent, modulus)
+                    for int_exponent in [False, True]:
+                        del calls[:]
+                        if int_exponent:
+                            result = a.int_pow(exponent, c)
+                        else:
+                            result = a.pow(e, c)
+                        assert result.tolong() == expected
+                        # Guard against reintroducing leading unit squarings.
+                        assert len(calls) <= max(0, exponent - 1)
+        zero = m.rbigint.fromint(0)
+        for exponent in range(4):
+            with pytest.raises(ValueError):
+                a.pow(m.rbigint.fromint(exponent), zero)
+            with pytest.raises(ValueError):
+                a.int_pow(exponent, zero)
+
+    def test_binary_operation_count(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
+        original = m._help_mult
+        calls = []
+
+        def counted(x, y, modulus):
+            calls.append(None)
+            return original(x, y, modulus)
+        monkeypatch.setattr(m, '_help_mult', counted)
+        a = m.rbigint.fromint(5)
+        modulus = m.rbigint.fromint(1009)
+        for exponent in [4, 5, 8, 17, (1 << min(m.SHIFT, 30)) + 1,
+                         (1 << (m.EXP_WINDOW_CUTOFF + 17)) + 1,
+                         sum(1 << (i * 8) for i in range(17))]:
+            expected_calls = exponent.bit_length() - 1 + bin(exponent).count('1') - 1
+            for int_exponent in [False, True]:
+                if int_exponent and exponent > sys.maxsize:
+                    continue
+                del calls[:]
+                if int_exponent:
+                    result = a.int_pow(exponent, modulus)
+                else:
+                    result = a.pow(m.rbigint.fromlong(exponent), modulus)
+                assert result.toint() == pow(5, exponent, 1009)
+                assert len(calls) == expected_calls
+
+    def test_window_boundaries(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
+        original = m._help_mult
+        calls = []
+
+        def counted(x, y, modulus):
+            calls.append(None)
+            return original(x, y, modulus)
+        monkeypatch.setattr(m, '_help_mult', counted)
+        exponents = set()
+        for nbits in [m.SHIFT, m.SHIFT + 1, 2 * m.SHIFT - 1,
+                      2 * m.SHIFT, 2 * m.SHIFT + 1,
+                      m.EXP_WINDOW_CUTOFF - 1, m.EXP_WINDOW_CUTOFF,
+                      m.EXP_WINDOW_CUTOFF + 1, 9 * m.SHIFT + 3]:
+            top = 1 << (nbits - 1)
+            exponents.update([top, top | 1, 2 * top - 1,
+                              top | (top >> 1), top | (top >> 4) | 1])
+        # Exhaust short suffixes, including partial windows with trailing
+        # zeroes and full windows followed by zeroes or another window.
+        top = ((1 << m.EXP_WINDOW_CUTOFF) - 1) << (m.EXP_WINDOW_CUTOFF + 3)
+        exponents.update(top | suffix for suffix in range(256))
+        for exponent in sorted(exponents):
+            e = m.rbigint.fromlong(exponent)
+            binary_calls = exponent.bit_length() + bin(exponent).count('1') - 2
+            for base in [-1, 0, 1]:
+                del calls[:]
+                assert m.rbigint.fromint(base).pow(e).toint() == pow(base, exponent)
+                assert len(calls) <= binary_calls
+            for base, modulus in [(-12345, -1009), (0, 1009),
+                                  (12345, 1009), (12345, -1)]:
+                a = m.rbigint.fromint(base)
+                c = m.rbigint.fromint(modulus)
+                expected = pow(base, exponent, modulus)
+                del calls[:]
+                assert a.pow(e, c).tolong() == expected
+                assert len(calls) <= binary_calls
+                if exponent <= sys.maxsize:
+                    del calls[:]
+                    assert a.int_pow(int(exponent), c).tolong() == expected
+                    assert len(calls) <= binary_calls
+
+
+class TestDiscardedBits(object):
+    def test_boundaries(self, arithmetic_rbigint):
+        m = arithmetic_rbigint
+        magnitudes = {0, 1}
+        for bit in range(4 * m.SHIFT + 1):
+            magnitudes.update([1 << bit, (1 << bit) - 1, (1 << bit) + 1])
+        shifts = list(range(4 * m.SHIFT + 2)) + [sys.maxsize]
+        for magnitude in sorted(magnitudes):
+            for sign in [-1, 1]:
+                a = m.rbigint.fromlong(sign * magnitude)
+                for shift in shifts:
+                    expected = magnitude != ((magnitude >> shift) << shift)
+                    assert m._has_discarded_bits(a, shift) == expected
+        with pytest.raises(AssertionError):
+            m._has_discarded_bits(m.NULLRBIGINT, -1)
+
+    def test_narrow_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for magnitude in range(1 << (2 * m.SHIFT)):
+            a = m.rbigint.fromint(magnitude)
+            for shift in range(2 * m.SHIFT + 2):
+                expected = bool(magnitude & ((1 << shift) - 1))
+                assert m._has_discarded_bits(a, shift) == expected
+
+
+class TestNegativeRshift(object):
+    def test_boundaries(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
+        def no_invert(self):
+            raise AssertionError('negative shifting must not invert its input')
+        monkeypatch.setattr(m.rbigint, 'invert', no_invert)
+        magnitudes = {1, 2, 3}
+        for k in range(1, 6):
+            power = 1 << (k * m.SHIFT)
+            magnitudes.update([power - 2, power - 1, power, power + 1, power + 2])
+        for magnitude in sorted(magnitudes):
+            a = m.rbigint.fromlong(-magnitude)
+            digits = a._digits[:]
+            shifts = [0, 1, m.SHIFT - 1, m.SHIFT, m.SHIFT + 1,
+                      2 * m.SHIFT - 1, 2 * m.SHIFT, 2 * m.SHIFT + 1,
+                      magnitude.bit_length() - 1, magnitude.bit_length(),
+                      magnitude.bit_length() + 1, sys.maxsize]
+            for shift in shifts:
+                assert a.rshift(shift).tolong() == -magnitude >> shift
+                assert a.rshift(shift, dont_invert=True).tolong() == -(magnitude >> shift)
+                assert a._digits == digits and a.tolong() == -magnitude
+            assert a.rshift(0) is a
+            with pytest.raises(ValueError):
+                a.rshift(-1)
+
+    def test_narrow_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for magnitude in range(1 << (2 * m.SHIFT)):
+            a = m.rbigint.fromint(-magnitude)
+            for shift in range(2 * m.SHIFT + 3):
+                assert a.rshift(shift).tolong() == -magnitude >> shift
+            assert a.tolong() == -magnitude
+
+
+class TestLehmerUpdate(object):
+    def test_boundaries(self, arithmetic_rbigint):
+        m = arithmetic_rbigint
+        base = 1 << m.SHIFT
+        values = [0, 1, base - 1, base, base + 1,
+                  base ** 2 - 1, base ** 3 - 1, base ** 5,
+                  base ** 5 - 1, base ** 5 + 1]
+        matrices = [(1, 0, 0, 1), (0, 1, 1, 0), (0, 0, 0, 0),
+                    (1, -1, -1, 1), (-1, 0, 0, -1),
+                    (m.MASK, m.MASK, -m.MASK, -m.MASK),
+                    (m.MASK, -m.MASK, -m.MASK, m.MASK),
+                    (m.MASK, 1, -1, -m.MASK)]
+        for x in values:
+            for y in values:
+                a, b = m.rbigint.fromlong(x), m.rbigint.fromlong(y)
+                if a.numdigits() < b.numdigits():
+                    continue
+                digits_a, digits_b = a._digits[:], b._digits[:]
+                for s, t, u, v in matrices:
+                    c, d = m._lehmer_update(a, b, s, t, u, v)
+                    assert c.tolong() == abs(s * x + t * y)
+                    assert d.tolong() == abs(u * x + v * y)
+                    assert c.get_sign() >= 0 and d.get_sign() >= 0
+                    assert c.numdigits() == 1 or c.digit(c.numdigits() - 1)
+                    assert d.numdigits() == 1 or d.digit(d.numdigits() - 1)
+                    assert a._digits == digits_a and b._digits == digits_b
+                    assert a.tolong() == x and b.tolong() == y
+
+    def test_narrow_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        values = [m.rbigint.fromint(i) for i in range(m.MASK + 1)]
+        for x, a in enumerate(values):
+            for y, b in enumerate(values):
+                c, d = m._lehmer_update(a, b, m.MASK, m.MASK,
+                                       -m.MASK, -m.MASK)
+                assert c.tolong() == d.tolong() == m.MASK * (x + y)
+                c, d = m._lehmer_update(a, b, m.MASK, -m.MASK,
+                                       -m.MASK, m.MASK)
+                assert c.tolong() == d.tolong() == m.MASK * abs(x - y)
+
+    def test_narrow_coefficients(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for a in range(1, m.MASK + 1):
+            for b in range(1, a + 1):
+                s, t, u, v = m.lehmer_xgcd(a, b)
+                assert all(abs(c) <= m.MASK for c in [s, t, u, v])
+                assert abs(s * v - t * u) == 1
+                assert 0 <= u * a + v * b <= s * a + t * b
+
+
+class TestByteLimbArithmetic(object):
+    def test_widths(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        assert m.SHIFT == 7
+        assert m.UDIGIT_TYPE.BITS == 8
+        assert m.rffi.sizeof(m.STORE_TYPE) == 1
+        assert m._store_digit(128) == -128
+        assert m._widen_digit(0).BITS == 16
+        assert m._unsigned_widen_digit(0).BITS == 16
+        assert m.UDIGIT_TYPE(255) + 1 == 0
+        assert m._load_unsigned_digit(0) - 1 == 255
+        assert m._unsigned_widen_digit(65535) + 1 == 0
+        with pytest.raises(OverflowError):
+            m._widen_digit(32767) + 1
+        # Widening after the shift would lose bits in this configuration.
+        assert m.UDIGIT_TYPE(2) << m.SHIFT == 0
+        assert m._unsigned_widen_digit(m.UDIGIT_TYPE(2)) << m.SHIFT == 256
+
+    def test_large_digit_count(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        value = (1 << (300 * m.SHIFT)) - 1
+        a = m.rbigint.fromlong(value)
+        assert a.numdigits() == 300
+        assert m._int_rem_core(a, 3) == value % 3
+        assert a.int_add(1).tolong() == value + 1
+        assert a.sub(m.ONERBIGINT).tolong() == value - 1
+        assert a.mul(a).tolong() == value * value
+
+    def test_byte_input_and_native_counters(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for nbytes in [8, 9]:
+            s = '\x00' * (nbytes - 1) + '\x80'
+            a = m.rbigint.frombytes(s, 'little', False)
+            assert a.tolong() == 128 << (8 * (nbytes - 1))
+        a = m.rbigint.fromint(128)
+        assert a.gcd(a).tolong() == 128
+        value = 3 ** 100
+        a = m.rbigint.fromlong(value * value)
+        assert a.isqrt().tolong() == value
+
+    def test_int_rem_core_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        base = 1 << m.SHIFT
+        values = [m.rbigint.fromlong(value) for value in range(base * base)]
+        for divisor in range(1, base):
+            # Exhaust the initial top digit, including top >= divisor.
+            for top in range(base):
+                value = top * base
+                assert m._int_rem_core(values[value], divisor) == value % divisor
+            # Exhaust every valid carried remainder / next-digit pair.
+            for rem in range(divisor):
+                for digit in range(base):
+                    # Keep a nonzero top digit even for remainder zero,
+                    # so every case executes the multi-digit loop.
+                    top = rem or divisor
+                    value = top * base + digit
+                    assert m._int_rem_core(values[value], divisor) == value % divisor
+
 
 def run():
-    shift = 9
-    print "USING SHIFT", shift, sys.argv[1]
-    _hacked_rbigint = _get_hacked_rbigint(shift)
-    globals().update(_hacked_rbigint.__dict__) # emulate import *
-    assert SHIFT == shift
+    print("USING SHIFT 7, byte/short arithmetic", sys.argv[1])
+    byte_limb_rbigint = _get_byte_limb_rbigint()
+    globals().update(byte_limb_rbigint.__dict__) # emulate import *
+    assert SHIFT == 7
     t = TestHypothesis()
     try:
         getattr(t, sys.argv[1])()

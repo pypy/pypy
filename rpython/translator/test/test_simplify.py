@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
@@ -171,7 +173,7 @@ def test_get_graph():
     for block in graph.iterblocks():
         for op in block.operations:
             if op.opname == "direct_call":
-                print op
+                print(op)
                 graph = get_graph(op.args[0], t)
                 assert graph is not None
     # an external function in RPython turns currently into
@@ -184,7 +186,7 @@ def test_get_graph():
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == "direct_call":
-                    print op
+                    print(op)
                     subgraph = get_graph(op.args[0], t)
                     if subgraph is None:
                         # ignore 'get_errno' and 'set_errno', and

@@ -12,7 +12,7 @@ from rpython.translator.platform.test.test_platform import TestPlatform as Basic
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 if platform.machine() == 'i386':
-    if sys.maxint <= 2147483647:
+    if sys.maxsize <= 2147483647:
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
@@ -127,7 +127,7 @@ class TestDarwin(BasicTest):
         eci = ExternalCompilationInfo()
         executable = self.platform.compile([cfile], eci)
         res = self.platform.execute(executable)
-        self.check_res(res, str(sys.maxint) + '\n')
+        self.check_res(res, str(sys.maxsize) + '\n')
 
     @py.test.mark.skip("i386 not supported any more")
     def test_32bit_makefile(self):

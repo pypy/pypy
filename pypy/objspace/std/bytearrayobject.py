@@ -533,11 +533,12 @@ class W_BytearrayObject(W_BufferExporter):
                              _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
+        val = space.byte_w(w_item)
         self._check_exports(space)
         data = self.getdata()
         location = len(data) - 1
         assert location >= 0
-        data.insert(location, space.byte_w(w_item))
+        data.insert(location, val)
 
     def descr_extend(self, space, w_other):
         self._check_exports(space)
@@ -555,11 +556,11 @@ class W_BytearrayObject(W_BufferExporter):
         data.append("\0")
 
     def descr_insert(self, space, w_idx, w_other):
-        self._check_exports(space)
         where = space.int_w(w_idx)
+        val = space.byte_w(w_other)
+        self._check_exports(space)
         data = self.getdata()
         index = get_positive_index(where, len(data) - 1)
-        val = space.byte_w(w_other)
         data.insert(index, val)
 
     @unwrap_spec(w_idx=WrappedDefault(-1))

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import re, random, py
 from rpython.rlib.rsre import rsre_char, rsre_constants
 from rpython.rlib.rsre.rpy import get_code, VERSION
@@ -264,7 +266,7 @@ class TestMatch:
 
     def test_simple_match_1(self):
         r = get_code(r"ab*bbbbbbbc")
-        print r
+        print(r)
         m = match(r, "abbbbbbbbbcdef")
         assert m
         assert m.match_end == P(11)

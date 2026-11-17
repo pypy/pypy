@@ -210,6 +210,10 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 Timestamp.tp_new = timestamp_new;
                 Timestamp.tp_dealloc = datetime_cls->tp_dealloc;
                 if (PyType_Ready(&Timestamp) < 0) INITERROR;
+
+                Py_INCREF(&_Timestamp);
+                if (PyModule_AddObject(mod, "_Timestamp",
+                                       (PyObject *)&_Timestamp) < 0) INITERROR;
             ''')
         # _Timestamp has __new__, __del__ and
         #      inherits from datetime.datetime
@@ -227,12 +231,25 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
         cnt = module.get_cnt()
         assert cnt == 0
 
+        # Timestamp.tp_dealloc is datetime's, so _timestamp_dealloc is
+        # skipped and foocnt is untouched, as on CPython
         obj = module.get_timestamp() #Timestamp
         cnt = module.get_cnt()
         assert cnt == 0
         assert obj.year == 1
-        # XXX calling Timestamp.tp_dealloc which is subtype_dealloc
-        #     causes infinite recursion
+        del obj
+        self.debug_collect()
+        cnt = module.get_cnt()
+        assert cnt == 0
+
+        # an app-level subclass inherits _timestamp_dealloc, which delegates
+        # to datetime's dealloc, which is subtype_dealloc again
+        class Sub(module._Timestamp):
+            pass
+        obj = Sub(1, 1, 1)
+        cnt = module.get_cnt()
+        assert cnt == 1
+        assert obj.year == 1
         del obj
         self.debug_collect()
         cnt = module.get_cnt()

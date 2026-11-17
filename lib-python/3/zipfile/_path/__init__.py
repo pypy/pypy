@@ -181,6 +181,39 @@ class FastLookup(CompleteDirs):
         return self.__lookup
 
 
+class ReopeningLookup(FastLookup):
+    """A read-only FastLookup that does not hold the archive open.
+
+    PyPy only: the central directory is read once and the file is then
+    closed; each open() re-opens it, and ZipFile._fpclose() closes it
+    again when the member is closed.  CPython can rely on the archive
+    being closed by refcount as soon as the Path goes away, which on
+    PyPy waits for a GC -- long enough that on Windows the archive
+    cannot be deleted.  See importlib.resources.readers.ZipReader and
+    test.test_importlib.resources.test_resource.DeletingZipsTest.
+    """
+
+    def __init__(self, filename):
+        super().__init__(filename)
+        self._release()
+
+    def _release(self):
+        fp, self.fp = self.fp, None
+        if fp is not None and not fp.closed:
+            fp.close()
+        self._fileRefCnt = 0
+
+    def open(self, name, mode='r', *args, **kwargs):
+        if self.fp is None or self.fp.closed:
+            self.fp = io.open(self.filename, 'rb')
+            self._fileRefCnt = 0
+        return super().open(name, mode, *args, **kwargs)
+
+    def close(self):
+        # mode is always 'r', so there are no end records to write
+        self._release()
+
+
 def _extract_text_encoding(encoding=None, *args, **kwargs):
     # stacklevel=3 so that the caller of the caller see any warning.
     return io.text_encoding(encoding, 3), args, kwargs

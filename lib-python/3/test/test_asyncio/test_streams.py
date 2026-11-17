@@ -10,6 +10,7 @@ import threading
 import unittest
 from unittest import mock
 import warnings
+from test import support
 from test.support import socket_helper
 try:
     import ssl
@@ -1166,6 +1167,7 @@ os.close(fd)
         messages = self._basetest_unhandled_exceptions(handle_echo)
         self.assertEqual(messages, [])
 
+    @support.impl_detail("cpython gc skips locals in frame", pypy=False)
     def test_open_connection_happy_eyeball_refcycles(self):
         port = socket_helper.find_unused_port()
         async def main():

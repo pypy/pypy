@@ -1,3 +1,4 @@
+import sys
 import _io
 
 def test_init():
@@ -192,3 +193,23 @@ def test_truncate_on_read_only():
         bufio.truncate()
     with raises(_io.UnsupportedOperation):
         bufio.truncate(0)  
+
+def test_write_position_overflow():
+    f = _io.BytesIO(b"abc")
+    f.readline()
+    f.seek(sys.maxsize)
+    with raises(OverflowError):
+        f.write(b"x")
+    assert f.getvalue() == b"abc"
+
+def test_size_index_closes():
+    class ClosingIndex:
+        def __init__(self, f):
+            self.f = f
+        def __index__(self):
+            self.f.close()
+            return 1
+    for name in ["read", "read1", "readline", "truncate"]:
+        f = _io.BytesIO(b"abc")
+        with raises(ValueError):
+            getattr(f, name)(ClosingIndex(f))

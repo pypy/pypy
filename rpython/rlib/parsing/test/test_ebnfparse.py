@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
 from rpython.rlib.parsing.parsing import PackratParser, Symbol, ParseError, Rule
@@ -147,7 +149,7 @@ boolexpr: <BOOLCONST>; #strange thing
 """)
     parser = PackratParser(rules, rules[0].nonterminal)
     s = repr(parser)
-    print s
+    print(s)
     newparser = eval(s)
     assert repr(newparser) == s
 
@@ -241,9 +243,9 @@ def test_jsonparse():
 }""")
     t = ToAST().transform(t)
     t = parse('{"a": "5", "b": [1, null, 3, true, {"f": "g", "h": 6}]}')
-    print "".join(list(t.dot()))
+    print("".join(list(t.dot())))
     t = ToAST().transform(t)
-    print "\n".join(list(t.dot()))
+    print("\n".join(list(t.dot())))
 
 def test_starparse():
     regexs, rules, ToAST = parse_ebnf("""

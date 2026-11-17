@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import json
 import urllib2, py
@@ -26,6 +28,12 @@ def get_list_of_files(shared):
         files.remove(shared.join('libbacktrace', 'config.h'))
     except ValueError:
         pass # might not be there
+    # carry local patches: get_stack_trace() walks the shadow stack under
+    # RPYTHON_VMPROF instead of returning 0, and the RPython half of the file
+    # is made to compile at all, so that faulthandler works on win32.  Drop
+    # these once the same changes are released upstream
+    files.remove(shared.join('vmprof_win.c'))
+    files.remove(shared.join('vmprof_win.h'))
     return files
 
 def test_same_file():
@@ -34,8 +42,8 @@ def test_same_file():
     assert files, 'cannot find any C file, probably the directory is wrong?'
     no_matches = []
     version = last_released_version('vmprof')
-    print
-    print 'comparing to vmprof %s' % version
+    print()
+    print('comparing to vmprof %s' % version)
     for file in files:
         path = file.relto(shared)
         url = github_raw_file("vmprof/vmprof-python", "src/%s" % path, version)
@@ -43,15 +51,15 @@ def test_same_file():
         dest = file.read()
         shortname = file.relto(RVMPROF)
         if source == dest:
-            print '%s matches' % shortname
+            print('%s matches' % shortname)
         else:
-            print '%s does NOT match' % shortname
+            print('%s does NOT match' % shortname)
             no_matches.append(file)
     #
     if no_matches:
-        print
-        print 'The following file did NOT match'
+        print()
+        print('The following file did NOT match')
         for f in no_matches:
-            print '   ', f.relto(RVMPROF)
+            print('   ', f.relto(RVMPROF))
         raise AssertionError("some files were updated on github, "
                              "but were not copied here")

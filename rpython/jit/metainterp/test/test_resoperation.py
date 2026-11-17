@@ -102,7 +102,7 @@ if not platform.machine().startswith('x86'):
     del args[1]
     args.append((rop.rop.CAST_FLOAT_TO_INT, [VARF], {'from': 8, 'to': 8}))
 @py.test.mark.parametrize('opnum,args,kwargs', args)
-@pytest.mark.skipif("sys.maxint == 2**31-1")
+@pytest.mark.skipif("sys.maxsize == 2**31-1")
 def test_cast_ops(opnum, args, kwargs):
     op = rop.ResOperation(opnum, args)
     assert op.is_typecast()

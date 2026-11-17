@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rlib.rStringIO import RStringIO
 
 
@@ -151,25 +153,25 @@ def test_stress():
                 mode = 1
             else:
                 mode = 2
-            print 'seek', p, mode
+            print('seek', p, mode)
             f.seek(p, mode)
             expected.seek(p, mode)
         elif r < 0.6:
             buf = str(random.random())
-            print 'write %d bytes' % len(buf)
+            print('write %d bytes' % len(buf))
             f.write(buf)
             expected.write(buf)
         elif r < 0.92:
             n = random.randrange(0, 100)
-            print 'read %d bytes' % n
+            print('read %d bytes' % n)
             data1 = f.read(n)
             data2 = expected.read(n)
             assert data1 == data2
         elif r < 0.97:
-            print 'check tell()'
+            print('check tell()')
             assert f.tell() == expected.tell()
         else:
-            print 'check getvalue()'
+            print('check getvalue()')
             assert f.getvalue() == expected.getvalue()
     assert f.getvalue() == expected.getvalue()
     assert f.tell() == expected.tell()

@@ -36,6 +36,14 @@ class Module(MixedModule):
         interpleveldefs['PIPE_BUF'] = 'space.wrap(%r)' % _c.PIPE_BUF
 
 
+    def __init__(self, space, *args):
+        MixedModule.__init__(self, space, *args)
+        if 'kqueue' in self.interpleveldefs:
+            from pypy.module.posix.interp_posix import add_fork_hook
+            from pypy.module.select.interp_kqueue import (
+                invalidate_kqueues_after_fork)
+            add_fork_hook('child', invalidate_kqueues_after_fork)
+
     def buildloaders(cls):
         from rpython.rlib import rpoll
         for name in rpoll.eventnames:

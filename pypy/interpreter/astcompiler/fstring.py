@@ -77,9 +77,4 @@ def concatenate_strings(astbuilder, nodes):
         end_lineno=nodes[-1].end_lineno,
         end_col_offset=nodes[-1].end_col_offset,
     )
-    astbuilder.check_version(
-        (3, 6),
-        "Format strings are",
-        result
-    )
     return result

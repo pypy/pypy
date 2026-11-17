@@ -372,7 +372,8 @@ class TestTranforms(BytecodeTestCase):
                     else false_value)
         self.check_jump_targets(f)
         self.assertNotInBytecode(f, 'JUMP_FORWARD')
-        self.assertNotInBytecode(f, 'JUMP_BACKWARD')
+        if 'JUMP_BACKWARD' in dis.opmap:  #PYPY CHANGE
+            self.assertNotInBytecode(f, 'JUMP_BACKWARD')
         returns = [instr for instr in dis.get_instructions(f)
                           if instr.opname == 'RETURN_VALUE']
         self.assertEqual(len(returns), 2)
@@ -410,30 +411,34 @@ class TestTranforms(BytecodeTestCase):
                     and c)
         self.check_jump_targets(f)
         self.check_lnotab(f)
-        self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_FALSE'), 2)
+        if support.check_impl_detail(cpython=True):  #PYPY CHANGE
+            self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_FALSE'), 2)
         # POP_JUMP_IF_TRUE to POP_JUMP_IF_TRUE --> POP_JUMP_IF_TRUE to non-jump
         def f(a, b, c):
             return ((a or b)
                     or c)
         self.check_jump_targets(f)
         self.check_lnotab(f)
-        self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_TRUE'), 2)
+        if support.check_impl_detail(cpython=True):  #PYPY CHANGE
+            self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_TRUE'), 2)
         # JUMP_IF_FALSE_OR_POP to JUMP_IF_TRUE_OR_POP --> POP_JUMP_IF_FALSE to non-jump
         def f(a, b, c):
             return ((a and b)
                     or c)
         self.check_jump_targets(f)
         self.check_lnotab(f)
-        self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_FALSE'), 1)
-        self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_TRUE'), 1)
+        if support.check_impl_detail(cpython=True):  #PYPY CHANGE
+            self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_FALSE'), 1)
+            self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_TRUE'), 1)
         # POP_JUMP_IF_TRUE to POP_JUMP_IF_FALSE --> POP_JUMP_IF_TRUE to non-jump
         def f(a, b, c):
             return ((a or b)
                     and c)
         self.check_jump_targets(f)
         self.check_lnotab(f)
-        self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_FALSE'), 1)
-        self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_TRUE'), 1)
+        if support.check_impl_detail(cpython=True):  #PYPY CHANGE
+            self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_FALSE'), 1)
+            self.assertEqual(count_instr_recursively(f, 'POP_JUMP_IF_TRUE'), 1)
 
     def test_elim_jump_to_uncond_jump4(self):
         def f():
@@ -598,6 +603,7 @@ class TestTranforms(BytecodeTestCase):
         self.assertEqual(format('x = %s!', '%% %s'), 'x = %% %s!')
         self.assertEqual(format('x = %s, y = %d', 12, 34), 'x = 12, y = 34')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_format_errors(self):
         with self.assertRaisesRegex(TypeError,
                     'not enough arguments for format string'):

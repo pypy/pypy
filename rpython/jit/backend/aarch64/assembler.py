@@ -1,6 +1,7 @@
 
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.aarch64.codebuilder import InstrBuilder, OverwritingBuilder
+from rpython.jit.backend.aarch64.codebuilder import (InstrBuilder,
+    OverwritingBuilder, encode_fmov_imm8)
 from rpython.jit.backend.aarch64.locations import imm, StackLocation, get_fp_offset
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
@@ -1259,10 +1260,18 @@ class AssemblerARM64(ResOpAssembler):
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
         elif value.is_imm_float():
-            # One PC-relative LDR; the 8-byte constant is in the literal pool.
-            pos = self.mc.currpos()
-            self.mc.LDR_d_literal(loc.value, 0)
-            self.pending_literals.append((pos, loc.value, value.getint()))
+            bits = rffi.cast(rffi.CArrayPtr(lltype.Signed), value.getint())[0]
+            if bits == 0:
+                self.mc.MOVI_d_zero(loc.value)
+            else:
+                imm8 = encode_fmov_imm8(bits)
+                if imm8 >= 0:
+                    self.mc.FMOV_di(loc.value, imm8)
+                else:
+                    # One PC-relative LDR; the 8-byte constant is in the literal pool.
+                    pos = self.mc.currpos()
+                    self.mc.LDR_d_literal(loc.value, 0)
+                    self.pending_literals.append((pos, loc.value, value.getint()))
 
     def _maybe_flush_literal_pool(self):
         pending = self.pending_literals

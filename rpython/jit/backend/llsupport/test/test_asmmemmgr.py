@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import random
 import pytest
 import sys
@@ -67,6 +69,46 @@ def test_allocate_block():
     assert memmgr.free_blocks_end == {}
     assert memmgr.blocks_by_size == [[], [], [], [], []]
 
+def test_free_reentered_from_finalizer():
+    # a GC inside _add_free_block() runs CompiledLoopToken.__del__, whose
+    # free() lands while the three structures disagree
+    class Reentering(AsmMemoryManager):
+        reenter_with = None
+        def _get_index(self, length):
+            if self.reenter_with is not None:
+                start, stop = self.reenter_with
+                self.reenter_with = None
+                self.free(start, stop)
+            return AsmMemoryManager._get_index(self, length)
+
+    def check(memmgr, expected):
+        assert memmgr.free_blocks == expected
+        assert memmgr.free_blocks_end == dict(
+            (stop, start) for start, stop in expected.items())
+        by_size = [b for bs in memmgr.blocks_by_size for b in bs]
+        assert sorted(by_size) == sorted(expected)
+        assert memmgr._pending_frees == []
+        assert not memmgr._updating
+
+    # left of the block being added: the old code left (10, 20) and
+    # (20, 40) adjacent and unmerged
+    memmgr = Reentering(min_fragment=8, num_indices=5)
+    memmgr._add_free_block(10, 18)
+    memmgr._add_free_block(30, 40)
+    memmgr.reenter_with = (18, 20)
+    memmgr.free(20, 30)
+    check(memmgr, {10: 40})
+    assert memmgr.malloc(4, 4)[0] == 10
+
+    # right of the block being added: the old code deleted the half-added
+    # (20, 30) again from under itself
+    memmgr = Reentering(min_fragment=8, num_indices=5)
+    memmgr._add_free_block(10, 18)
+    memmgr.reenter_with = (30, 40)
+    memmgr.free(20, 30)
+    check(memmgr, {10: 18, 20: 40})
+    assert memmgr.malloc(12, 12)[0] == 20
+
 def test_malloc_without_fragment():
     memmgr = AsmMemoryManager(min_fragment=8,
                               num_indices=5)
@@ -126,7 +168,7 @@ class TestAsmMemoryManager:
 
     def test_random(self):
         seed = random.randrange(0, 10**5)
-        print "random seed:", seed
+        print("random seed:", seed)
         r = random.Random(seed)
         got = []
         real_use = 0
@@ -161,7 +203,7 @@ class TestAsmMemoryManager:
                 else:
                     new_total = self.asmmemmgr.total_memory_allocated
                     iterations_without_allocating_more = 0
-                    print real_use, new_total
+                    print(real_use, new_total)
                     # We seem to never see a printed value greater
                     # than 131072.  Be reasonable and allow up to 147456.
                     assert new_total <= 147456

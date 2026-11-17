@@ -75,8 +75,7 @@ class SomeObject(object):
         else:
             reprdict[self] = True
             try:
-                items = self.__dict__.items()
-                items.sort()
+                items = sorted(self.__dict__.items())
                 args = []
                 for k, v in items:
                     m = getattr(self, 'fmt_' + k, repr)
@@ -553,7 +552,7 @@ class SomePBC(SomeObject):
                         "RPython that are different underlying functions")
 
     def any_description(self):
-        return iter(self.descriptions).next()
+        return next(iter(self.descriptions))
 
     def getKind(self):
         "Return the common Desc class of all descriptions in this PBC."

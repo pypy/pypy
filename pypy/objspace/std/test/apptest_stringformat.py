@@ -624,3 +624,6 @@ def test_format_better_error():
     with raises(ValueError) as info:
         "{a:%ЫйЯЧ}".format(a='a')
     assert str(info.value) == "Invalid format specifier '%ЫйЯЧ' for object of type 'str'"
+
+def test_bigfloat():
+    assert len('%.2f' % 1.5e60) > 30

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, re, sys
 from rpython.tool.udir import udir
 from rpython.tool.pytest.expecttest import ExpectTest
@@ -54,7 +56,7 @@ class TestLLTermios(object):
                 rtermios.tcgetattr(fd)
             except OSError as e:
                 assert e.errno == errno.ENOTTY
-                print "ok"
+                print("ok")
 
         fn = compile(runs_tcgetattr, [], backendopt=False)
         self.run(fn, "ok")
@@ -72,7 +74,7 @@ class TestLLTermios(object):
             time.sleep(.1)
             tp = rtermios.tcgetattr(2)
             assert tp[5] == f
-            print "ok"
+            print("ok")
 
         fn = compile(runs_tcsetattr, [], backendopt=False)
         self.run(fn, "ok")
@@ -85,7 +87,7 @@ class TestLLTermios(object):
             rtermios.tcdrain(2)
             rtermios.tcflush(2, rtermios.TCIOFLUSH)
             rtermios.tcflow(2, rtermios.TCOON)
-            print "ok"
+            print("ok")
 
         fn = compile(runs_tcall, [], backendopt=False)
         self.run(fn, "ok")

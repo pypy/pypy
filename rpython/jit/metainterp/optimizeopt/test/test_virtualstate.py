@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 import py
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
@@ -909,7 +909,7 @@ class BaseTestBridges(BaseTest):
             assert expected == 'RETRACE'
             return
 
-        print '\n'.join([str(o) for o in bridge.operations])
+        print('\n'.join([str(o) for o in bridge.operations]))
         expected = self.parse(expected)
         self.assert_equal(bridge, expected)
 

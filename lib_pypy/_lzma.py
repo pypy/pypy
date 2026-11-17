@@ -463,8 +463,9 @@ class LZMADecompressor(object):
 
     For one-shot decompression, use the decompress() function instead.
     """
-    def __init__(self, format=FORMAT_AUTO, memlimit=None, filters=None,
-                 header=None, check=None, unpadded_size=None):
+    def __new__(cls, format=FORMAT_AUTO, memlimit=None, filters=None,
+                header=None, check=None, unpadded_size=None):
+        self = object.__new__(cls)
         decoder_flags = m.LZMA_TELL_ANY_CHECK | m.LZMA_TELL_NO_CHECK
         if memlimit is not None:
             if format == FORMAT_RAW:
@@ -523,6 +524,7 @@ class LZMADecompressor(object):
             catch_lzma_error(m.lzma_block_decoder, self.lzs, block)
         else:
             raise ValueError("invalid container format: %s" % format)
+        return self
 
     def pre_decompress_left_data(self, buf, buf_size):
         # in this case there is data left that needs to be processed before the first
@@ -756,7 +758,8 @@ class LZMACompressor(object):
 
     For one-shot compression, use the compress() function instead.
     """
-    def __init__(self, format=FORMAT_XZ, check=-1, preset=None, filters=None):
+    def __new__(cls, format=FORMAT_XZ, check=-1, preset=None, filters=None):
+        self = object.__new__(cls)
         if format != FORMAT_XZ and check not in (-1, m.LZMA_CHECK_NONE):
             raise ValueError("Integrity checks are only supported by FORMAT_XZ")
         if preset is not None and filters is not None:
@@ -795,6 +798,7 @@ class LZMACompressor(object):
                 filters)
         else:
             raise ValueError("invalid container format: %s" % format)
+        return self
 
     def compress(self, data):
         """

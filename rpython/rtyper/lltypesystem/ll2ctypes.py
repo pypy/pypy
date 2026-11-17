@@ -837,8 +837,7 @@ def lltype2ctypes(llobj, normalize=True):
                 # XXX a temporary workaround for comparison of lltype.FuncType
                 key = llobj._obj.__dict__.copy()
                 key['_TYPE'] = repr(key['_TYPE'])
-                items = key.items()
-                items.sort()
+                items = sorted(key.items())
                 key = tuple(items)
                 if key in _all_callbacks:
                     return _all_callbacks[key]

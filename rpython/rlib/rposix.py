@@ -11,7 +11,8 @@ from rpython.rlib._os_support import (
     POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
-from rpython.rlib.rarithmetic import intmask, widen, r_uint, INT_MAX
+from rpython.rlib.rarithmetic import (intmask, widen, r_uint, INT_MAX,
+    r_longlong, r_uint32)
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
 from rpython.translator.platform import platform
@@ -562,7 +563,9 @@ if not _WIN32:
 
         @enforceargs(int, None, None)
         def posix_fallocate(fd, offset, length):
-            return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
+            error = widen(c_posix_fallocate(fd, offset, length))
+            if error != 0:
+                raise OSError(error, 'posix_fallocate failed')
 
     if HAVE_FADVISE:
         class CConfig:
@@ -610,7 +613,14 @@ else:
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
     with SuppressIPH():
-        handle_posix_error('ftruncate', c_ftruncate(fd, length))
+        if _WIN32:
+            # _chsize_s() returns the errno instead of -1, so
+            # handle_posix_error() would take EBADF for a success
+            error = widen(c_ftruncate(fd, length))
+            if error != 0:
+                raise OSError(error, 'ftruncate failed')
+        else:
+            handle_posix_error('ftruncate', c_ftruncate(fd, length))
 
 @replace_os_function('fsync')
 def fsync(fd):
@@ -915,12 +925,44 @@ c_spawnve = external(UNDERSCORE_ON_WIN32 + 'spawnve',
                      rffi.INT,
                      save_err=rffi.RFFI_SAVE_ERRNO)
 
+if _WIN32:
+    # the narrow _spawnv() mangles anything the ANSI codepage cannot
+    # represent, so use the wide entry points like CPython does.  They
+    # return a process handle for P_NOWAIT, which does not fit an int, so
+    # process.h has to be included rather than declaring them implicitly
+    spawn_eci = eci.merge(ExternalCompilationInfo(includes=['process.h']))
+    c_wspawnv = external('_wspawnv',
+                         [rffi.INT, rffi.CWCHARP, rffi.CWCHARPP],
+                         rffi.INTPTR_T, compilation_info=spawn_eci,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_wspawnve = external('_wspawnve',
+                          [rffi.INT, rffi.CWCHARP, rffi.CWCHARPP,
+                           rffi.CWCHARPP],
+                          rffi.INTPTR_T, compilation_info=spawn_eci,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def _liststr2wcharpp(args):
+        """like rffi.ll_liststr2charpp(), for the wide entry points"""
+        array = lltype.malloc(rffi.CWCHARPP.TO, len(args) + 1, flavor='raw')
+        for i in range(len(args)):
+            array[i] = utf8_traits.str2charp(args[i])
+        array[len(args)] = lltype.nullptr(rffi.CWCHARP.TO)
+        return array
+
+    def _free_wcharpp(array):
+        i = 0
+        while array[i]:
+            utf8_traits.free_charp(array[i])
+            i += 1
+        lltype.free(array, flavor='raw')
+
 @replace_os_function('execv')
 def execv(path, args):
     rstring.check_str0(path)
     # This list conversion already takes care of NUL bytes.
     l_args = rffi.ll_liststr2charpp(args)
-    c_execv(path, l_args)
+    with SuppressIPH():
+        c_execv(path, l_args)
     rffi.free_charpp(l_args)
     raise OSError(get_saved_errno(), "execv failed")
 
@@ -935,7 +977,8 @@ def execve(path, args, env):
     # This list conversion already takes care of NUL bytes.
     l_args = rffi.ll_liststr2charpp(args)
     l_env = rffi.ll_liststr2charpp(envstrs)
-    c_execve(path, l_args, l_env)
+    with SuppressIPH():
+        c_execve(path, l_args, l_env)
 
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
@@ -944,8 +987,17 @@ def execve(path, args, env):
 @replace_os_function('spawnv')
 def spawnv(mode, path, args):
     rstring.check_str0(path)
+    if _WIN32:
+        l_path = utf8_traits.str2charp(path)
+        l_args = _liststr2wcharpp(args)
+        with SuppressIPH():
+            childpid = c_wspawnv(mode, l_path, l_args)
+        _free_wcharpp(l_args)
+        utf8_traits.free_charp(l_path)
+        return handle_posix_error('spawnv', childpid)
     l_args = rffi.ll_liststr2charpp(args)
-    childpid = c_spawnv(mode, path, l_args)
+    with SuppressIPH():
+        childpid = c_spawnv(mode, path, l_args)
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnv', childpid)
 
@@ -955,9 +1007,20 @@ def spawnve(mode, path, args, env):
     for item in env.iteritems():
         envstrs.append("%s=%s" % item)
     rstring.check_str0(path)
+    if _WIN32:
+        l_path = utf8_traits.str2charp(path)
+        l_args = _liststr2wcharpp(args)
+        l_env = _liststr2wcharpp(envstrs)
+        with SuppressIPH():
+            childpid = c_wspawnve(mode, l_path, l_args, l_env)
+        _free_wcharpp(l_env)
+        _free_wcharpp(l_args)
+        utf8_traits.free_charp(l_path)
+        return handle_posix_error('spawnve', childpid)
     l_args = rffi.ll_liststr2charpp(args)
     l_env = rffi.ll_liststr2charpp(envstrs)
-    childpid = c_spawnve(mode, path, l_args, l_env)
+    with SuppressIPH():
+        childpid = c_spawnve(mode, path, l_args, l_env)
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnve', childpid)
@@ -1041,11 +1104,10 @@ if _WIN32:
                         save_err=rffi.RFFI_SAVE_ERRNO)
     @jit.dont_look_inside
     def c_waitpid(pid, status_p, options):
-        result = c__cwait(status_p, pid, options)
-        # shift the status left a byte so this is more
-        # like the POSIX waitpid
-        status_p[0] = rffi.cast(rffi.INT, widen(status_p[0]) << 8)
-        return result
+        # the status is shifted in waitpid() below, where it can be held in
+        # 64 bits: an exit code is an unsigned 32 bit value, so shifting it
+        # up a byte like POSIX does no longer fits an int
+        return c__cwait(status_p, pid, options)
 elif _CYGWIN:
     c_waitpid = external('cygwin_waitpid',
                          [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
@@ -1066,7 +1128,12 @@ def waitpid(pid, options):
     try:
         result = handle_posix_error('waitpid',
                                     c_waitpid(pid, status_p, options))
-        status = widen(status_p[0])
+        if _WIN32:
+            # _cwait() reports the unsigned exit code; shift it a byte left
+            # so that it looks like a POSIX wait status
+            status = r_longlong(r_uint32(widen(status_p[0]))) << 8
+        else:
+            status = widen(status_p[0])
         return (result, status)
     finally:
         lltype.free(status_p, flavor='raw')
@@ -1520,6 +1587,12 @@ if _WIN32:
         calling_conv='win',
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    GetSystemTimePreciseAsFileTime = external(
+        'GetSystemTimePreciseAsFileTime',
+        [lltype.Ptr(rwin32.FILETIME)],
+        lltype.Void,
+        calling_conv='win')
+
     SetFileTime = external(
         'SetFileTime',
         [rwin32.HANDLE,
@@ -1528,6 +1601,58 @@ if _WIN32:
          lltype.Ptr(rwin32.FILETIME)],
         rwin32.BOOL,
         calling_conv='win')
+
+
+def _float_to_s_ns(t):
+    sec = int(t)
+    nsec = int((t - sec) * 1e9)
+    if nsec < 0:        # t was negative, borrow a second
+        sec -= 1
+        nsec += 1000000000
+    return sec, nsec
+
+
+if _WIN32:
+    def _utime_win32(path, set_times, atime_s, atime_ns, mtime_s, mtime_ns):
+        from rpython.rlib.rwin32file import time_t_to_FILE_TIME
+        traits = utf8_traits
+        win32traits = make_win32_traits(traits)
+        path = traits.as_utf80(path)
+        with rffi.scoped_utf82wcharp(path) as buf:
+
+            hFile = win32traits.CreateFile(buf,
+                               win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                               None, win32traits.OPEN_EXISTING,
+                               win32traits.FILE_FLAG_BACKUP_SEMANTICS,
+                               rwin32.NULL_HANDLE)
+        if hFile == rwin32.INVALID_HANDLE_VALUE:
+            raise rwin32.lastSavedWindowsError()
+        ctime = lltype.nullptr(rwin32.FILETIME)
+        atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        try:
+            if not set_times:
+                # not GetSystemTime(): SYSTEMTIME only has milliseconds,
+                # which can round down below the mtime the filesystem just
+                # gave the file
+                GetSystemTimePreciseAsFileTime(atime)
+                rffi.structcopy(mtime, atime)
+            else:
+                time_t_to_FILE_TIME(atime_s, atime_ns, atime)
+                time_t_to_FILE_TIME(mtime_s, mtime_ns, mtime)
+            if not SetFileTime(hFile, ctime, atime, mtime):
+                raise rwin32.lastSavedWindowsError()
+        finally:
+            rwin32.CloseHandle(hFile)
+            lltype.free(atime, flavor='raw')
+            lltype.free(mtime, flavor='raw')
+
+    @specialize.argtype(0)
+    def utime_ns(path, atime_s, atime_ns, mtime_s, mtime_ns):
+        """Like utime(), but keeping the 100 ns a FILETIME can store: the
+        (seconds, nanoseconds) pairs must not go through a float
+        """
+        _utime_win32(path, True, atime_s, atime_ns, mtime_s, mtime_ns)
 
 
 @replace_os_function('utime')
@@ -1553,42 +1678,13 @@ def utime(path, times):
                 lltype.free(l_utimbuf, flavor='raw')
         handle_posix_error('utime', error)
     else:  # _WIN32 case
-        from rpython.rlib.rwin32file import time_t_to_FILE_TIME
-        traits = utf8_traits
-        win32traits = make_win32_traits(traits)
-        path = traits.as_utf80(path)
-        with rffi.scoped_utf82wcharp(path) as buf:
-
-            hFile = win32traits.CreateFile(buf,
-                               win32traits.FILE_WRITE_ATTRIBUTES, 0,
-                               None, win32traits.OPEN_EXISTING,
-                               win32traits.FILE_FLAG_BACKUP_SEMANTICS,
-                               rwin32.NULL_HANDLE)
-        if hFile == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastSavedWindowsError()
-        ctime = lltype.nullptr(rwin32.FILETIME)
-        atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
-        mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
-        try:
-            if times is None:
-                now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
-                try:
-                    GetSystemTime(now)
-                    if (not SystemTimeToFileTime(now, atime) or
-                        not SystemTimeToFileTime(now, mtime)):
-                        raise rwin32.lastSavedWindowsError()
-                finally:
-                    lltype.free(now, flavor='raw')
-            else:
-                actime, modtime = times
-                time_t_to_FILE_TIME(actime, atime)
-                time_t_to_FILE_TIME(modtime, mtime)
-            if not SetFileTime(hFile, ctime, atime, mtime):
-                raise rwin32.lastSavedWindowsError()
-        finally:
-            rwin32.CloseHandle(hFile)
-            lltype.free(atime, flavor='raw')
-            lltype.free(mtime, flavor='raw')
+        if times is None:
+            _utime_win32(path, False, 0, 0, 0, 0)
+        else:
+            actime, modtime = times
+            atime_s, atime_ns = _float_to_s_ns(actime)
+            mtime_s, mtime_ns = _float_to_s_ns(modtime)
+            _utime_win32(path, True, atime_s, atime_ns, mtime_s, mtime_ns)
 
 def times_to_timeval2p(times, l_timeval2p):
     actime, modtime = times
@@ -2074,10 +2170,13 @@ def uname():
         lltype.free(l_utsbuf, flavor='raw')
 
 if sys.platform != 'win32':
-    # These are actually macros on some/most systems
-    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
-    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
-    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
+    # These are actually macros on some/most systems.  dev_t is 64 bits,
+    # makedev() puts a major above 0xfff into the high word, so INT would
+    # truncate both the arguments and the result
+    DEV_T = lltype.SignedLongLong
+    c_makedev = external('makedev', [DEV_T, DEV_T], DEV_T, macro=True)
+    c_major = external('major', [DEV_T], rffi.UINT, macro=True)
+    c_minor = external('minor', [DEV_T], rffi.UINT, macro=True)
 
     @replace_os_function('makedev')
     def makedev(maj, min):
@@ -2085,11 +2184,11 @@ if sys.platform != 'win32':
 
     @replace_os_function('major')
     def major(dev):
-        return c_major(dev)
+        return widen(c_major(dev))
 
     @replace_os_function('minor')
     def minor(dev):
-        return c_minor(dev)
+        return widen(c_minor(dev))
 
 #___________________________________________________________________
 

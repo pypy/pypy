@@ -1,4 +1,6 @@
 # encoding: utf-8
+from __future__ import print_function
+
 import os, py
 if os.name != 'nt':
     py.test.skip('tests for win32 only', allow_module_level=True)
@@ -72,7 +74,7 @@ def test_terminate_process():
                          "time.sleep(10)",
                          ],
                         )
-    print proc.pid
+    print(proc.pid)
     handle = rwin32.OpenProcess(rwin32.PROCESS_ALL_ACCESS, False, proc.pid)
     assert rwin32.TerminateProcess(handle, signal.SIGTERM) == 1
     rwin32.CloseHandle(handle)

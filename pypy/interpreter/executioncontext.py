@@ -88,7 +88,19 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
+    @objectmodel.always_inline
     def leave(self, frame, w_exitvalue, got_exception):
+        # the common case is no profiling and a frame that never escaped, so
+        # only the pop is inlined into every frame exit
+        if (self.profilefunc is not None or frame.escaped or got_exception
+                or self.space.reverse_debugging):
+            self._leave_slow(frame, w_exitvalue, got_exception)
+        else:
+            frame_vref = self.topframeref
+            self.topframeref = frame.f_backref
+            jit.virtual_ref_finish(frame_vref, frame)
+
+    def _leave_slow(self, frame, w_exitvalue, got_exception):
         try:
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
@@ -142,16 +154,27 @@ class ExecutionContext(object):
         else:
             self._trace(frame, 'c_exception', w_exc)
 
+    @objectmodel.always_inline
+    def wants_call_trace(self):
+        """True if call_trace() would do anything.  Inlined so that a frame
+        entry only pays two loads and a branch for the common case"""
+        return self.gettrace() is not None or self.profilefunc is not None
+
     def call_trace(self, frame):
         "Trace the call of a function"
-        if self.gettrace() is not None or self.profilefunc is not None:
+        if self.wants_call_trace():
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
                 frame.getorcreatedebug().is_being_profiled = True
 
+    @objectmodel.always_inline
+    def wants_return_trace(self):
+        "True if return_trace() would do anything.  Inlined, see above"
+        return self.gettrace() is not None
+
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
-        if self.gettrace() is not None:
+        if self.wants_return_trace():
             self._trace(frame, 'return', w_retval)
 
     @objectmodel.always_inline
@@ -666,6 +689,7 @@ class UserDelAction(AsyncAction):
         self.finalizers_lock_count = 0        # see pypy/module/gc
         self.enabled_at_app_level = True      # see pypy/module/gc
         self.pending_with_disabled_del = None
+        self.running_finalizers = 0           # see pypy/module/signal
 
     def perform(self, executioncontext, frame):
         self._run_finalizers()
@@ -674,11 +698,23 @@ class UserDelAction(AsyncAction):
     def _run_finalizers(self):
         # called by perform() when we have to "perform" this action,
         # and also directly at the end of gc.collect).
-        while True:
-            w_obj = self.space.finalizer_queue.next_dead()
-            if w_obj is None:
-                break
-            self._call_finalizer(w_obj)
+        # 'running_finalizers' is a nesting count, because an app-level
+        # __del__ or weakref callback can get us back in here
+        self.running_finalizers += 1
+        try:
+            while True:
+                w_obj = self.space.finalizer_queue.next_dead()
+                if w_obj is None:
+                    break
+                self._call_finalizer(w_obj)
+        finally:
+            self.running_finalizers -= 1
+            if self.running_finalizers == 0:
+                # an asynchronous exception was left pending because it
+                # cannot be raised inside a finalizer, deliver it now
+                ec = self.space.getexecutioncontext()
+                if ec.w_async_exception_type is not None:
+                    self.space.actionflag.rearm_ticker()
 
     def gc_disabled(self, w_obj):
         # If we're running in 'gc.disable()' mode, record w_obj in the

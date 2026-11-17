@@ -92,6 +92,9 @@ class TestMiscellaneous(unittest.TestCase):
         }
         self.assertEqual(obj_copy, expected_obj)
 
+    #PYPY CHANGE: pypy raises RecursionError when the real stack runs
+    # out, which happens before the limit on windows
+    @unittest.skipIf(sys.platform == 'win32', 'stack-bounded recursion')
     def test_inline_array_recursion_limit(self):
         with support.infinite_recursion(max_depth=100):
             available = support.get_recursion_available()
@@ -103,6 +106,9 @@ class TestMiscellaneous(unittest.TestCase):
                 recursive_array_toml = "arr = " + nest_count * "[" + nest_count * "]"
                 tomllib.loads(recursive_array_toml)
 
+    #PYPY CHANGE: pypy raises RecursionError when the real stack runs
+    # out, which happens before the limit on windows
+    @unittest.skipIf(sys.platform == 'win32', 'stack-bounded recursion')
     def test_inline_table_recursion_limit(self):
         with support.infinite_recursion(max_depth=100):
             available = support.get_recursion_available()

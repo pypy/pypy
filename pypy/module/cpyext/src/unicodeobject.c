@@ -64,23 +64,29 @@ PyUnicode_AsWideCharString(PyObject *unicode,
         return NULL;
     }
 
-    buflen = PyUnicode_GET_LENGTH(unicode) + 1;
+    /* not PyUnicode_GET_LENGTH(): outside the BMP a code point needs a
+       surrogate pair where wchar_t is 2 bytes */
+    buflen = PyUnicode_AsWideChar(unicode, NULL, 0);
+    if (buflen == -1)
+        return NULL;
     if (PY_SSIZE_T_MAX / sizeof(wchar_t) < buflen) {
         PyErr_NoMemory();
         return NULL;
     }
 
-    /* PyPy shortcut: Unicode is already an array of wchar_t */
     buffer = PyMem_MALLOC(buflen * sizeof(wchar_t));
     if (buffer == NULL) {
         PyErr_NoMemory();
         return NULL;
     }
 
-    if (PyUnicode_AsWideChar(unicode, buffer, buflen) < 0)
-	return NULL;
+    buflen = PyUnicode_AsWideChar(unicode, buffer, buflen);
+    if (buflen == -1) {
+        PyMem_FREE(buffer);
+        return NULL;
+    }
     if (size != NULL)
-        *size = buflen - 1;
+        *size = buflen;
     return buffer;
 }
 

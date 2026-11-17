@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import gc, time
 from rpython.rlib.rthread import *
 from rpython.rlib.rarithmetic import r_longlong
@@ -163,7 +165,7 @@ class AbstractThreadTests(AbstractGCTestClass):
                 willing_to_wait_more -= 1
                 done = len(state.answers) == expected
 
-                print "waitting %d more iterations" % willing_to_wait_more
+                print("waitting %d more iterations" % willing_to_wait_more)
                 time.sleep(0.01)
 
             time.sleep(0.1)

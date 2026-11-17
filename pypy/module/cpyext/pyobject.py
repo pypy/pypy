@@ -1,3 +1,4 @@
+import re
 import sys
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -7,7 +8,8 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    PyVarObject, Py_ssize_t, init_function, cts, MANAGED_DICT_OFFSET)
+    PyVarObject, Py_ssize_t, init_function, cts, MANAGED_DICT_OFFSET,
+    slot_function)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -18,6 +20,7 @@ from pypy.objspace.std.mapdict import DevolvedDictTerminator
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
+from rpython.tool.sourcetools import func_renamer
 from rpython.rlib import rawrefcount, jit
 from rpython.rlib.rawrefcount import _Py_IMMORTAL_REFCNT, refcnt_is_immortal
 from rpython.rlib.debug import ll_assert, fatalerror, check_annotation
@@ -51,6 +54,33 @@ def pyobj_get_link(pyobj):
 
 def pyobj_set_link(pyobj, value):
     _pyobj_link_hdr(pyobj).ob_pypy_link = value
+
+# The rest of the prefix (the padding word in front of the link) holds
+# cpyext's own per-object flags, like the bits CPython keeps in PyGC_Head.
+# Mirrored in src/object.c as _PyPy_FLAGS.
+PYOBJ_FLAGS_OFFSET = PYOBJ_LINK_PREFIX
+PYOBJ_FLAG_FINALIZED = 1
+
+PYOBJ_FLAGS_HDR = lltype.Struct('PyObjFlagsHdr', ('ob_pypy_flags', lltype.Signed))
+PYOBJ_FLAGS_HDR_PTR = lltype.Ptr(PYOBJ_FLAGS_HDR)
+
+def _pyobj_flags_hdr(pyobj):
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobj), -PYOBJ_FLAGS_OFFSET)
+    return rffi.cast(PYOBJ_FLAGS_HDR_PTR, base)
+
+def pyobj_has_prefix(pyobj):
+    """Whether pyobj was allocated by us, and so has the hidden prefix."""
+    return pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+
+def pyobj_get_flags(pyobj):
+    if not pyobj_has_prefix(pyobj):
+        return 0
+    return _pyobj_flags_hdr(pyobj).ob_pypy_flags
+
+def pyobj_set_flag(pyobj, flag):
+    if pyobj_has_prefix(pyobj):
+        hdr = _pyobj_flags_hdr(pyobj)
+        hdr.ob_pypy_flags = hdr.ob_pypy_flags | flag
 
 @specialize.argtype(0)
 def pyobj_raw_alloc(size, immortal=False):
@@ -159,6 +189,12 @@ class BaseCpyTypedescr(object):
     W_BaseObject = W_ObjectObject
 
     def get_dealloc(self, space):
+        # the typedescr of a typedef with no interp-level base, so the
+        # app-level base is 'object' and so is the dealloc
+        state = space.fromcache(State)
+        return state.C._PyPy_object_dealloc
+
+    def get_subtype_dealloc(self, space):
         state = space.fromcache(State)
         return state.C._PyPy_subtype_dealloc
 
@@ -214,6 +250,18 @@ class BaseCpyTypedescr(object):
 
 typedescr_cache = {}
 
+_c_names = {}
+
+def _c_name(typedef):
+    """NOT_RPYTHON: a unique C identifier for the typedef"""
+    name = typedef.name if typedef is not None else 'object'
+    name = re.sub('[^0-9a-zA-Z_]', '_', name)
+    n = _c_names.get(name, 0)
+    _c_names[name] = n + 1
+    if n:
+        name = '%s_%d' % (name, n)
+    return name
+
 def make_typedescr(typedef, **kw):
     """NOT_RPYTHON
 
@@ -234,6 +282,37 @@ def make_typedescr(typedef, **kw):
     null_dealloc = lltype.nullptr(lltype.FuncType([PyObject], lltype.Void))
     assert not isinstance(tp_basestruct, lltype.Ptr), "should pass .TO"
 
+    if hasattr(tp_dealloc, 'api_func'):
+        _base_impl = tp_dealloc.api_func.callable
+        def call_base_dealloc(space, py_obj):
+            _base_impl(space, py_obj)
+    elif tp_dealloc:
+        def call_base_dealloc(space, py_obj):
+            tp_dealloc(py_obj)
+    else:
+        def call_base_dealloc(space, py_obj):
+            space.fromcache(State).C._PyPy_object_dealloc(py_obj)
+
+    def self_llhelper(space):
+        return subtype_dealloc.api_func.get_llhelper(space)
+
+    @slot_function([PyObject], lltype.Void)
+    @func_renamer('_PyPy_subtype_dealloc_%s' % (_c_name(typedef),))
+    def subtype_dealloc(space, py_obj):
+        # the tp_dealloc of a heap type whose bases down to this typedef are
+        # all PyPy types, so the concrete dealloc to run is known: no need
+        # for _Py_subtype_dealloc to search the base chain for it. Like
+        # CPython's subtype_dealloc, decref the type if this is the slot it
+        # holds: when we are instead called as a base's dealloc, the holder
+        # owns the decref
+        pto = py_obj.c_ob_type
+        owns_type = (rffi.cast(lltype.Signed, pto.c_tp_flags) &
+                     Py_TPFLAGS_HEAPTYPE and
+                     pto.c_tp_dealloc == self_llhelper(space))
+        call_base_dealloc(space, py_obj)
+        if owns_type:
+            decref(space, rffi.cast(PyObject, pto))
+
     class CpyTypedescr(BaseCpyTypedescr):
         basestruct = tp_basestruct
 
@@ -247,6 +326,9 @@ def make_typedescr(typedef, **kw):
         elif tp_dealloc:
             def get_dealloc(self, space):
                 return tp_dealloc
+
+        def get_subtype_dealloc(self, space):
+            return subtype_dealloc.api_func.get_llhelper(space)
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj, w_userdata=None):

@@ -1,4 +1,6 @@
 # functions to query information out of the translator and annotator from the debug prompt of translate
+from __future__ import print_function
+
 import types
 
 import rpython.annotator.model as annmodel
@@ -100,7 +102,7 @@ def check_methods_qgen(translator):
 def qoutput(queryg, write=None):
     if write is None:
         def write(s):
-            print s
+            print(s)
     c = 0
     for bit in queryg:
         write(bit)
@@ -109,8 +111,8 @@ def qoutput(queryg, write=None):
 
 def polluted(translator):
     c = qoutput(polluted_qgen(translator))
-    print c
+    print(c)
 
 def sanity_check_methods(translator):
     lost = qoutput(check_methods_qgen(translator))
-    print lost
+    print(lost)

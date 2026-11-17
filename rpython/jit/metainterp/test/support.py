@@ -50,7 +50,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
                 return FakeWarmRunnerState._cell
         _cell = FakeJitCell()
 
-        trace_limit = sys.maxint
+        trace_limit = sys.maxsize
         enable_opts = ALL_OPTS_DICT
         pureop_historylength = 16
         vec = True

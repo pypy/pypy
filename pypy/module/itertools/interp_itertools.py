@@ -894,7 +894,7 @@ def tee(space, w_iterable, n=2):
     data before the other iterator, it is faster to use list() instead
     of tee()
 
-    If iter(iterable) has no method __copy__(), this is equivalent to:
+    This is equivalent to:
 
     def tee(iterable, n=2):
         def gen(next, data={}, cnt=[0]):
@@ -907,21 +907,15 @@ def tee(space, w_iterable, n=2):
                 yield item
         it = iter(iterable)
         return tuple([gen(it.next) for i in range(n)])
-
-    If iter(iterable) has a __copy__ method, though, we just return
-    a tuple t = (t[0].__copy__(), t[1].__copy__(), ...).
     """
     if n < 0:
         raise oefmt(space.w_ValueError, "n must be >= 0")
+    if n == 0:
+        return space.newtuple([])
 
-    w_iterator = space.iter(w_iterable)
-    if space.findattr(w_iterator, space.newtext("__copy__")) is not None:
-        # In this case, we don't instantiate any W_TeeIterable.
-        # We just rely on doing repeated __copy__().  This case
-        # includes the situation where w_iterable is already
-        # a W_TeeIterable itself.
-        iterators_w = [space.call_method(w_iterator, "__copy__")
-                       for i in range(n)]
+    w_iterator = space.iter(space.iter(w_iterable))
+    if isinstance(w_iterator, W_TeeIterable):
+        iterators_w = [w_iterator.copy_w() for i in range(n)]
     else:
         w_chained_list = W_TeeChainedListNode(space)
         iterators_w = [W_TeeIterable(space, w_iterator, w_chained_list)
@@ -1014,11 +1008,14 @@ class W_TeeIterable(W_Root):
 
     def reduce_w(self):
         _pickle_deprecation_warning(self.space)
+        w_chained_list = self.w_chained_list
+        if w_chained_list is None:
+            w_chained_list = W_TeeChainedListNode(self.space)
         return self.space.newtuple([self.space.gettypefor(W_TeeIterable),
                                     self.space.newtuple([self.space.newtuple([])]),
                                     self.space.newtuple([
                                         self.w_iterator,
-                                        self.w_chained_list])
+                                        w_chained_list])
                                     ])
     def setstate_w(self, w_state):
         _pickle_deprecation_warning(self.space)

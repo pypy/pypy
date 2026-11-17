@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, sys, struct, math
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype
@@ -313,6 +315,32 @@ def test_has_0006():
     """missing include"""
     assert not rffi_platform.has("pow", "", libraries=["m"])
 
+def test_has_uses_availability_error_flags():
+    """Has() must be probed with the platform's availability_error_flags, so
+    that a function the SDK declares as newer than the deployment target is
+    reported as absent rather than turning into a NULL weak import.
+    """
+    eci = ExternalCompilationInfo()
+    strict = rffi_platform.eci_with_strict_availability(eci)
+    if sys.platform == 'darwin':
+        assert platform.availability_error_flags
+    for flag in platform.availability_error_flags:
+        assert flag in strict.compile_extra
+    assert strict.platform == eci.platform
+
+def test_has_0007():
+    """a function introduced after the deployment target is not available"""
+    if sys.platform != 'darwin':
+        py.test.skip('availability annotations are a darwin thing')
+    # Declared __API_AVAILABLE(macos(27.0)) in the macOS 27 SDK, and absent
+    # from older SDKs; either way it must not be reported as available while
+    # DARWIN_VERSION_MIN is below 27.0.
+    assert not rffi_platform.has("pipe2", "#include <unistd.h>")
+    assert not rffi_platform.has("dup3", "#include <unistd.h>")
+    # a sanity check that the stricter flags do not reject everything
+    assert rffi_platform.has("pipe", "#include <unistd.h>")
+    assert rffi_platform.has("dup2", "#include <unistd.h>")
+
 
 def test_verify_eci():
     eci = ExternalCompilationInfo()
@@ -326,7 +354,7 @@ def test_sizeof():
 
 def test_memory_alignment():
     a = rffi_platform.memory_alignment()
-    print a
+    print(a)
     assert a % struct.calcsize("P") == 0
 
 def test_external_lib():
@@ -461,9 +489,9 @@ def test_expose_value_as_rpython():
         return (x, type(x))
     assert get(5) == (5, int)
     assert get(-82) == (-82, int)
-    assert get(sys.maxint) == (sys.maxint, int)
-    assert get(sys.maxint+1) == (sys.maxint+1, r_uint)
-    if sys.maxint == 2147483647:
+    assert get(sys.maxsize) == (sys.maxsize, int)
+    assert get(sys.maxsize+1) == (sys.maxsize+1, r_uint)
+    if sys.maxsize == 2147483647:
         assert get(9999999999) == (9999999999, r_longlong)
         assert get(-9999999999) == (-9999999999, r_longlong)
         assert get(2**63) == (2**63, r_ulonglong)

@@ -49,16 +49,79 @@ pypy_Getppid()
     }
     CloseHandle(snapshot);
     return result;
-}    
+}
+
+#ifndef PERSISTENT_VOLUME_STATE_DEV_VOLUME
+#define PERSISTENT_VOLUME_STATE_DEV_VOLUME 0x00002000
+#endif
+
+/* Layout of FILE_FS_PERSISTENT_VOLUME_INFORMATION, which only the
+   driver headers declare */
+typedef struct {
+    ULONG VolumeFlags;
+    ULONG FlagMask;
+    ULONG Version;
+    ULONG Reserved;
+} pypy_volume_state_t;
+
+DWORD
+pypy_IsDevDrive(LPCWSTR path, int *result)
+    /* Copied from CPython os__path_isdevdrive_impl.  Returns a win32
+       error code, or 0 and sets *result. */
+{
+    wchar_t volume[MAX_PATH];
+    HANDLE hVolume;
+    pypy_volume_state_t volumeState;
+    DWORD err = 0;
+
+    *result = 0;
+    if (!GetVolumePathNameW(path, volume, MAX_PATH)) {
+        /* invalid path of some kind, including a volume mounted in a path
+           longer than MAX_PATH */
+        return GetLastError();
+    }
+    if (GetDriveTypeW(volume) != DRIVE_FIXED) {
+        /* only local dev drives */
+        return 0;
+    }
+    hVolume = CreateFileW(volume, FILE_READ_ATTRIBUTES,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE |
+                          FILE_SHARE_DELETE,
+                          NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS,
+                          NULL);
+    if (hVolume == INVALID_HANDLE_VALUE) {
+        return GetLastError();
+    }
+    memset(&volumeState, 0, sizeof(volumeState));
+    volumeState.Version = 1;
+    volumeState.FlagMask = PERSISTENT_VOLUME_STATE_DEV_VOLUME;
+    if (!DeviceIoControl(hVolume, FSCTL_QUERY_PERSISTENT_VOLUME_STATE,
+                         &volumeState, sizeof(volumeState),
+                         &volumeState, sizeof(volumeState), NULL, NULL)) {
+        err = GetLastError();
+    }
+    CloseHandle(hVolume);
+    if (err == ERROR_INVALID_PARAMETER) {
+        /* not supported on this platform */
+        return 0;
+    }
+    if (err) {
+        return err;
+    }
+    *result = (volumeState.VolumeFlags &
+               PERSISTENT_VOLUME_STATE_DEV_VOLUME) != 0;
+    return 0;
+}
 """
 eci = ExternalCompilationInfo(
-    includes=['windows.h', 'tlhelp32.h'],
+    includes=['windows.h', 'tlhelp32.h', 'winioctl.h'],
     include_dirs=[cdir],
     post_include_bits=[
         "RPY_EXTERN DWORD "
         "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);",
         "RPY_EXTERN DWORD ",
         "pypy_Getppid();",
+        "RPY_EXTERN DWORD pypy_IsDevDrive(LPCWSTR, int *);",
     ],
     separate_module_sources=[separate_module_source])
 pypy_GetFinalPathNameByHandle = rffi.llexternal(
@@ -67,6 +130,9 @@ pypy_GetFinalPathNameByHandle = rffi.llexternal(
     rwin32.DWORD, compilation_info=eci)
 pypy_Getppid = rffi.llexternal(
     'pypy_Getppid', [], rwin32.DWORD, compilation_info=eci)
+pypy_IsDevDrive = rffi.llexternal(
+    'pypy_IsDevDrive', [rffi.CWCHARP, rffi.CArrayPtr(rffi.INT)],
+    rwin32.DWORD, compilation_info=eci)
 
 
 # plain NotImplementedError is invalid RPython
@@ -208,6 +274,144 @@ def win32_getdiskusage(utf8):
                     total = rffi.cast(lltype.SignedLongLong, total_p[0])
                     free_ = rffi.cast(lltype.SignedLongLong, free_p[0])
     return total, free_
+
+
+ERROR_MORE_DATA = 234
+ERROR_NO_MORE_FILES = 18
+
+_GetLogicalDriveStringsW = rffi.llexternal(
+    'GetLogicalDriveStringsW',
+    [rwin32.DWORD, rffi.CWCHARP],
+    rwin32.DWORD,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+_FindFirstVolumeW = rffi.llexternal(
+    'FindFirstVolumeW',
+    [rffi.CWCHARP, rwin32.DWORD],
+    rwin32.HANDLE,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+_FindNextVolumeW = rffi.llexternal(
+    'FindNextVolumeW',
+    [rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+_FindVolumeClose = rffi.llexternal(
+    'FindVolumeClose',
+    [rwin32.HANDLE],
+    rwin32.BOOL,
+    compilation_info=eci)
+
+_GetVolumePathNameW = rffi.llexternal(
+    'GetVolumePathNameW',
+    [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+_GetVolumePathNamesForVolumeNameW = rffi.llexternal(
+    'GetVolumePathNamesForVolumeNameW',
+    [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD, rwin32.LPDWORD],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+def win32_listmounts(utf8):
+    """The mount points of the volume 'utf8', as a list of utf8 strings."""
+    ncp = codepoints_in_utf8(utf8)
+    size = rwin32.MAX_PATH + 1
+    with rffi.scoped_utf82wcharp(utf8, ncp) as volume:
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as cch:
+            while True:
+                with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+                    if _GetVolumePathNamesForVolumeNameW(
+                            volume, buf, rffi.cast(rwin32.DWORD, size), cch):
+                        lgt = rffi.cast(lltype.Signed, cch[0])
+                        if lgt <= 1:
+                            return []     # no mount point
+                        # NUL-separated strings; the returned length counts
+                        # the last one's NUL and the final one too
+                        return rffi.wcharpsize2utf8(
+                            buf, lgt - 2).split('\x00')
+                    if rwin32.GetLastError_saved() != ERROR_MORE_DATA:
+                        raise rwin32.lastSavedWindowsError(
+                            "GetVolumePathNamesForVolumeNameW")
+                    needed = rffi.cast(lltype.Signed, cch[0])
+                    if needed <= size:
+                        raise rwin32.lastSavedWindowsError(
+                            "GetVolumePathNamesForVolumeNameW")
+                    size = needed
+
+
+def win32_listdrives():
+    """The drives in the system, as a list of utf8 strings."""
+    # the number of drives is bounded, so 256 wchars is always enough
+    size = 256
+    with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+        buflen = rffi.cast(lltype.Signed, _GetLogicalDriveStringsW(
+            rffi.cast(rwin32.DWORD, size), buf))
+        if buflen == 0:
+            raise rwin32.lastSavedWindowsError("GetLogicalDriveStringsW")
+        if buflen >= size:
+            raise WindowsError(ERROR_MORE_DATA, "GetLogicalDriveStringsW")
+        # NUL-separated strings, plus a final NUL that buflen counts
+        return rffi.wcharpsize2utf8(buf, buflen - 1).split('\x00')
+
+
+def win32_listvolumes():
+    """The volumes in the system, as a list of utf8 GUID paths."""
+    result = []
+    size = rwin32.MAX_PATH + 1
+    with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+        hFind = _FindFirstVolumeW(buf, rffi.cast(rwin32.DWORD, size))
+        if hFind == rwin32.INVALID_HANDLE_VALUE:
+            if rwin32.GetLastError_saved() != ERROR_NO_MORE_FILES:
+                raise rwin32.lastSavedWindowsError("FindFirstVolumeW")
+            return result
+        try:
+            while True:
+                utf8, lgt = rffi.wcharp2utf8(buf)
+                result.append(utf8)
+                if not _FindNextVolumeW(hFind, buf,
+                                        rffi.cast(rwin32.DWORD, size)):
+                    if rwin32.GetLastError_saved() != ERROR_NO_MORE_FILES:
+                        raise rwin32.lastSavedWindowsError("FindNextVolumeW")
+                    break
+        finally:
+            _FindVolumeClose(hFind)
+    return result
+
+
+def win32_getvolumepathname(utf8):
+    """The mount point of the volume holding 'utf8', as utf8."""
+    ncp = codepoints_in_utf8(utf8)
+    # the volume path is no longer than the whole path
+    size = len(utf8) + 1
+    if size < rwin32.MAX_PATH:
+        size = rwin32.MAX_PATH
+    with rffi.scoped_utf82wcharp(utf8, ncp) as path:
+        with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+            if not _GetVolumePathNameW(path, buf,
+                                       rffi.cast(rwin32.DWORD, size)):
+                raise rwin32.lastSavedWindowsError("_getvolumepathname")
+            return rffi.wcharp2utf8(buf)
+
+
+def win32_isdevdrive(utf8):
+    """True if 'utf8' lives on a Windows Dev Drive."""
+    ncp = codepoints_in_utf8(utf8)
+    with rffi.scoped_utf82wcharp(utf8, ncp) as path:
+        with lltype.scoped_alloc(rffi.CArray(rffi.INT), 1) as result:
+            err = rffi.cast(lltype.Signed, pypy_IsDevDrive(path, result))
+            if err:
+                raise WindowsError(err, "_path_isdevdrive")
+            return rffi.cast(lltype.Signed, result[0]) != 0
 
 
 def win32_getppid():

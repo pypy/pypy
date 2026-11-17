@@ -39,8 +39,22 @@ class Darwin(posix.BasePosix):
               # __builtin_available check; libffi is always present as a system
               # library and pthread_jit_write_protect_np only runs on arm64
               # (always macOS 11+), so silence -Wunguarded-availability-new.
+              # Note this blanket suppression is *not* wanted when probing for
+              # the existence of a function, see availability_error_flags.
               '-Wno-unguarded-availability-new',
               DARWIN_VERSION_MIN,)
+
+    # The macOS SDK is routinely much newer than our deployment target, and it
+    # declares functions that do not exist on the systems we target.  clang
+    # turns a reference to such a function into a *weak import*: it compiles
+    # and links on the build machine, and binds to NULL when the binary runs on
+    # an older macOS, so the first call jumps to address 0.  A plain "does this
+    # compile and link?" feature probe therefore answers "yes" for functions
+    # that are not callable at run time.  Making unguarded-availability an
+    # error puts the probe back in sync with the deployment target.
+    # This bit us with pipe2()/dup3(), which appeared in the macOS 27 SDK and
+    # silently broke every nightly on macOS 26 and older.
+    availability_error_flags = ('-Werror=unguarded-availability-new',)
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'

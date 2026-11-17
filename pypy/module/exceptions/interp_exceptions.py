@@ -589,8 +589,13 @@ class W_OSError(W_Exception):
                 except OperationError:
                     w_winerror = None
                 else:
-                    w_errno = space.newint(
-                        WINERROR_TO_ERRNO.get(winerror, DEFAULT_WIN32_ERRNO))
+                    if WSABASEERR <= winerror < WSABASEERR + 1000:
+                        # like CPython, a Winsock error code is its own errno
+                        errno_ = winerror
+                    else:
+                        errno_ = WINERROR_TO_ERRNO.get(winerror,
+                                                       DEFAULT_WIN32_ERRNO)
+                    w_errno = space.newint(errno_)
             return w_errno, w_winerror, w_strerror, w_filename, w_filename2
         return None, None, None, None, None
 
@@ -1262,3 +1267,17 @@ ERRNO_MAP = {
     errno.ESRCH: W_ProcessLookupError,
     errno.ETIMEDOUT: W_TimeoutError,
 }
+
+WSABASEERR = 10000
+
+if rwin32.WIN32:
+    # the Winsock error codes are distinct from the errno values of the same
+    # name, and select the same subclasses.  Keep in sync with CPython's
+    # _PyExc_InitState()
+    ERRNO_MAP.update({
+        errno.WSAEINTR: W_InterruptedError,
+        errno.WSAEWOULDBLOCK: W_BlockingIOError,
+        errno.WSAECONNABORTED: W_ConnectionAbortedError,
+        errno.WSAECONNREFUSED: W_ConnectionRefusedError,
+        errno.WSAECONNRESET: W_ConnectionResetError,
+        })

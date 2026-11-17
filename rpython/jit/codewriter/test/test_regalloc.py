@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, sys
 from rpython.jit.codewriter import support
 from rpython.jit.codewriter.regalloc import perform_register_allocation
@@ -263,10 +265,10 @@ class TestRegAlloc:
                 raise FooError(n)
             return lltype.nullptr(llmemory.GCREF.TO)
         def foo(e):
-            print "hello"
+            print("hello")
             return e
         def bar(e):
-            print "world"
+            print("world")
             return e
         def f(n, kref):
             kref2 = bar(kref)

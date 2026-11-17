@@ -35,7 +35,7 @@ def cpython_code_signature(code):
 class BytecodeCorruption(Exception):
     pass
 
-HASJREL = b"".join([chr(_opnum in opcode.hasjrel) for _opnum in range(256)])
+HASJREL = bytearray([_opnum in opcode.hasjrel for _opnum in range(256)])
 
 class HostCode(object):
     """
@@ -114,7 +114,7 @@ class HostCode(object):
             next_offset += 3
             oparg = (oparg * 65536) | (hi * 256) | lo
 
-        if ord(HASJREL[opnum]):
+        if HASJREL[opnum]:
             oparg += next_offset
         opname = self.opnames[_promote(opnum)]
         return next_offset, opname, oparg

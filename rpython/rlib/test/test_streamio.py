@@ -1,5 +1,7 @@
 """Unit tests for streamio (new standard I/O)."""
 
+from __future__ import print_function
+
 import os
 import time
 import random
@@ -693,7 +695,7 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
             try:
                 os.remove(tfn)
             except os.error as msg:
-                print "can't remove %s: %s" % (tfn, msg)
+                print("can't remove %s: %s" % (tfn, msg))
 
     def makeStream(self, tell=None, seek=None, bufsize=-1, mode="r"):
         mmapmode = 0
@@ -741,12 +743,12 @@ class BaseTestBufferingInputOutputStreamTests(BaseRtypingTest):
             filter.write("123456789")
             for chunk in base.chunks:
                 assert len(chunk[1]) >= 4
-            s = filter.read(sys.maxint)
+            s = filter.read(sys.maxsize)
             assert base.buf == "123456789"
             base.chunks = []
             filter.write("abc")
             assert not base.chunks
-            s = filter.read(sys.maxint)
+            s = filter.read(sys.maxsize)
             assert base.buf == "123456789abc"
             base.chunks = []
             filter.write("012")
@@ -1189,8 +1191,8 @@ def timeit(fn=FN, opener=streamio.MMapFile):
         lines += 1
         bytes += len(line)
     t1 = time.clock()
-    print "%d lines (%d bytes) in %.3f seconds for %s" % (
-        lines, bytes, t1-t0, opener.__name__)
+    print("%d lines (%d bytes) in %.3f seconds for %s" % (
+        lines, bytes, t1-t0, opener.__name__))
 
 def speed_main():
     def diskopen(fn, mode):

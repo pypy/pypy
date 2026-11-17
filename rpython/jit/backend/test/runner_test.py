@@ -30,8 +30,8 @@ from rpython.jit.backend.llsupport.llmodel import MissingLatestDescrError
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 
 
-IS_32_BIT = sys.maxint < 2**32
-IS_64_BIT = sys.maxint > 2**32
+IS_32_BIT = sys.maxsize < 2**32
+IS_64_BIT = sys.maxsize > 2**32
 
 boxfloat = InputArgFloat.fromfloat
 constfloat = ConstFloat.fromfloat
@@ -469,15 +469,15 @@ class BaseBackendTest(Runner):
             assert res == retvalue
 
     def test_ovf_operations(self, reversed=False):
-        minint = -sys.maxint-1
+        minint = -sys.maxsize-1
         boom = 'boom'
         for opnum, testcases in [
             (rop.INT_ADD_OVF, [(10, -2, 8),
                                (-1, minint, boom),
-                               (sys.maxint//2, sys.maxint//2+2, boom)]),
+                               (sys.maxsize//2, sys.maxsize//2+2, boom)]),
             (rop.INT_SUB_OVF, [(-20, -23, 3),
-                               (-2, sys.maxint, boom),
-                               (sys.maxint//2, -(sys.maxint//2+2), boom)]),
+                               (-2, sys.maxsize, boom),
+                               (sys.maxsize//2, -(sys.maxsize//2+2), boom)]),
             (rop.INT_MUL_OVF, [(minint/2, 2, minint),
                                (-2, -(minint/2), minint),
                                (minint/2, -2, boom)]),
@@ -1968,7 +1968,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_cast_int_to_float(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
-        for x in [-10, -1, 0, 3, 42, sys.maxint-1]:
+        for x in [-10, -1, 0, 3, 42, sys.maxsize-1]:
             res = self.execute_operation(rop.CAST_INT_TO_FLOAT,
                                          [InputArgInt(x)],  'float')
             assert longlong.getrealfloat(res) == float(x)
@@ -2254,7 +2254,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 return funcbox.getint()
         #
         for cond in [False, True]:
-            value = random.randrange(-sys.maxint, sys.maxint)
+            value = random.randrange(-sys.maxsize, sys.maxsize)
             if cond:
                 value |= 4096
             else:
@@ -2289,7 +2289,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 return funcbox.getint()
         #
         for cond in [False, True]:
-            value = random.randrange(-sys.maxint, sys.maxint)
+            value = random.randrange(-sys.maxsize, sys.maxsize)
             if cond:
                 value |= 4096
             else:
@@ -2349,7 +2349,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 print('BoxIndexCls =', BoxIndexCls)
                 print('testing cond =', cond)
                 print()
-                value = random.randrange(-sys.maxint, sys.maxint)
+                value = random.randrange(-sys.maxsize, sys.maxsize)
                 if cond >= 0:
                     value |= 4096
                 else:
@@ -2783,7 +2783,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.clibffi import _WIN32
         if not _WIN32:
             py.test.skip("Windows test only")
-        if sys.maxint > 2 ** 32:
+        if sys.maxsize > 2 ** 32:
             py.test.skip("Windows 32-bit test only")
         from rpython.rlib.libffi import WinDLL, types, ArgChain
         from rpython.rlib.rwin32 import DWORD
@@ -2844,7 +2844,7 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
 
         for ffitype, result, TP in [
-            (types.unsigned,  r_uint(sys.maxint + 10), lltype.Unsigned),
+            (types.unsigned,  r_uint(sys.maxsize + 10), lltype.Unsigned),
             (types.signed,  -4321, lltype.Signed),
             (types.uint8,  200, rffi.UCHAR),
             (types.sint8,  -42, rffi.SIGNEDCHAR),
@@ -2902,7 +2902,7 @@ class LLtypeBackendTest(BaseBackendTest):
             if kind in 'uis':
                 r = self.cpu.get_int_value(deadframe, 0)
                 if isinstance(result, r_singlefloat):
-                    assert -sys.maxint-1 <= r <= 0xFFFFFFFF
+                    assert -sys.maxsize-1 <= r <= 0xFFFFFFFF
                     r, = struct.unpack("f", struct.pack("I", r & 0xFFFFFFFF))
                     result = float(result)
                 else:
@@ -3864,7 +3864,7 @@ class LLtypeBackendTest(BaseBackendTest):
         loop = parse(ops, namespace=locals())
         othertoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
-        deadframe = self.cpu.execute_token(othertoken, sys.maxint - 1)
+        deadframe = self.cpu.execute_token(othertoken, sys.maxsize - 1)
         assert self.cpu.get_int_value(deadframe, 0) == 3
 
     def test_assembler_call_float(self):
@@ -4510,7 +4510,7 @@ class LLtypeBackendTest(BaseBackendTest):
         # overflowing value:
         unisize = self.cpu.gc_ll_descr.unicode_descr.itemsize
         assert unisize in (2, 4)
-        deadframe = self.cpu.execute_token(looptoken, sys.maxint // unisize + 1)
+        deadframe = self.cpu.execute_token(looptoken, sys.maxsize // unisize + 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == excdescr.identifier
         exc = self.cpu.grab_exc_value(deadframe)
@@ -4614,7 +4614,7 @@ class LLtypeBackendTest(BaseBackendTest):
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-            test_cases = [random.randrange(-sys.maxint-1, sys.maxint+1)
+            test_cases = [random.randrange(-sys.maxsize-1, sys.maxsize+1)
                           for _ in range(100)]
             for test_case in test_cases:
                 deadframe = self.cpu.execute_token(looptoken, test_case)
@@ -4881,7 +4881,7 @@ class LLtypeBackendTest(BaseBackendTest):
                   rffi.UNSIGNED, rffi.SIGNED]:
             arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
             p = rawstorage.alloc_raw_storage(31)
-            value = (-0x4243444546474849) & sys.maxint
+            value = (-0x4243444546474849) & sys.maxsize
             self.cpu.bh_raw_store_i(rffi.cast(lltype.Signed, p), 16, value,
                                     arraydescr)
             result = rawstorage.raw_storage_getitem(T, p, 16)

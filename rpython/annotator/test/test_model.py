@@ -176,12 +176,14 @@ def test_union_unary(s):
     assert union(s_ImpossibleValue, s) == s
 
 @given(s1=st_annotation, s2=st_annotation)
-@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=500, suppress_health_check=[
+    HealthCheck.filter_too_much, HealthCheck.too_slow])
 def test_commutativity_of_union_compatibility(s1, s2):
     assert compatible(s1, s2) == compatible(s2, s1)
 
 @given(st_annotation, st_annotation)
-@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=500, suppress_health_check=[
+    HealthCheck.filter_too_much, HealthCheck.too_slow])
 def test_union_commutative(s1, s2):
     try:
         s_union = union(s1, s2)
@@ -192,14 +194,16 @@ def test_union_commutative(s1, s2):
     assert s_union.contains(s2)
 
 @pytest.mark.xfail
-@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=500, suppress_health_check=[
+    HealthCheck.filter_too_much, HealthCheck.too_slow])
 @given(st_annotation, st_annotation, st_annotation)
 def test_union_associative(s1, s2, s3):
     assume(compatible(s1, s2) and compatible(union(s1, s2), s3))
     assert union(union(s1, s2), s3) == union(s1, union(s2, s3))
 
 @given(s_const=st_const, s_obj=st_annotation)
-@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=500, suppress_health_check=[
+    HealthCheck.filter_too_much, HealthCheck.too_slow])
 def test_constants_are_atoms(s_const, s_obj):
     assume(s_const.contains(s_obj))
     assert s_const == s_obj or s_obj == s_ImpossibleValue
@@ -207,7 +211,8 @@ def test_constants_are_atoms(s_const, s_obj):
 
 @pytest.mark.xfail
 @given(st_annotation, st_annotation)
-@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
+@settings(max_examples=500, suppress_health_check=[
+    HealthCheck.filter_too_much, HealthCheck.too_slow])
 def test_generalize_isinstance(annotator, s1, s2):
     try:
         s_12 = union(s1, s2)

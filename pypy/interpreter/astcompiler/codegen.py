@@ -227,6 +227,29 @@ def _get_positions_for_expr(node):
         node.end_col_offset,
     )
 
+def _start_position_at_attr(node, attr_lookup):
+    # mirrors CPython's update_start_location_to_match_attr(): a method call
+    # written across several lines is reported from the method name onwards,
+    # a single-line one from the start of the whole expression
+    lineno = node.lineno
+    end_lineno = node.end_lineno
+    col_offset = node.col_offset
+    end_col_offset = node.end_col_offset
+    if lineno != attr_lookup.end_lineno:
+        lineno = attr_lookup.end_lineno
+        attr_len = len(attr_lookup.attr)
+        if attr_len <= attr_lookup.end_col_offset:
+            col_offset = attr_lookup.end_col_offset - attr_len
+        else:
+            # a hand-built AST, drop the columns rather than invent them
+            col_offset = -1
+            end_col_offset = -1
+        if end_lineno < lineno:
+            end_lineno = lineno
+        if lineno == end_lineno and end_col_offset < col_offset:
+            end_col_offset = col_offset
+    return (lineno, end_lineno, col_offset, end_col_offset)
+
 def update_pos_expr(func):
     def updater(self, expr):
         assert isinstance(expr, ast.expr)
@@ -2180,9 +2203,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         attr_lookup.value.walkabout(self)
         attr_col = attr_lookup.end_col_offset - len(attr_lookup.attr)
         self.update_position((attr_lookup.end_lineno, attr_lookup.end_lineno, attr_col, attr_lookup.end_col_offset))
+        call_position = _start_position_at_attr(call, attr_lookup)
         self.emit_op_name(ops.LOAD_METHOD, self.names, attr_lookup.attr)
         self.visit_sequence(call.args)
         if not call.keywords:
+            self.update_position(call_position)
             self.emit_op_arg(ops.CALL_METHOD, arg_count)
         else:
             keyword_names_w = []
@@ -2193,6 +2218,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 keyword_names_w.append(misc.intern_if_common_string(space, w_name))
                 kw.value.walkabout(self)
             self._load_constant_tuple(keyword_names_w)
+            self.update_position(call_position)
             self.emit_op_arg(ops.CALL_METHOD_KW, len(keyword_names_w) + arg_count)
         return True
 

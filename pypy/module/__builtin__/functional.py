@@ -13,6 +13,8 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
+from pypy.objspace.std.iterobject import W_FastListIterObject
+from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.util import generic_alias_class_getitem
 
 
@@ -252,8 +254,6 @@ class W_Enumerate(W_Root):
 
     @staticmethod
     def descr___new__(space, w_subtype, w_iterable, w_start=None):
-        from pypy.objspace.std.listobject import W_ListObject
-
         if w_start is None:
             start = 0
         else:
@@ -279,7 +279,6 @@ class W_Enumerate(W_Root):
         return self
 
     def descr_next(self, space):
-        from pypy.objspace.std.listobject import W_ListObject
         w_index = self.w_index
         w_iter_or_list = self.w_iter_or_list
         w_item = None
@@ -312,10 +311,13 @@ class W_Enumerate(W_Root):
 
     def descr___reduce__(self, space):
         w_index = self.w_index
+        w_iter = self.w_iter_or_list
         if w_index is None:
+            if w_iter is None or type(w_iter) is W_ListObject:
+                w_iter = W_FastListIterObject(w_iter, self.index)
             w_index = space.newint(self.index)
         return space.newtuple2(space.type(self),
-                               space.newtuple2(self.w_iter_or_list, w_index))
+                               space.newtuple2(w_iter, w_index))
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
@@ -748,19 +750,32 @@ class W_IntRangeIterator(W_AbstractRangeIterator):
         new_inst = mod.get('intrangeiter_new')
         nt = space.newtuple
 
+        # the args already encode the position, so the index to apply on
+        # top of them is 0
         tup = [space.newint(self.current), self.get_remaining(space), space.newint(self.step)]
-        return nt([new_inst, nt(tup), self.get_remaining(space)])
+        return nt([new_inst, nt(tup), space.newint(0)])
 
     def get_remaining(self, space):
         return space.newint(self.remaining)
 
-    def descr_setstate(self, space, w_remaining):
-        remaining = space.int_w(w_remaining)
-        if remaining < 0:
-            remaining = 0
-        if remaining > self.remaining:
-            remaining = self.remaining
-        self.remaining = remaining
+    def _get_index(self):
+        step = self.step
+        if step == 0:
+            return 0      # cannot happen, a range step is never 0
+        return (self.current - self.start) // step
+
+    def descr_setstate(self, space, w_index):
+        # the state is the number of items already consumed, like CPython
+        index = space.int_w(w_index)
+        length = self._get_index() + self.remaining
+        if index < 0:
+            index = 0
+        elif index >= length:
+            # do not compute start + length * step, it can overflow
+            self.remaining = 0
+            return
+        self.current = self.start + index * self.step
+        self.remaining = length - index
 
 
 class W_IntRangeStepOneIterator(W_IntRangeIterator):
@@ -784,11 +799,14 @@ class W_IntRangeStepOneIterator(W_IntRangeIterator):
 
     def descr_setstate(self, space, w_index):
         index = space.int_w(w_index)
-        if index < self.start:
-            index = self.start
-        elif index > self.stop:
-            index = self.stop
-        self.current = index
+        length = self.stop - self.start
+        if length < 0:
+            length = 0
+        if index < 0:
+            index = 0
+        elif index > length:
+            index = length
+        self.current = self.start + index
 
 
 class W_IntRangeOneArgIterator(W_IntRangeIterator):

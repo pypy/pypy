@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32, rstring
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.buffer import ByteBuffer
-from rpython.rlib.rutf8 import check_utf8
+from rpython.rlib.rutf8 import check_utf8, codepoints_in_utf8
 
 from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -374,12 +374,14 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
     hkey = hkey_w(w_hkey, space)
     if space.is_w(w_subkey, space.w_None):
         subkey = None
+        uni_len = 0
     else:
-        subkey = space.utf8_w(w_subkey).decode('utf8')
+        subkey = space.utf8_w(w_subkey)
+        uni_len = space.len_w(w_subkey)
     space.audit("winreg.QueryValue",  [
             space.newint(rffi.cast(rffi.SIZE_T, hkey)),
             w_subkey, space.newtext('')])
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+    with rffi.scoped_utf82wcharp(subkey, uni_len) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
             bufsize_p[0] = rffi.cast(rwin32.LONG, 0)
@@ -406,6 +408,13 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
                 return space.newtext(utf8, lgt)
 
 
+def _utf8_to_widechar(utf8):
+    """utf8 -> (wchar_t*, length in wide chars).  The caller must
+    rffi.free_wcharp() the result"""
+    return (rffi.utf82wcharp_ex(utf8, codepoints_in_utf8(utf8)),
+            rffi.utf82wcharp_ex_len(utf8))
+
+
 def convert_to_regdata(space, w_value, typ):
     '''returns CCHARP, int'''
     buf = None
@@ -415,7 +424,15 @@ def convert_to_regdata(space, w_value, typ):
             if space.is_none(w_value):
                 value = r_uint(0)
             else:
-                value = space.c_uint_w(w_value)
+                # CPython uses PyLong_AsUnsignedLong(), which reports a
+                # negative value as an OverflowError
+                try:
+                    value = space.c_uint_w(w_value)
+                except OperationError as e:
+                    if not e.match(space, space.w_ValueError):
+                        raise
+                    raise oefmt(space.w_OverflowError,
+                                "can't convert negative value to unsigned int")
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
             buf1[0] = rffi.cast(rffi.UINT, value)
@@ -426,7 +443,13 @@ def convert_to_regdata(space, w_value, typ):
             if space.is_none(w_value):
                 value = r_ulonglong(0)
             else:
-                value = space.r_ulonglong_w(w_value)
+                try:
+                    value = space.r_ulonglong_w(w_value)
+                except OperationError as e:
+                    if not e.match(space, space.w_ValueError):
+                        raise
+                    raise oefmt(space.w_OverflowError,
+                                "can't convert negative value to unsigned int")
             buflen = rffi.sizeof(rffi.ULONGLONG)
             buf1 = lltype.malloc(rffi.CArray(rffi.ULONGLONG), 1, flavor='raw')
             buf1[0] = rffi.cast(rffi.ULONGLONG, value)
@@ -438,9 +461,10 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
             buf[0] = '\0'
         else:
-            buf = rffi.unicode2wcharp(space.utf8_w(w_value).decode('utf8'))
-            buf = rffi.cast(rffi.CCHARP, buf)
-            buflen = (space.len_w(w_value) * 2) + 1
+            wbuf, wlen = _utf8_to_widechar(space.utf8_w(w_value))
+            buf = rffi.cast(rffi.CCHARP, wbuf)
+            # like CPython, the size covers the terminating wide NUL
+            buflen = (wlen + 1) * 2
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if space.is_w(w_value, space.w_None):
@@ -456,9 +480,9 @@ def convert_to_regdata(space, w_value, typ):
             while True:
                 try:
                     w_item = space.next(w_iter)
-                    item = space.utf8_w(w_item).decode('utf8')
-                    strings.append(item)
-                    buflen += 2 * (len(item) + 1)
+                    utf8 = space.utf8_w(w_item)
+                    strings.append(utf8)
+                    buflen += 2 * (rffi.utf82wcharp_ex_len(utf8) + 1)
                 except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise       # re-raise other app-level exceptions
@@ -468,12 +492,15 @@ def convert_to_regdata(space, w_value, typ):
 
             # Now copy data
             buflen = 0
-            for string in strings:
-                with rffi.scoped_unicode2wcharp(string) as wchr:
+            for j in range(len(strings)):
+                wchr, wlen = _utf8_to_widechar(strings[j])
+                try:
                     c_str = rffi.cast(rffi.CCHARP, wchr)
-                    for i in range(len(string) * 2):
+                    for i in range(wlen * 2):
                         buf[buflen + i] = c_str[i]
-                buflen += (len(string) + 1) * 2
+                finally:
+                    rffi.free_wcharp(wchr)
+                buflen += (wlen + 1) * 2
                 buf[buflen - 1] = '\0'
                 buf[buflen - 2] = '\0'
             buflen += 2
@@ -637,13 +664,15 @@ value_name is a string indicating the value to query"""
     hkey = hkey_w(w_hkey, space)
     if space.is_w(w_subkey, space.w_None):
         subkey = None
+        uni_len = 0
     else:
-        subkey = space.utf8_w(w_subkey).decode('utf8')
+        subkey = space.utf8_w(w_subkey)
+        uni_len = space.len_w(w_subkey)
     space.audit("winreg.QueryValue",  [
             space.newint(rffi.cast(rffi.SIZE_T, hkey)),
             space.newtext(''), w_subkey])
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
-    with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
+    with rffi.scoped_utf82wcharp(subkey, uni_len) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as dataSize:
             ret = rwinreg.RegQueryValueExW(hkey, c_subkey, null_dword,

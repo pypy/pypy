@@ -53,7 +53,7 @@ class GenerationGC(SemiSpaceGC):
                  min_nursery_size=32*WORD,
                  auto_nursery_size=False,
                  space_size=1024*WORD,
-                 max_space_size=sys.maxint//2+1,
+                 max_space_size=sys.maxsize//2+1,
                  **kwds):
         SemiSpaceGC.__init__(self, config,
                              space_size = space_size,

@@ -61,6 +61,20 @@ def test_warn_explicit():
     assert issubclass(w[0].category, DeprecationWarning)
     assert issubclass(w[1].category, Warning)
 
+def test_warn_explicit_module_globals():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        # bpo-33509: None is accepted, anything else than a dict is not
+        _warnings.warn_explicit("msg", UserWarning, "filename", 42,
+                                module_globals=None)
+        _warnings.warn_explicit("msg", UserWarning, "filename", 42,
+                                module_globals={})
+        with pytest.raises(TypeError) as excinfo:
+            _warnings.warn_explicit("msg", UserWarning, "filename", 42,
+                                    module_globals=True)
+    assert len(w) == 2
+    assert str(excinfo.value) == "module_globals must be a dict, not 'bool'"
+
 def test_with_source():
     source = []
     with warnings.catch_warnings(record=True) as w:

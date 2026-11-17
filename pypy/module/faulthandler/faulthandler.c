@@ -20,6 +20,10 @@
 #endif
 #include "src/threadlocal.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #define MAX_FRAME_DEPTH   100
 #define FRAME_DEPTH_N     RVMPROF_TRACEBACK_ESTIMATE_N(MAX_FRAME_DEPTH)
 
@@ -46,6 +50,9 @@ static struct {
     int enabled;
     volatile int fd, all_threads;
     volatile pypy_faulthandler_cb_t dump_traceback;
+#ifdef _WIN32
+    void *exc_handler;
+#endif
 } fatal_error;
 
 /* Set while the dump_traceback_later() watchdog thread runs. That thread
@@ -495,6 +502,19 @@ int pypy_faulthandler_unregister(int signum)
 /************************************************************/
 
 
+static void faulthandler_disable_fatal_handler(fault_handler_t *handler)
+{
+    if (!handler->enabled)
+        return;
+    handler->enabled = 0;
+#ifdef HAVE_SIGACTION
+    (void)sigaction(handler->signum, &handler->previous, NULL);
+#else
+    (void)signal(handler->signum, handler->previous);
+#endif
+}
+
+
 /* Handler for SIGSEGV, SIGFPE, SIGABRT, SIGBUS and SIGILL signals.
 
    Display the current Python traceback, restore the previous handler and call
@@ -557,6 +577,74 @@ faulthandler_fatal_error(int signum)
        sigaction() thanks to SA_NODEFER flag, otherwise it is deferred */
     raise(signum);
 }
+
+
+#ifdef _WIN32
+static int faulthandler_ignore_exception(DWORD code)
+{
+    /* bpo-30557: ignore exceptions which are not errors */
+    if (!(code & 0x80000000))
+        return 1;
+    /* bpo-31701: ignore MSC and COM exceptions */
+    if (code == 0xE06D7363 /* MSC exception ("Emsc") */
+        || code == 0xE0434352 /* COM Callable Runtime exception ("ECCR") */)
+        return 1;
+    return 0;
+}
+
+static LONG WINAPI
+faulthandler_exc_handler(struct _EXCEPTION_POINTERS *exc_info)
+{
+    int fd = fatal_error.fd;
+    DWORD code = exc_info->ExceptionRecord->ExceptionCode;
+    int i;
+
+    if (faulthandler_ignore_exception(code)) {
+        /* call the next exception handler */
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+    pypy_faulthandler_write(fd, "Windows fatal exception: ");
+    switch (code)
+    {
+    /* only format most common errors */
+    case EXCEPTION_ACCESS_VIOLATION:
+        pypy_faulthandler_write(fd, "access violation"); break;
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+        pypy_faulthandler_write(fd, "float divide by zero"); break;
+    case EXCEPTION_FLT_OVERFLOW:
+        pypy_faulthandler_write(fd, "float overflow"); break;
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+        pypy_faulthandler_write(fd, "int divide by zero"); break;
+    case EXCEPTION_INT_OVERFLOW:
+        pypy_faulthandler_write(fd, "integer overflow"); break;
+    case EXCEPTION_IN_PAGE_ERROR:
+        pypy_faulthandler_write(fd, "page error"); break;
+    case EXCEPTION_STACK_OVERFLOW:
+        pypy_faulthandler_write(fd, "stack overflow"); break;
+    default:
+        pypy_faulthandler_write(fd, "code 0x");
+        pypy_faulthandler_write_hex(fd, (Unsigned)code);
+    }
+    pypy_faulthandler_write(fd, "\n\n");
+
+    if (code == EXCEPTION_ACCESS_VIOLATION) {
+        /* the fault is reported here, so the SIGSEGV handler would only
+           add a second traceback */
+        for (i = 0; i < faulthandler_nsignals; i++) {
+            if (faulthandler_handlers[i].signum == SIGSEGV) {
+                faulthandler_disable_fatal_handler(&faulthandler_handlers[i]);
+                break;
+            }
+        }
+    }
+
+    faulthandler_dump_traceback(fd, fatal_error.all_threads, NULL);
+
+    /* call the next exception handler */
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
 
 
 RPY_EXTERN
@@ -666,6 +754,12 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
             }
             handler->enabled = 1;
         }
+#ifdef _WIN32
+        if (fatal_error.exc_handler == NULL) {
+            fatal_error.exc_handler =
+                AddVectoredExceptionHandler(1, faulthandler_exc_handler);
+        }
+#endif
     }
     return NULL;
 }
@@ -677,17 +771,15 @@ void pypy_faulthandler_disable(void)
     if (fatal_error.enabled) {
         fatal_error.enabled = 0;
         for (i = 0; i < faulthandler_nsignals; i++) {
-            fault_handler_t *handler = &faulthandler_handlers[i];
-            if (!handler->enabled)
-                continue;
-#ifdef HAVE_SIGACTION
-            (void)sigaction(handler->signum, &handler->previous, NULL);
-#else
-            (void)signal(handler->signum, handler->previous);
-#endif
-            handler->enabled = 0;
+            faulthandler_disable_fatal_handler(&faulthandler_handlers[i]);
         }
     }
+#ifdef _WIN32
+    if (fatal_error.exc_handler != NULL) {
+        RemoveVectoredExceptionHandler(fatal_error.exc_handler);
+        fatal_error.exc_handler = NULL;
+    }
+#endif
     fatal_error.fd = -1;
 }
 
@@ -802,3 +894,12 @@ double pypy_faulthandler_stackoverflow(double levels)
     faulthandler_suppress_crash_report();
     return fh_stack_overflow(levels);
 }
+
+#ifdef _WIN32
+RPY_EXTERN
+void pypy_faulthandler_raise_exception(unsigned int code, unsigned int flags)
+{
+    faulthandler_suppress_crash_report();
+    RaiseException(code, flags, 0, NULL);
+}
+#endif

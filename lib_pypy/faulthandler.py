@@ -42,14 +42,17 @@ def disable(*args, **kwargs):
 def is_enabled(*args, **kwargs):
     return False
 
-def register(*args, **kwargs):
-    pass
-
 def cancel_dump_traceback_later(*args, **kwargs):
     pass
 
-def unregister(*args, **kwargs):
-    pass
+if sys.platform != 'win32':
+    # no sigaction, like CPython and pypy/module/faulthandler
+
+    def register(*args, **kwargs):
+        pass
+
+    def unregister(*args, **kwargs):
+        pass
 
 try:
     import _thread

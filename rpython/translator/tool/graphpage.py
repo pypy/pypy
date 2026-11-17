@@ -166,8 +166,7 @@ class ClassDefPage(GraphPage):
 
         def writecdef(cdef):
             lines = [cdef.name, '']
-            attrs = cdef.attrs.items()
-            attrs.sort()
+            attrs = sorted(cdef.attrs.items())
 
             def writeadefs(prefix, classattrs):
                 for name, attrdef in attrs:

@@ -48,6 +48,8 @@ working_modules.update([
 import rpython.rlib.rvmprof.cintf
 if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
     working_modules.add('_vmprof')
+if rpython.rlib.rvmprof.cintf.STACK_SUPPORTED:
+    # faulthandler only needs the vmprof shadow stack, not the profiler
     working_modules.add('faulthandler')
 
 translation_modules = default_modules.copy()
@@ -75,8 +77,6 @@ if sys.platform == "win32":
         if name in translation_modules:
             translation_modules.remove(name)
 
-    if "faulthandler" in working_modules:
-        working_modules.remove("faulthandler")  # missing details
     if "_vmprof" in working_modules:
         working_modules.remove("_vmprof")  # FIXME: missing details
 
@@ -116,7 +116,6 @@ module_dependencies = {
     'cpyext': [('objspace.usemodules.array', True)],
     '_cppyy': [('objspace.usemodules.cpyext', True)],
     'vmprof': [('objspace.usemodules.cpyext', True)], # for PyFrame_GetCode
-    'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which

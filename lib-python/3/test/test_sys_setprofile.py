@@ -2,6 +2,7 @@ import gc
 import pprint
 import sys
 import unittest
+from test import support
 
 
 class TestGetProfile(unittest.TestCase):
@@ -255,6 +256,8 @@ class ProfileHookTestCase(TestCaseBase):
                               (1, 'return', g_ident),
                               ])
 
+    @support.impl_detail("generator finalization throws unconditionally",
+                         cpython=True)  #PYPY CHANGE
     def test_unfinished_generator(self):
         def f():
             for i in range(2):
@@ -456,6 +459,9 @@ class TestEdgeCases(unittest.TestCase):
 
         sys.setprofile(A())
         sys.setprofile(foo)
+        if sys.implementation.name == 'pypy':  #PYPY CHANGE
+            # no refcounting, so ask for A.__del__ to run here
+            gc.collect()
         self.assertEqual(sys.getprofile(), bar)
 
     def test_same_object(self):

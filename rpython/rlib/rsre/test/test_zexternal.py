@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import re
 from rpython.rlib.rsre.test.test_match import get_code
 from rpython.rlib.rsre.test import support
@@ -20,7 +22,7 @@ def run_external(t, use_search):
         repl, expected = t[3:5]
     else:
         assert len(t) == 3
-    print 'trying:', t
+    print('trying:', t)
     try:
         obj = get_code(pattern)
     except re.error:

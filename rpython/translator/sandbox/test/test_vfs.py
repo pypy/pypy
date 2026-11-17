@@ -23,7 +23,7 @@ def test_dir():
     d = Dir({'foo': Dir()})
     assert d.keys() == ['foo']
     py.test.raises(OSError, d.open)
-    assert 0 <= d.getsize() <= sys.maxint
+    assert 0 <= d.getsize() <= sys.maxsize
     d1 = d.join('foo')
     assert stat.S_ISDIR(d1.kind)
     assert d1.keys() == []
@@ -54,13 +54,12 @@ def test_realdir_realfile():
             v_udir = RealDir(str(udir), show_dotfiles = show_dotfiles,
                                         follow_links  = follow_links)
             v_test_vfs = v_udir.join('test_vfs')
-            names = v_test_vfs.keys()
-            names.sort()
+            names = sorted(v_test_vfs.keys())
             assert names == (show_dotfiles * ['.hidden', '.subdir2'] +
                                           ['file1', 'file2', 'subdir1'] +
                              HASLINK * ['symlink1', 'symlink2', 'symlink3'])
             py.test.raises(OSError, v_test_vfs.open)
-            assert 0 <= v_test_vfs.getsize() <= sys.maxint
+            assert 0 <= v_test_vfs.getsize() <= sys.maxsize
 
             f = v_test_vfs.join('file1')
             assert f.open().read() == 'somedata1'

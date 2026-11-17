@@ -64,7 +64,7 @@ def raise_call_table_too_complex_error(callfamily, annotator):
                 pass # XXX better message in this case
             callers = []
             msg.append("the callers of these functions are:")
-            for tag, (caller, callee) in annotator.translator.callgraph.iteritems():
+            for tag, (caller, callee) in annotator.translator.callgraph.items():
                 if callee not in problematic_function_graphs:
                     continue
                 if str(caller) in callers:
@@ -160,8 +160,8 @@ def normalize_calltable_row_annotation(annotator, graphs):
     for graph in graphs:
         graph_bindings[graph] = [annotator.binding(v)
                                  for v in graph.getargs()]
-    iterbindings = graph_bindings.itervalues()
-    nbargs = len(iterbindings.next())
+    iterbindings = iter(graph_bindings.values())
+    nbargs = len(next(iterbindings))
     for binding in iterbindings:
         assert len(binding) == nbargs
 
@@ -216,7 +216,7 @@ def merge_classpbc_getattr_into_classdef(annotator):
             descs = access_set.descs
             if len(descs) <= 1:
                 continue
-            if not isinstance(descs.iterkeys().next(), ClassDesc):
+            if not isinstance(next(iter(descs)), ClassDesc):
                 continue
             classdefs = [desc.getuniqueclassdef() for desc in descs]
             commonbase = classdefs[0]

@@ -73,7 +73,7 @@ def test_cmp_16():
 def test_relocation():
     from rpython.rtyper.lltypesystem import lltype, rffi
     for target in [0x01020304, -0x05060708, 0x0102030405060708]:
-        if target > sys.maxint:
+        if target > sys.maxsize:
             continue
         mc = codebuf.MachineCodeBlockWrapper()
         mc.CALL(ImmedLoc(target))

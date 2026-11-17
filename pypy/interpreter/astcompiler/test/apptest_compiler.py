@@ -253,6 +253,34 @@ def fmeth():       # line 1
     assert pos == (4, 4, 8, 9)
 
 
+def test_call_method_position_is_whole_call():
+    # CALL_METHOD must undo the narrowing that LOAD_METHOD did, so that an
+    # exception raised by the callee is reported at the call expression and
+    # not at the method name alone
+    single = """
+def fcall():       # line 1
+    o.m(%s)        # line 2
+"""
+    assert _position_of(single % "",
+                        lambda i: i.opname == 'CALL_METHOD') == (2, 2, 4, 9)
+    assert _position_of(single % "a=1",
+                        lambda i: i.opname == 'CALL_METHOD_KW') == (2, 2, 4, 12)
+
+    # when the call spans several lines it starts at the method name instead,
+    # like CPython's update_start_location_to_match_attr()
+    multi = """
+def fcall():       # line 1
+    (              # line 2
+        o.         # line 3
+        m          # line 4
+    )(%s)          # line 5
+"""
+    assert _position_of(multi % "",
+                        lambda i: i.opname == 'CALL_METHOD') == (4, 5, 8, 7)
+    assert _position_of(multi % "a=1",
+                        lambda i: i.opname == 'CALL_METHOD_KW') == (4, 5, 8, 10)
+
+
 def test_augassign_attribute_position_is_attr_name():
     # LOAD_ATTR and STORE_ATTR in augmented assignment should get the
     # position of the attribute name, not the object.

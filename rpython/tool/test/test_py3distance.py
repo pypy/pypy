@@ -57,3 +57,9 @@ def test_tuple_print_not_counted_with_future_import():
               'from __future__ import absolute_import, print_function\n'
               'print("a", 1)\n')
     assert count('tuple_print', source) == 0
+
+
+def test_sys_maxint():
+    assert count('sys_maxint', 'x = sys.maxint\ny = sys.maxsize\n') == 1
+    assert count('sys_maxint', 'from sys import maxint\n') == 1
+    assert count('sys_maxint', 'from sys import maxsize\n') == 0

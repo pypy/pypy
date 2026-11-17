@@ -207,3 +207,8 @@ def sigabrt(space):
 def stack_overflow(space, levels=100000000):
     levels = float(levels)
     return space.newfloat(cintf.pypy_faulthandler_stackoverflow(levels))
+
+@unwrap_spec(code='c_uint', flags='c_uint')
+def raise_exception(space, code, flags=0):
+    cintf.pypy_faulthandler_raise_exception(rffi.cast(rffi.UINT, code),
+                                            rffi.cast(rffi.UINT, flags))

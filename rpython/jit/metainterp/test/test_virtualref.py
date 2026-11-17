@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, rffi
 from rpython.rtyper.exceptiondata import UnknownException
@@ -533,10 +535,10 @@ class VRefTests(object):
         exctx = ExCtx()
         @dont_look_inside
         def escapexy(xy):
-            print 'escapexy:', xy.n
+            print('escapexy:', xy.n)
             if xy.n % 5 == 0:
                 vr = exctx.vr
-                print 'accessing via vr:', vr()
+                print('accessing via vr:', vr())
                 assert vr() is xy
         #
         def f(n):

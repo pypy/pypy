@@ -1,3 +1,4 @@
+import os
 from rpython.memory.gc.hook import GcHooks
 from rpython.memory.gc import incminimark
 from rpython.rlib import rgc
@@ -128,6 +129,7 @@ class NoRecursiveAction(AsyncAction):
     # allocates, so a GC triggered inside it can fire this action again and
     # land here.  Count the losses; ABORT_ON_DROP turns them into a crash with
     # an RPython traceback showing who reentered.
+    # PYPY_GC_HOOK_DROPS=0/1/abort overrides these defaults at run time.
     REPORT_DROPS = True
     ABORT_ON_DROP = False
     HOOK_NAME = 'gc hook'
@@ -140,9 +142,15 @@ class NoRecursiveAction(AsyncAction):
                 return self._do_perform(ec, frame)
             finally:
                 self.depth -= 1
-        elif self.REPORT_DROPS:
+        report = self.REPORT_DROPS
+        abort = self.ABORT_ON_DROP
+        value = os.environ.get('PYPY_GC_HOOK_DROPS')
+        if value:
+            report = value != '0'
+            abort = value == 'abort'
+        if report:
             self.dropped += 1
-            if self.ABORT_ON_DROP:
+            if abort:
                 fatalerror("gc hook event dropped: reentrant delivery of " +
                            self.HOOK_NAME + " (dropped so far: " +
                            str(self.dropped) + ")")

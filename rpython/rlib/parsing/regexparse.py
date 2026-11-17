@@ -1907,10 +1907,10 @@ class RegexParser(PackratParser):
 forbidden = dict.fromkeys(("__weakref__ __doc__ "
                            "__dict__ __module__").split())
 initthere = "__init__" in RegexParser.__dict__
-for key, value in Parser.__dict__.iteritems():
+for key, value in Parser.__dict__.items():
     if key not in RegexParser.__dict__ and key not in forbidden:
         setattr(RegexParser, key, value)
-RegexParser.init_parser = Parser.__init__.im_func
+RegexParser.init_parser = Parser.__dict__['__init__']
 # generated code between this line and its other occurence
 
 
@@ -1995,10 +1995,10 @@ class RegexParser(PackratParser):
 forbidden = dict.fromkeys(("__weakref__ __doc__ "
                            "__dict__ __module__").split())
 initthere = "__init__" in RegexParser.__dict__
-for key, value in Parser.__dict__.iteritems():
+for key, value in Parser.__dict__.items():
     if key not in RegexParser.__dict__ and key not in forbidden:
         setattr(RegexParser, key, value)
-RegexParser.init_parser = Parser.__init__.im_func
+RegexParser.init_parser = Parser.__dict__['__init__']
 %s
 %s\
 """ % (pre, s, code, s, after)

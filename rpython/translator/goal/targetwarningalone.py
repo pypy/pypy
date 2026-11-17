@@ -1,4 +1,6 @@
 
+from __future__ import print_function
+
 class Base(object):
     pass
 
@@ -29,7 +31,7 @@ def f(n):
 # __________  Entry point  __________
 
 def entry_point(argv):
-    print f(int(argv[1]))
+    print(f(int(argv[1])))
     return 0
 
 # _____ Define and setup target ___

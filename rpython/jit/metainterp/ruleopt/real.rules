@@ -245,7 +245,6 @@ urshift_lshift_x_c_c: uint_rshift(int_lshift(x, C), C)
 
 
 eq_different_knownbits: int_eq(x, y)
-    SORRY_Z3
     check x.known_ne(y)
     => 0
 
@@ -263,7 +262,6 @@ eq_sub_eq: int_eq(int_sub(x, int_eq(x, a)), a)
     => 0
 
 ne_different_knownbits: int_ne(x, y)
-    SORRY_Z3
     check x.known_ne(y)
     => 1
 
@@ -273,8 +271,93 @@ ne_same: int_ne(x, x)
 ne_zero: int_ne(x, 0)
     => int_is_true(x)
 
-#lt_self: int_lt(x, x)
-#    => 0
+lt_known_true: int_lt(x, y)
+    check x.known_lt(y)
+    => 1
+
+lt_known_false: int_lt(x, y)
+    check x.known_ge(y)
+    => 0
+
+lt_same: int_lt(x, x)
+    => 0
+
+le_known_true: int_le(x, y)
+    check x.known_le(y)
+    => 1
+
+le_known_false: int_le(x, y)
+    check x.known_gt(y)
+    => 0
+
+le_same: int_le(x, x)
+    => 1
+
+gt_known_true: int_gt(x, y)
+    check x.known_gt(y)
+    => 1
+
+gt_known_false: int_gt(x, y)
+    check x.known_le(y)
+    => 0
+
+gt_same: int_gt(x, x)
+    => 0
+
+ge_known_true: int_ge(x, y)
+    check x.known_ge(y)
+    => 1
+
+ge_known_false: int_ge(x, y)
+    check x.known_lt(y)
+    => 0
+
+ge_same: int_ge(x, x)
+    => 1
+
+ult_known_true: uint_lt(x, y)
+    check x.known_unsigned_lt(y)
+    => 1
+
+ult_known_false: uint_lt(x, y)
+    check x.known_unsigned_ge(y)
+    => 0
+
+ult_same: uint_lt(x, x)
+    => 0
+
+ule_known_true: uint_le(x, y)
+    check x.known_unsigned_le(y)
+    => 1
+
+ule_known_false: uint_le(x, y)
+    check x.known_unsigned_gt(y)
+    => 0
+
+ule_same: uint_le(x, x)
+    => 1
+
+ugt_known_true: uint_gt(x, y)
+    check x.known_unsigned_gt(y)
+    => 1
+
+ugt_known_false: uint_gt(x, y)
+    check x.known_unsigned_le(y)
+    => 0
+
+ugt_same: uint_gt(x, x)
+    => 0
+
+uge_known_true: uint_ge(x, y)
+    check x.known_unsigned_ge(y)
+    => 1
+
+uge_known_false: uint_ge(x, y)
+    check x.known_unsigned_lt(y)
+    => 0
+
+uge_same: uint_ge(x, x)
+    => 1
 
 
 is_true_bool: int_is_true(x)
@@ -302,6 +385,9 @@ is_zero_true: int_is_zero(x)
 is_zero_add: int_is_zero(int_add(x, C))
     check x.lower > -C or x.upper < -C
     => 0
+
+is_zero_sub: int_is_zero(int_sub(x, y))
+    => int_eq(x, y)
 
 #is_zero_negate_eq: int_is_zero(int_eq(x, y))
 #    => int_ne(x, y)
@@ -425,3 +511,8 @@ eq_sub_consts: int_eq(int_sub(C1, x), C2)
 
 eq_sub_sub_cancel: int_eq(int_sub(x, z), int_sub(y, z))
     => int_eq(x, y)
+
+ne_rshift_lshift_one: int_ne(int_rshift(int_lshift(1, x), x), 1)
+    check x.known_ge_const(0) and x.known_lt_const(LONG_BIT)
+    C = LONG_BIT - 1
+    => int_eq(x, C)

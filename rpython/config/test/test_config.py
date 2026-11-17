@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.config.config import *
 import py, sys
 
@@ -335,7 +337,7 @@ def test_overrides_are_defaults():
     assert config.b2
     config.b1 = True
     assert not config.b2
-    print config._cfgimpl_value_owners
+    print(config._cfgimpl_value_owners)
 
 def test_overrides_require_as_default():
     descr = OptionDescription("test", "", [
@@ -374,7 +376,7 @@ def test_overrides_dont_change_user_options():
 def test_str():
     descr = make_description()
     c = Config(descr)
-    print c # does not crash
+    print(c)# does not crash
 
 def test_dwim_set():
     descr = OptionDescription("opt", "", [

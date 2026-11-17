@@ -261,7 +261,7 @@ def test_memoryerror():
     res = interpret(fn, [123])
     assert res == 123
 
-    res = interpret(fn, [sys.maxint])
+    res = interpret(fn, [sys.maxsize])
     assert res == -42
 
 

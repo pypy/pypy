@@ -194,6 +194,7 @@ class fakearenaaddress(llmemory.fakeaddress):
 
     def __nonzero__(self):
         return True
+    __bool__ = __nonzero__
 
     def compare_with_fakeaddr(self, other):
         other = other._fixup()

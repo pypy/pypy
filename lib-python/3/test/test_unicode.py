@@ -570,7 +570,10 @@ class UnicodeTest(string_tests.CommonTest,
     def test_join_overflow(self):
         size = int(sys.maxsize**0.5) + 1
         seq = ('A' * size,) * size
-        self.assertRaises(OverflowError, ''.join, seq)
+        # PyPy does not precompute the length of the result, so it fails
+        # while growing the buffer rather than up front
+        #self.assertRaises(OverflowError, ''.join, seq)
+        self.assertRaises((OverflowError, MemoryError), ''.join, seq)
 
     def test_replace(self):
         string_tests.CommonTest.test_replace(self)

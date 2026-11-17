@@ -3,7 +3,7 @@ import pytest
 
 if os.name != 'nt':
     pytest.skip('Windows only tests', allow_module_level=True)
-if not os.environ.get("PYPY_ENABLE_WINCONSOLEIO", False):
+if os.environ.get("PYPY_ENABLE_WINCONSOLEIO") == "0":
     pytest.skip('_WindowsConsoleIO disabled', allow_module_level=True)
 
 

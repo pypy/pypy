@@ -2144,3 +2144,10 @@ except*:
         with pytest.raises(SyntaxError) as excinfo:
             self.parser.parse_source("with (a(), b()): pass", info)
         assert "Parenthesized with items" in excinfo.value.msg
+
+    def test_fstring_low_feature_version(self):
+        # f-strings are not version-gated by CPython's grammar, test_type_comments
+        # parses them with feature_version down to (3, 4)
+        info = pyparse.CompileInfo("<test>", "exec", feature_version=4)
+        ast_node = self.parser.parse_source('f"{a}" f"b{c}"', info)
+        assert isinstance(ast_node.body[0].value, ast.JoinedStr)

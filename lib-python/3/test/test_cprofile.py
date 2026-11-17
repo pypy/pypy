@@ -126,6 +126,8 @@ class CProfileTest(ProfileTest):
         self.assertRaises(ValueError, pr2.enable)
         pr.disable()
 
+    @support.impl_detail("needs refcounting semantics on the abandoned "
+                         "generator", cpython=True)
     def test_throw(self):
         """
         gh-106152

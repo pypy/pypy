@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys
 import ctypes
 
@@ -11,7 +11,7 @@ class WhiteBoxTests:
 
     def setup_class(cls):
         if _rawffi:
-            py.test.skip("white-box tests for pypy _rawffi based ctypes impl")
+            pytest.skip("white-box tests for pypy _rawffi based ctypes impl")
 
 def del_funcptr_refs_maybe(obj, attrname):
     dll = getattr(obj, attrname, None)

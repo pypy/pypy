@@ -10,6 +10,9 @@ class Module(MixedModule):
         'enable_finalizers': 'interp_gc.enable_finalizers',
         'disable_finalizers': 'interp_gc.disable_finalizers',
         'garbage': 'space.newlist([])',
+        # nothing ever calls these, PyPy's own mechanism is gc.hooks.  They
+        # are exposed so that code registering a callback still imports
+        'callbacks': 'space.newlist([])',
         #'dump_heap_stats': 'interp_gc.dump_heap_stats',
     }
     appleveldefs = {}

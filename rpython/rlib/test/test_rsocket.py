@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import pytest
 import errno, os, sys, py
 from rpython.rlib import rsocket
@@ -232,13 +234,13 @@ def test_simple_tcp(do_recv):
     sock = RSocket()
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
-        print 'binding to port %d:' % (port,),
+        print('binding to port %d:' % (port,), end=' ')
         try:
             sock.bind(INETAddress('127.0.0.1', port))
-            print 'works'
+            print('works')
             break
         except SocketError as e:   # should get a "Permission denied"
-            print e
+            print(e)
     else:
         raise e
 
@@ -257,27 +259,27 @@ def test_simple_tcp(do_recv):
     lock = rthread.allocate_lock()
     lock.acquire(True)
     rthread.start_new_thread(connecting, ())
-    print 'waiting for connection'
+    print('waiting for connection')
     fd1, addr2 = sock.accept()
     s1 = RSocket(fd=fd1)
-    print 'connection accepted'
+    print('connection accepted')
     lock.acquire(True)
     assert connected[0]
-    print 'connecting side knows that the connection was accepted too'
+    print('connecting side knows that the connection was accepted too')
     assert addr.eq(s2.getpeername())
     #assert addr2.eq(s2.getsockname())
     assert addr2.eq(s1.getpeername())
 
     s1.send('?')
-    print 'sent one character'
+    print('sent one character')
     buf = do_recv(s2, 100)
     assert buf == '?'
-    print 'received ok'
+    print('received ok')
     def sendstuff():
-        print 'sending'
+        print('sending')
         try:
             s2.sendall('x'*50000)
-            print 'sent'
+            print('sent')
         finally:
             sendlock.release()
     sendlock = rthread.allocate_lock()
@@ -286,11 +288,11 @@ def test_simple_tcp(do_recv):
     buf = ''
     while len(buf) < 50000:
         data = do_recv(s1, 50100)
-        print 'recv returned %d bytes' % (len(data,))
+        print('recv returned %d bytes' % (len(data,)))
         assert data
         buf += data
     assert buf == 'x'*50000
-    print 'data received ok'
+    print('data received ok')
     # wait for the sender to leave sendall, or leakfinder can see its
     # nonmoving buffer still allocated at teardown
     sendlock.acquire(True)
@@ -302,13 +304,13 @@ def test_simple_udp(do_recv):
     s1 = RSocket(AF_INET, SOCK_DGRAM)
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
-        print 'binding to port %d:' % (port,),
+        print('binding to port %d:' % (port,), end=' ')
         try:
             s1.bind(INETAddress('127.0.0.1', port))
-            print 'works'
+            print('works')
             break
         except SocketError as e:   # should get a "Permission denied"
-            print e
+            print(e)
     else:
         raise e
 
@@ -327,7 +329,7 @@ def test_simple_udp(do_recv):
     assert 1 <= count <= 99
     buf, addr3 = s1.recvfrom(100)
     assert buf == 'x'*count
-    print addr2, addr3
+    print(addr2, addr3)
     assert addr2.get_port() == addr3.get_port()
     s1.close()
     s2.close()
@@ -339,13 +341,13 @@ def test_nonblocking(do_recv):
         sock.setblocking(False)
         try_ports = [1023] + range(20000, 30000, 437)
         for port in try_ports:
-            print 'binding to port %d:' % (port,),
+            print('binding to port %d:' % (port,), end=' ')
             try:
                 sock.bind(INETAddress('127.0.0.1', port))
-                print 'works'
+                print('works')
                 break
             except SocketError as e:   # should get a "Permission denied"
-                print e
+                print(e)
         else:
             raise e
 
@@ -434,7 +436,7 @@ def getaddrinfo_pydotorg(i, result):
                                '151.101.64.223'):
             found = True
         elif family == AF_INET:
-            print 'pydotorg changed to', addr.get_host()
+            print('pydotorg changed to', addr.get_host())
     result[i] += found
 
 def test_getaddrinfo_pydotorg():
@@ -449,7 +451,7 @@ def test_getaddrinfo_no_reverse_lookup():
     lst = getaddrinfo('82.94.164.162', None, flags=AI_NUMERICHOST)
     assert isinstance(lst, list)
     found = False
-    print lst
+    print(lst)
     for family, socktype, protocol, canonname, addr in lst:
         assert 'python.org' not in canonname
         if addr.get_host() == '82.94.164.162':

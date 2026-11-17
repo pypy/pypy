@@ -25,9 +25,9 @@ from rpython.rlib.rarithmetic import UINT_MAX
 # are mapped out-of-band (cpyext State.static_py2w/static_w2py).
 # Py_INCREF/Py_DECREF and the interp-level incref/decref no-op on immortals,
 # so the value never drifts.
-if sys.maxint > 2**32:
-    REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
-    REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+if sys.maxsize > 2**32:
+    REFCNT_FROM_PYPY       = sys.maxsize // 4 + 1
+    REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxsize // 2 + 1)
     _Py_IMMORTAL_REFCNT    = rffi.cast(lltype.Signed, UINT_MAX)
     def refcnt_is_immortal(rc):
         # CPython's 64-bit check: bit 31 (the sign of the low 32 bits) is set

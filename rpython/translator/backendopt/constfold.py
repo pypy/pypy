@@ -274,7 +274,7 @@ def constant_diffuse(graph):
     # into a block remove them from the links, remove the corresponding
     # input variables and introduce equivalent same_as at the beginning
     # of the block then try to fold the block further
-    for block, links in mkentrymap(graph).iteritems():
+    for block, links in mkentrymap(graph).items():
         if block is graph.startblock:
             continue
         if block.exits == ():

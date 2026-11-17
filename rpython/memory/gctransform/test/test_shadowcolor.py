@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.test.test_llinterp import gengraph
@@ -27,14 +29,14 @@ def summary(interesting_vars):
 def summary_regalloc(regalloc):
     result = []
     for block in regalloc.graph.iterblocks():
-        print block.inputargs
+        print(block.inputargs)
         for op in block.operations:
-            print '\t', op
+            print('\t', op)
         blockvars = block.inputargs + [op.result for op in block.operations]
         for v in blockvars:
             if regalloc.consider_var(v):
                 result.append((nameof(v), regalloc.getcolor(v)))
-                print '\t\t%s: %s' % (v, regalloc.getcolor(v))
+                print('\t\t%s: %s' % (v, regalloc.getcolor(v)))
     result.sort()
     return result
 
@@ -766,7 +768,7 @@ def test_fix_graph_after_inlining():
     # would be "if x > 100: foobar()".  The foobar() function is supposed
     # to be the big slow-path.
     def foobar():
-        print 42
+        print(42)
     def f(x):
         llop.gc_push_roots(lltype.Void, x)
         if x > 100:  # slow-path

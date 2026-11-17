@@ -18,6 +18,7 @@ from pypy.interpreter.typedef import (
     make_weakref_descr)
 
 _WIN32 = sys.platform.startswith('win')
+WSABASEERR = 10000
 
 # XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
@@ -1043,9 +1044,11 @@ class W_Socket(W_Root):
         recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         try:
             if cmd == _c.SIO_RCVALL:
-                value_size = rffi.sizeof(rffi.INTP)
+                value_size = rffi.sizeof(rffi.INT)
             elif cmd == _c.SIO_KEEPALIVE_VALS:
                 value_size = rffi.sizeof(_c.tcp_keepalive)
+            elif cmd == _c.SIO_LOOPBACK_FAST_PATH:
+                value_size = rffi.sizeof(rffi.UINT)
             else:
                 raise oefmt(space.w_ValueError,
                             "invalid ioctl command %d", cmd)
@@ -1061,6 +1064,9 @@ class W_Socket(W_Root):
                     option_ptr.c_onoff = rffi.cast(rffi.UINT, space.uint_w(w_onoff))
                     option_ptr.c_keepalivetime = rffi.cast(rffi.UINT, space.uint_w(w_time))
                     option_ptr.c_keepaliveinterval = rffi.cast(rffi.UINT, space.uint_w(w_interval))
+                elif cmd == _c.SIO_LOOPBACK_FAST_PATH:
+                    option_ptr = rffi.cast(rffi.UINTP, value_ptr)
+                    option_ptr[0] = rffi.cast(rffi.UINT, space.uint_w(w_option))
 
                 res = _c.WSAIoctl(
                     self.sock.fd, cmd, value_ptr, value_size,
@@ -1207,7 +1213,16 @@ def converted_error(space, e, eintr_retry=False):
             space.getexecutioncontext().checksignals()
             if eintr_retry:
                 return       # only return None if eintr_retry==True
-        w_exception = space.call_function(w_exception_class, space.newint(e.errno),
+        if _WIN32 and WSABASEERR <= e.errno < WSABASEERR + 1000:
+            # CPython reports socket errors with PyErr_SetExcFromWindowsErr(),
+            # so they carry a winerror on top of the errno
+            w_exception = space.call_function(w_exception_class,
+                                      space.newint(e.errno),
+                                      space.newtext(message, lgt),
+                                      space.w_None, space.newint(e.errno))
+        else:
+            w_exception = space.call_function(w_exception_class,
+                                      space.newint(e.errno),
                                       space.newtext(message, lgt))
     else:
         w_exception = space.call_function(w_exception_class,

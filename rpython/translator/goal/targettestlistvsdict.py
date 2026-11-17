@@ -7,6 +7,8 @@ of input types is empty, it is meant to be a list of strings,
 actually implementing argv of the executable.
 """
 
+from __future__ import print_function
+
 import os, sys
 
 def debug(msg): 
@@ -15,14 +17,14 @@ def debug(msg):
 # __________  Entry point  __________
 
 numbers = range(1000, 5000)
-test_list = map(str, numbers)
-test_dict = dict(map(lambda x: (x, str(x)), numbers))
+test_list = [str(x) for x in numbers]
+test_dict = dict((x, str(x)) for x in numbers)
 
 def entry_point(argv):
     if argv[1] == 'd':
-        print test_dict[int(argv[2])]
+        print(test_dict[int(argv[2])])
     else:
-        print test_list[int(argv[2])]
+        print(test_list[int(argv[2])])
     return 0
 
 # _____ Define and setup target ___

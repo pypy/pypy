@@ -216,8 +216,6 @@ class AppTestThread(GenericTestThread):
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
         for i in range(100):
-            print()
-            print("loop", i)
             waiting = []
             _thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
@@ -244,7 +242,6 @@ class AppTestThread(GenericTestThread):
                 thread.interrupt_main() # to crash the test
 
         for i in range(20):
-            print(i)
             # first wait for the child to start
             childstarted = []
             thread.start_new_thread(f, ())
@@ -261,7 +258,6 @@ class AppTestThread(GenericTestThread):
         import _thread as thread, __pypy__
         ident = thread.get_ident()
         for i in range(20):
-            print(i)
             with raises(ValueError):
                 __pypy__.thread._raise_in_thread(ident, ValueError)
                 self.waitfor(lambda self: False)

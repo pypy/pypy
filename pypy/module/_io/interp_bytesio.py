@@ -97,16 +97,16 @@ class W_BytesIO(W_BufferedIOBase):
                         "Existing exports of data: object cannot be re-sized")
 
     def read_w(self, space, w_size=None):
-        self._check_closed(space)
         size = convert_size(space, w_size)
+        self._check_closed(space)
         return space.newbytes(self.read(size))
 
     def read1_w(self, space, w_size=None):
         return self.read_w(space, w_size)
 
     def readline_w(self, space, w_limit=None):
-        self._check_closed(space)
         limit = convert_size(space, w_limit)
+        self._check_closed(space)
         return space.newbytes(self.readline(limit))
 
     def readinto_w(self, space, w_buffer):
@@ -126,18 +126,19 @@ class W_BytesIO(W_BufferedIOBase):
         length = len(buf)
         if length <= 0:
             return space.newint(0)
+        if self.tell() > sys.maxint - length:
+            raise oefmt(space.w_OverflowError, "new buffer size too large")
         self.write(buf)
         return space.newint(length)
 
     def truncate_w(self, space, w_size=None):
-        self._check_closed(space)
-        self._check_exports(space)
-
-        pos = self.tell()
         if space.is_none(w_size):
-            size = pos
+            size = self.tell()
         else:
             size = space.r_longlong_w(w_size)
+        self._check_closed(space)
+        self._check_exports(space)
+        pos = self.tell()
 
         if size < 0:
             raise oefmt(space.w_ValueError, "negative size value")

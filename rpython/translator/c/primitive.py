@@ -92,8 +92,8 @@ def name_signed(value, db):
     if value is None or isinstance(value, _uninitialized):
         assert not db.completed
         return None
-    if value == -sys.maxint-1:   # blame C
-        return lll('(-%dL-1L)') % sys.maxint
+    if value == -sys.maxsize-1:   # blame C
+        return lll('(-%dL-1L)') % sys.maxsize
     else:
         return lll('%dL') % value
 

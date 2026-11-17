@@ -330,6 +330,22 @@ class TestRDictDirect(object):
         rordereddict.ll_prepare_dict_update(ll_d, 7)
         # used to get UninitializedMemoryAccess
 
+    def test_remove_deleted_items_in_place_clears_moved_keys(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        keys = [llstr(chr(i)) for i in range(10)]
+        for key in keys:
+            rordereddict.ll_dict_setitem(ll_d, key, 5)
+        for key in keys[:3]:
+            rordereddict.ll_dict_delitem(ll_d, key)
+        entries = ll_d.entries
+        rordereddict.ll_dict_remove_deleted_items(ll_d)
+        assert ll_d.entries == entries      # compacted in place
+        assert ll_d.num_ever_used_items == 7
+        for i in range(7, 10):
+            for key in keys[3:]:
+                assert ll_d.entries[i].key != key
+
     def test_bug_resize_counter(self):
         DICT = self._get_int_dict()
         ll_d = rordereddict.ll_newdict(DICT)
@@ -404,6 +420,31 @@ class TestRDictDirectDummyValue(TestRDictDirect):
     class dummyvalueobj:
         ll_dummy_value = -42
 
+def test_remove_deleted_items_in_place_clears_moved_dummy_values():
+    def eq(a, b):
+        return a == b
+    class dummyvalueobj:
+        ll_dummy_value = llstr("dummy")
+    DICT = rordereddict.get_ll_dict(lltype.Signed, lltype.Ptr(rstr.STR),
+                                    ll_fasthash_function=intmask,
+                                    ll_hash_function=intmask,
+                                    ll_eq_function=eq,
+                                    dummyvalueobj=dummyvalueobj)
+    ll_d = rordereddict.ll_newdict(DICT)
+    values = [llstr(str(i)) for i in range(10)]
+    for i, value in enumerate(values):
+        rordereddict.ll_dict_setitem(ll_d, i, value)
+    for i in range(3):
+        rordereddict.ll_dict_delitem(ll_d, i)
+    entries = ll_d.entries
+    rordereddict.ll_dict_remove_deleted_items(ll_d)
+    assert ll_d.entries == entries      # compacted in place
+    assert ll_d.num_ever_used_items == 7
+    for i in range(7, 10):
+        for value in values[3:]:
+            assert ll_d.entries[i].value != value
+
+
 class TestOrderedRDict(BaseTestRDict):
     @staticmethod
     def newdict():
@@ -463,6 +504,22 @@ class ODictSpace(MappingSpace):
     def newdict(self, repr):
         return rodct.ll_newdict(repr.DICT)
 
+    def setitem(self, key, value):
+        MappingSpace.setitem(self, key, value)
+        self.check_no_stale_gc_pointers()
+
+    def delitem(self, key):
+        MappingSpace.delitem(self, key)
+        self.check_no_stale_gc_pointers()
+
+    def copydict(self):
+        MappingSpace.copydict(self)
+        self.check_no_stale_gc_pointers()
+
+    def cleardict(self):
+        MappingSpace.cleardict(self)
+        self.check_no_stale_gc_pointers()
+
     def get_keys(self):
         DICT = lltype.typeOf(self.l_dict).TO
         ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
@@ -491,6 +548,7 @@ class ODictSpace(MappingSpace):
             assert self.ll_key(key) == ll_key
             assert self.ll_value(value) == ll_value
             self.removed_keys.append(key)
+        self.check_no_stale_gc_pointers()
 
     def removeindex(self):
         # remove the index, as done during translation for prebuilt dicts
@@ -511,6 +569,24 @@ class ODictSpace(MappingSpace):
             self.reference.update(items)
         # prevent ll_no_initial_index()
         self.moved_around = True
+        self.check_no_stale_gc_pointers()
+
+    def check_no_stale_gc_pointers(self):
+        # Check after every mutation, including individual mutations in batch
+        # actions: a later clear, copy, or insertion could hide stale pointers.
+        d = self.l_dict
+        ENTRIES = lltype.typeOf(d.entries).TO
+        dummy_obj = getattr(ENTRIES, 'dummy_obj', None)
+        dummy = dummy_obj.ll_dummy_value if dummy_obj is not None else None
+        for i in range(len(d.entries)):
+            if i < d.num_ever_used_items and d.entries.valid(i):
+                continue
+            for name in ('key', 'value'):
+                FIELD = getattr(ENTRIES.OF, name)
+                if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                    ptr = getattr(d.entries[i], name)
+                    assert not ptr or ptr == dummy, (
+                        "stale %s in entry %d" % (name, i))
 
     def fullcheck(self):
         # overridden to also check key order

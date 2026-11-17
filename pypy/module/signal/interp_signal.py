@@ -93,7 +93,10 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     def perform(self, executioncontext, frame):
         w_exc = executioncontext.w_async_exception_type
-        if w_exc is not None:
+        # raising inside a finalizer or a weakref callback would only get
+        # the exception reported as unraisable and lost, so leave it
+        # pending; _run_finalizers() re-arms the ticker when it is done
+        if w_exc is not None and not self.space.user_del_action.running_finalizers:
             executioncontext.w_async_exception_type = None
             raise oefmt(w_exc, "asynchronous exception triggered from another thread")
         self._poll_for_signals()
@@ -166,6 +169,9 @@ class Handlers:
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
 
+WSABASEERR = 10000
+WSAENOTSOCK = 10038
+
 def _report_wakeup_fd_error(space, errno_val):
     # Call write_unraisable_default directly, bypassing sys.unraisablehook
     # like CPython.
@@ -186,10 +192,16 @@ def _report_wakeup_fd_error(space, errno_val):
             w_tb = PyTraceback(space, frame, frame.last_instr, None)
         else:
             w_tb = space.w_None
+        if WIN32 and errno_val >= WSABASEERR:
+            # a socket wakeup fd, where the write was a send(): CPython
+            # reports that with its own message
+            where = ('Exception ignored when trying to send to the signal '
+                     'wakeup fd:')
+        else:
+            where = ('Exception ignored when trying to write to the signal '
+                     'wakeup fd:')
         OperationError.write_unraisable_default(
-            space, space.w_OSError, w_exc, w_tb,
-            'Exception ignored when trying to write to the signal wakeup fd:',
-            space.w_None, '')
+            space, space.w_OSError, w_exc, w_tb, where, space.w_None, '')
     except Exception:
         pass
 
@@ -346,22 +358,27 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
     send_flags = 0
     if fd != -1:
         if WIN32:
-            from rpython.rlib._rsocket_rffi import SOL_SOCKET, SO_TYPE
-            from rpython.rlib.rsocket import getsockopt_int, SocketError
-            # it could be a socket fd or a file fd
+            from rpython.rlib._rsocket_rffi import SOL_SOCKET, SO_ERROR
+            from rpython.rlib.rsocket import getsockopt_int, CSocketError
+            # it could be a socket handle or a file fd: probe it with
+            # getsockopt(SO_ERROR), like CPython does.  A send() probe
+            # instead rejects a socket that is not connected yet
             try:
-                type = getsockopt_int(fd, SOL_SOCKET, SO_TYPE)
-                is_socket = True
-            except SocketError as e:
-                is_socket = False
-            if is_socket:
-                send_flags |= PYPYSIG_USE_SEND
-            else:
+                getsockopt_int(fd, SOL_SOCKET, SO_ERROR)
+            except CSocketError as e:
+                if e.errno != WSAENOTSOCK:
+                    raise OperationError(space.w_OSError, space.newtuple([
+                        space.newint(e.errno),
+                        space.newtext(e.get_msg())]))
+                # not a socket, so it has to be a valid file descriptor
                 try:
                     os.fstat(fd)
                 except OSError as e:
                     if e.errno == errno.EBADF:
                         raise oefmt(space.w_ValueError, "invalid fd")
+                    raise wrap_oserror(space, e, eintr_retry=False)
+            else:
+                send_flags |= PYPYSIG_USE_SEND
         else:
             try:
                 os.fstat(fd)

@@ -56,20 +56,35 @@ def find_executable(executable):
     return executable if _exists_and_is_executable(executable) else ''
 
 
-def _readlink_maybe(filename):
-    if not _WIN32:
-        return os.readlink(filename)
-    raise NotImplementedError
+def _resolve_links_win32(filename):
+    """Return 'filename' with symlinks and junctions resolved.  Windows has
+    no readlink(), but GetFinalPathNameByHandle() resolves the whole path in
+    one call.  Returns 'filename' unchanged if it cannot be resolved
+    """
+    from pypy.module.posix.interp_nt import _getfinalpathname, LLNotImplemented
+    try:
+        path, lgt = _getfinalpathname(filename)
+    except (OSError, LLNotImplemented):
+        return filename
+    # drop the \\?\ that GetFinalPathNameByHandle() prepends, like
+    # ntpath.realpath() does
+    if path.startswith('\\\\?\\UNC\\'):
+        path = '\\\\' + path[8:]
+    elif path.startswith('\\\\?\\'):
+        path = path[4:]
+    return assert_str0(path)
 
 
 def resolvedirof(filename):
-    if isinstance(filename, unicode):
-        filename = filename.encode('utf8')
     filename = rpath.rabspath(filename)
+    if _WIN32:
+        # one call resolves the whole path, so there is nothing to recurse on
+        return rpath.rabspath(os.path.join(_resolve_links_win32(filename),
+                                           '..'))
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):
         try:
-            link = _readlink_maybe(filename)
+            link = os.readlink(filename)
         except OSError:
             pass
         else:
@@ -77,7 +92,11 @@ def resolvedirof(filename):
     return dirname
 
 
-def find_pyvenv_cfg(dirname):
+def parse_pyvenv_cfg(dirname):
+    """Return the ('home', 'base-executable') values of dirname/pyvenv.cfg,
+    each '' when missing.  'base-executable' is written by virtualenv, not by
+    the stdlib venv module
+    """
     try:
         fd = os.open(os.path.join(dirname, 'pyvenv.cfg'), os.O_RDONLY, 0)
         try:
@@ -85,26 +104,53 @@ def find_pyvenv_cfg(dirname):
         finally:
             os.close(fd)
     except OSError:
-        return ''
-    # painfully parse the file for a line 'home = PATH'
+        return '', ''
+    home = ''
+    base_executable = ''
     for line in content.splitlines():
-        line += '\x00'
-        i = 0
-        while line[i] == ' ':
-            i += 1
-        if (line[i] == 'h' and
-            line[i+1] == 'o' and
-            line[i+2] == 'm' and
-            line[i+3] == 'e'):
-            i += 4
-            while line[i] == ' ':
-                i += 1
-            if line[i] == '=':
-                line = line[i+1:]
-                n = line.find('\x00')
-                assert n >= 0
-                line = line[:n]
-                return assert_str0(line.strip())
+        i = line.find('=')
+        if i < 0:
+            continue
+        key = line[:i].strip()
+        value = assert_str0(line[i+1:].strip())
+        if key == 'home' and not home:
+            home = value
+        elif key == 'base-executable' and not base_executable:
+            base_executable = value
+        if home and base_executable:
+            break
+    return home, base_executable
+
+
+def find_pyvenv_cfg(dirname):
+    home, _ = parse_pyvenv_cfg(dirname)
+    return home
+
+
+def find_base_executable(executable):
+    """In a venv, sys._base_executable is the interpreter the venv was created
+    from, which pyvenv.cfg names.  Return '' if 'executable' is not in a venv,
+    or if the base interpreter cannot be found
+    """
+    dirname = resolvedirof(executable)
+    home, base_executable = parse_pyvenv_cfg(dirname)
+    if not home:
+        home, base_executable = parse_pyvenv_cfg(resolvedirof(dirname))
+    if not home:
+        return ''
+    # like CPython's getpath.py, look for the same name in 'home' first: a
+    # recorded 'base-executable' can be stale, or name another implementation
+    i = executable.rfind(os.sep)
+    j = executable.rfind('/')
+    if j > i:
+        i = j
+    i += 1
+    assert i >= 0     # rfind() returns -1 at worst
+    candidate = os.path.join(home, executable[i:])
+    if os.path.isfile(candidate):
+        return assert_str0(candidate)
+    if base_executable and os.path.isfile(base_executable):
+        return base_executable
     return ''
 
 
@@ -271,6 +317,10 @@ def pypy_find_stdlib(space, executable):
             space.setitem(space.sys.w_dict, space.newtext('_stdlib_dir'),
                           space.newfilename(p))
             break
+    base_executable = find_base_executable(executable)
+    if base_executable:
+        space.setitem(space.sys.w_dict, space.newtext('_base_executable'),
+                      space.newfilename(base_executable))
     return space.newlist([space.newfilename(p) for p in path])
 
 # ____________________________________________________________

@@ -177,7 +177,9 @@ class TestInteractiveConsole(unittest.TestCase):
         self.infunc.side_effect = ["1/0", "a = 123", "print(a)", EOFError('Finished')]
         self.sysmod.excepthook = 1
         self.console.interact()
-        self.assertEqual(['write', ('123', ), {}], self.stdout.method_calls[0])
+        # PyPy change: pypy's sys.excepthook flushes stdout before printing
+        writes = [c for c in self.stdout.method_calls if c[0] != 'flush']
+        self.assertEqual(['write', ('123', ), {}], writes[0])
         error = "".join(call.args[0] for call in self.stderr.method_calls if call[0] == 'write')
         self.assertIn("Error in sys.excepthook:", error)
         self.assertEqual(error.count("'int' object is not callable"), 1)
@@ -191,7 +193,9 @@ class TestInteractiveConsole(unittest.TestCase):
             raise BaseException(s)
         self.sysmod.excepthook = raise_base
         self.console.interact()
-        self.assertEqual(['write', ('123', ), {}], self.stdout.method_calls[0])
+        # PyPy change: pypy's sys.excepthook flushes stdout before printing
+        writes = [c for c in self.stdout.method_calls if c[0] != 'flush']
+        self.assertEqual(['write', ('123', ), {}], writes[0])
         error = "".join(call.args[0] for call in self.stderr.method_calls if call[0] == 'write')
         self.assertIn("Error in sys.excepthook:", error)
         self.assertEqual(error.count("not so fast"), 1)

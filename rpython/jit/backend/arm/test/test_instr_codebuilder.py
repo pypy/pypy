@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import codebuilder
 from rpython.jit.backend.arm import conditions
@@ -344,7 +346,7 @@ def build_tests():
         try:
             func = globals()['gen_test_%s_func' % name]
         except KeyError:
-            print 'No test generator for %s instructions' % name
+            print('No test generator for %s instructions' % name)
             continue
         for key, value in getattr(instructions, name).iteritems():
             for test_case in func(key, value):

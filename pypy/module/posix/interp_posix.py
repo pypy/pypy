@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import (widen,
     r_longlong, intmask, r_uint, r_int, INT_MIN, INT_MAX)
 
+from rpython.rlib.rbigint import rbigint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
@@ -164,32 +165,29 @@ def call_rposix(func, path, *args):
 
 
 class Path(object):
-    _immutable_fields_ = ['as_fd', 'as_bytes', 'as_unicode', 'w_path']
+    # as_bytes is utf8 on win32, where rposix converts it back to wide
+    # characters; is_unicode only records whether the path came in as a str
+    _immutable_fields_ = ['as_fd', 'as_bytes', 'is_unicode', 'w_path']
 
-    def __init__(self, fd, bytes, unicode, w_path):
+    def __init__(self, fd, bytes, is_unicode, w_path):
         self.as_fd = fd
         self.as_bytes = bytes
-        self.as_unicode = unicode
+        self.is_unicode = is_unicode
         self.w_path = w_path
 
     def __repr__(self):
         # For debugging
         return ''.join(['Path(', str(self.as_fd), ', ', str(self.as_bytes),
-                        ', ', str(self.as_unicode), ', [', str(self.w_path),
+                        ', ', str(self.is_unicode), ', [', str(self.w_path),
                         ', ', str(getattr(self.w_path, '_length', 'bytes')), '])'])
 
 def _path_from_unicode(space, w_value):
-    if _WIN32:
-        path_b = space.bytes0_w(space.fsencode(w_value))
-        path_u = space.realunicode_w(w_value)
-        return Path(-1, path_b, path_u, w_value)
-    else:
-        path_b = space.bytes0_w(space.fsencode(w_value))
-        return Path(-1, path_b, None, w_value)
+    path_b = space.bytes0_w(space.fsencode(w_value))
+    return Path(-1, path_b, _WIN32, w_value)
 
 def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
-    return Path(-1, path_b, None, w_value)
+    return Path(-1, path_b, False, w_value)
 
 @specialize.arg(2, 3)
 def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
@@ -205,7 +203,7 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
         else:
             allowed_types = "string, bytes or os.PathLike"
     if nullable and space.is_w(w_value, space.w_None):
-        return Path(-1, '.', None, space.w_None)
+        return Path(-1, '.', False, space.w_None)
     if space.isinstance_w(w_value, space.w_unicode):
         return _path_from_unicode(space, w_value)
     elif space.isinstance_w(w_value, space.w_bytes):
@@ -229,7 +227,7 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
             pass
         else:
             fd = unwrap_fd(space, w_value, allowed_types)
-            return Path(fd, None, None, w_value)
+            return Path(fd, None, False, w_value)
 
     # PathLike case
     # inline fspath() for better error messages
@@ -520,11 +518,11 @@ def posix_fallocate(space, fd, offset, length):
     """
     while True:
         try:
-            s = rposix.posix_fallocate(fd, offset, length)
+            rposix.posix_fallocate(fd, offset, length)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-           return space.newint(s)
+            return
 
 @unwrap_spec(fd=c_int, offset=r_longlong, length=r_longlong, advice=int)
 def posix_fadvise(space, fd, offset, length, advice):
@@ -907,15 +905,6 @@ if _WIN32:
             ulen = codepoints_in_utf8(fullpath)
             return space.newtext(fullpath, ulen)
 
-def getcwdb(space):
-    """Return the current working directory."""
-    try:
-        cur = os.getcwd()
-    except OSError as e:
-        raise wrap_oserror(space, e, eintr_retry=False)
-    else:
-        return space.newbytes(cur)
-
 if _WIN32:
     def getcwd(space):
         """Return the current working directory as a string."""
@@ -925,7 +914,22 @@ if _WIN32:
             raise wrap_oserror(space, e, eintr_retry=False)
         else:
             return u2utf8(space, cur)
+
+    def getcwdb(space):
+        """Return the current working directory."""
+        # PEP 529: bytes paths are utf8, not the ANSI codepage that
+        # _getcwd() would return
+        return space.fsencode(getcwd(space))
 else:
+    def getcwdb(space):
+        """Return the current working directory."""
+        try:
+            cur = os.getcwd()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        else:
+            return space.newbytes(cur)
+
     def getcwd(space):
         """Return the current working directory as a string."""
         return space.fsdecode(getcwdb(space))
@@ -1072,7 +1076,7 @@ if _WIN32:
                         "characters", rwin32._MAX_ENV)
 
         try:
-            rwin32.DelEnvironmentVariableW(name)
+            rwin32._wunsetenv(name)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
@@ -1151,10 +1155,6 @@ entries '.' and '..' even if they are present in the directory."""
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         return space.newlist_bytes(result)
     else:
-        # The annotator needs result_u and result to be different
-        u = path.as_unicode
-        result_u = []
-        result = []
         try:
             path_b = path.as_bytes
             if path_b is None:
@@ -1166,13 +1166,10 @@ entries '.' and '..' even if they are present in the directory."""
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         len_result = len(result)
         result_w = [None] * len_result
-        if u:
+        if _WIN32:
+            # rposix.listdir went through the wide API and gives us utf8
             for i in range(len_result):
                 result_w[i] = space.newtext(result[i])
-        elif _WIN32:
-            for i in range(len_result):
-                result_w[i] = space.newtext(result[i])
-            return space.newlist(result_w)
         else:
             for i in range(len_result):
                 result_w[i] = space.newfilename(result[i])
@@ -2004,6 +2001,9 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
         do_utimes(space, rposix.lutimes, path.as_bytes, utime)
+    elif _WIN32 and follow_symlinks:
+        # SetFileTime() stores 100 ns, so do not go through do_utimes()
+        do_utime_ns(space, path, utime)
     elif follow_symlinks:
         do_utimes(space, _dispatch_utime, path, utime)
     else:
@@ -2072,6 +2072,21 @@ def do_utimes(space, func, arg, utime):
     except OSError as e:
         # see comment above: don't use wrap_oserror2()
         raise wrap_oserror(space, e, eintr_retry=False)
+
+def do_utime_ns(space, path, utime):
+    """windows implementation for utime(), which keeps the nanoseconds"""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
+    path_b = path.as_bytes
+    assert path_b is not None
+    try:
+        if now:
+            rposix.utime(path_b, None)
+        else:
+            rposix.utime_ns(path_b, atime_s, atime_ns, mtime_s, mtime_ns)
+    except OSError as e:
+        # see comment above: don't use wrap_oserror2()
+        raise wrap_oserror(space, e, eintr_retry=False)
+
 
 @specialize.argtype(1)
 def _dispatch_utime(path, times):
@@ -2640,20 +2655,46 @@ def getloadavg(space):
                            space.newfloat(load[1]),
                            space.newfloat(load[2])])
 
-@unwrap_spec(major="c_uint", minor="c_uint")
-def makedev(space, major, minor):
-    result = os.makedev(intmask(major), intmask(minor))
-    return space.newint(result)
+NODEV = -1
 
-@unwrap_spec(device="c_uint")
-def major(space, device):
-    result = os.major(intmask(device))
-    return space.newint(result)
+def _dev_w(space, w_dev):
+    """like CPython's _Py_Dev_Converter(): NODEV passes through, any other
+    negative value is rejected by the unsigned conversion"""
+    if space.is_true(space.eq(w_dev, space.newint(NODEV))):
+        return r_longlong(NODEV)
+    return rffi.cast(lltype.SignedLongLong, space.r_ulonglong_w(w_dev))
 
-@unwrap_spec(device="c_uint")
-def minor(space, device):
-    result = os.minor(intmask(device))
-    return space.newint(result)
+def _dev_check(space, value):
+    """like CPython's major_minor_check()"""
+    if value == NODEV:
+        return
+    if rffi.cast(lltype.SignedLongLong, rffi.cast(rffi.UINT, value)) != value:
+        raise oefmt(space.w_OverflowError,
+                    "Python int too large to convert to C unsigned int")
+
+def _dev_part_w(space, value):
+    """like CPython's major_minor_conv(): (unsigned int)NODEV is -1.  Not
+    a 0xffffffff literal, that is a prebuilt long on a 32 bit host"""
+    if widen(rffi.cast(rffi.INT, value)) == -1:
+        return space.newint(NODEV)
+    return space.newint(value)
+
+def makedev(space, w_major, w_minor):
+    major = _dev_w(space, w_major)
+    minor = _dev_w(space, w_minor)
+    _dev_check(space, major)
+    _dev_check(space, minor)
+    result = rposix.makedev(major, minor)
+    if result == NODEV:
+        return space.newint(NODEV)
+    return space.newlong_from_rbigint(rbigint.fromrarith_int(
+        rffi.cast(lltype.UnsignedLongLong, result)))
+
+def major(space, w_device):
+    return _dev_part_w(space, rposix.major(_dev_w(space, w_device)))
+
+def minor(space, w_device):
+    return _dev_part_w(space, rposix.minor(_dev_w(space, w_device)))
 
 @unwrap_spec(increment=c_int)
 def nice(space, increment):
@@ -2759,6 +2800,70 @@ if _WIN32:
         if is_bytes:
             return space.fsencode(w_result)
         return w_result
+
+    def listdrives(space):
+        """listdrives() -> list of strings
+
+        Return a list containing the drives in the system."""
+        space.audit("os.listdrives", [])
+        try:
+            drives = nt.win32_listdrives()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(d, codepoints_in_utf8(d))
+                              for d in drives])
+
+    @unwrap_spec(volume='fsencode')
+    def listmounts(space, volume):
+        """listmounts(volume) -> list of strings
+
+        Return a list containing the mount points for a volume."""
+        space.audit("os.listmounts", [space.newtext(volume)])
+        try:
+            mounts = nt.win32_listmounts(volume)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(m, codepoints_in_utf8(m))
+                              for m in mounts])
+
+    def listvolumes(space):
+        """listvolumes() -> list of strings
+
+        Return a list containing the volumes in the system.  Volumes are
+        typically represented as a GUID path."""
+        space.audit("os.listvolumes", [])
+        try:
+            volumes = nt.win32_listvolumes()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(v, codepoints_in_utf8(v))
+                              for v in volumes])
+
+    def _getvolumepathname(space, w_path):
+        """helper for ntpath.ismount"""
+        is_bytes = space.isinstance_w(w_path, space.w_bytes)
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
+        try:
+            s, lgt = nt.win32_getvolumepathname(path)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        w_result = space.newtext(s, lgt)
+        if is_bytes:
+            return space.fsencode(w_result)
+        return w_result
+
+    def _path_isdevdrive(space, w_path):
+        """helper for ntpath.isdevdrive"""
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
+        try:
+            res = nt.win32_isdevdrive(path)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        return space.newbool(res)
 
     def _getdiskusage(space, w_path):
         path = space.fsdecode_w(w_path)
@@ -2958,21 +3063,9 @@ def _get_terminal_size(space, w_fd=None):
             fd = space.c_int_w(w_fd)
 
     if _WIN32:
-        if fd == 0:
-            handle_id = rwin32.STD_INPUT_HANDLE
-        elif fd == 1:
-            handle_id = rwin32.STD_OUTPUT_HANDLE
-        elif fd == 2:
-            handle_id = rwin32.STD_ERROR_HANDLE
-        else:
-            raise oefmt(space.w_ValueError, "bad file descriptor")
-
-        handle = rwin32.GetStdHandle(handle_id)
-
-        if handle == rwin32.NULL_HANDLE:
-            raise oefmt(space.w_OSError, "handle cannot be retrieved")
-        elif handle == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastSavedWindowsError()
+        # any fd of a console will do, not just the three standard ones:
+        # CONOUT$ opened by hand is the one test_os checks
+        handle = rwin32.get_osfhandle(fd)
         with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info:
             success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
             if not success:
@@ -3110,21 +3203,21 @@ def lockf(space, fd, cmd, length):
     """
     while True:
         try:
-            s = rposix.lockf(fd, cmd, length)
+            rposix.lockf(fd, cmd, length)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-           return space.newint(s)
+            return
 
 def sched_yield(space):
     """ Voluntarily relinquish the CPU"""
     while True:
         try:
-            res = rposix.sched_yield()
+            rposix.sched_yield()
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-            return space.newint(res)
+            return
 
 def fspath(space, w_path):
     """
@@ -3307,14 +3400,44 @@ def splitdrive(p):
             return p[:2], p[2:]
     return p[:0], p
 
+def splitroot(p):
+    """The root of 'p' and the rest, like ntpath.splitroot() with its
+    drive and root joined.  Unlike splitdrive(), a path that is rooted
+    without naming a drive has a root: '\\A' -> ('\\', 'A')."""
+    sep = '\\'
+    altsep = '/'
+    colon = ':'
+    unc_prefix = '\\\\?\\UNC\\'
+    normp = p.replace(altsep, sep)
+    if normp[0:1] == sep:
+        if normp[1:2] == sep:
+            # UNC drives, e.g. \\server\share, and device drives,
+            # e.g. \\.\device or \\?\UNC\server\share
+            if normp[0:8].upper() == unc_prefix:
+                start = 8
+            else:
+                start = 2
+            index = normp.find(sep, start)
+            if index < 0:
+                return p, p[:0]
+            index2 = normp.find(sep, index + 1)
+            if index2 < 0:
+                return p, p[:0]
+            return p[:index2 + 1], p[index2 + 1:]
+        # rooted but driveless, e.g. \Windows
+        return p[:1], p[1:]
+    if normp[1:2] == colon:
+        if normp[2:3] == sep:
+            # absolute drive-letter path, e.g. X:\Windows
+            return p[:3], p[3:]
+        # drive-relative path, e.g. X:Windows
+        return p[:2], p[2:]
+    return p[:0], p
+
 def _path_splitroot(space, w_path):
     """Removes everything after the root on Win32."""
-
-    # ... which begs the question "what is a "root"?
-    # answer: from trial and error, it is almost-but-not-quite
-    # os.path.splitdrive
     p = space.text_w(fspath(space, w_path))
-    ret0, ret1 = splitdrive(p)
+    ret0, ret1 = splitroot(p)
     #XXX what do we do when w_p is bytes?
     return space.newtuple([space.newtext(ret0), space.newtext(ret1)])
 

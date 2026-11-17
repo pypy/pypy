@@ -164,7 +164,7 @@ def prepare_database(db):
 def write_revdb_def_file(db, target_path):
     f = target_path.open('w')
     funcnames = sorted(db.stack_bottom_funcnames)
-    ## print("#define RDB_VERSION  0x%x" % random.randrange(0, sys.maxint), file=f)
+    ## print("#define RDB_VERSION  0x%x" % random.randrange(0, sys.maxsize), file=f)
     ## print(file=f)
     for i, fn in enumerate(funcnames):
         print('#define RPY_CALLBACKLOC_%s %d' % (fn, i), file=f)

@@ -197,6 +197,7 @@ class TopDownSnapshotIterator(object):
             raise StopIteration
         self.snapshot_index = self.prev(res)
         return res
+    __next__ = next
 
 
 class SnapshotIterator(object):
@@ -461,6 +462,7 @@ class BoxArrayIter(object):
         self.length -= 1
         item, self.position = decode_varint_signed(self.data, self.position)
         return item
+    __next__ = next
 
 BoxArrayIter.BOXARRAYITER0 = BoxArrayIter(0, ['\x00', '\x00'])
 

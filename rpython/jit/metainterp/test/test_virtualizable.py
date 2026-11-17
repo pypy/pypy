@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import pytest
 
 from rpython.jit.codewriter import heaptracker
@@ -1540,7 +1542,7 @@ class ImplicitVirtualizableTests(object):
             return frame.thing.val
 
         res = self.meta_interp(main, [0], inline=True)
-        print hex(res)
+        print(hex(res))
         assert res == main(0)
 
     def test_force_virtualref_to_virtualizable(self):

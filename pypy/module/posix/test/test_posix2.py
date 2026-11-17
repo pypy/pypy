@@ -469,9 +469,15 @@ class AppTestPosix:
             pass # probably ascii
         else:
             assert posix.access('caf\xe9', posix.R_OK) is False
-        assert posix.access(b'caf\xe9', posix.R_OK) is False
         assert posix.access('caf\udcc0', posix.R_OK) is False
-        assert posix.access(b'caf\xc3', posix.R_OK) is False
+        if sys.platform == 'win32':
+            # bytes paths are decoded with utf-8/surrogatepass (PEP 529), so
+            # these two are not paths at all
+            raises(UnicodeDecodeError, posix.access, b'caf\xe9', posix.R_OK)
+            raises(UnicodeDecodeError, posix.access, b'caf\xc3', posix.R_OK)
+        else:
+            assert posix.access(b'caf\xe9', posix.R_OK) is False
+            assert posix.access(b'caf\xc3', posix.R_OK) is False
 
     def test_access(self):
         pdir = self.pdir + '/file1'
@@ -813,13 +819,29 @@ class AppTestPosix:
             assert os.minor(12345) == self.expected_minor_12345
             assert os.makedev(self.expected_major_12345,
                               self.expected_minor_12345) == 12345
-            with raises((ValueError, OverflowError)):
-                os.major(-1)
+            # major()/minor() take any dev_t but makedev()
+            # needs each part to fit in an unsigned int
+            for x in -2, 2**64, -2**63-1:
+                with raises((ValueError, OverflowError)):
+                    os.major(x)
             for x in -2, 2**32, 2**64, -2**63-1:
                 with raises((ValueError, OverflowError)):
                     os.makedev(x, 0)
                 with raises((ValueError, OverflowError)):
                     os.makedev(0, x)
+
+        # dev_t is 32 bits on macos
+        @pytest.mark.skipif("not sys.platform.startswith('linux')")
+        def test_major_minor_linux(self):
+            os = self.posix
+            NODEV = -1
+            assert os.major(NODEV) == NODEV
+            assert os.minor(NODEV) == NODEV
+            assert os.makedev(NODEV, NODEV) == NODEV
+            big = os.makedev(2**13, 1)
+            assert big > 2**32
+            assert os.major(big) == 2**13
+            assert os.minor(big) == 1
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
@@ -1013,20 +1035,22 @@ class AppTestPosix:
             import errno
             fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
             try:
-                ret = os.posix_fallocate(fd, 0, 10)
-                if ret == errno.EINVAL and not self.runappdirect:
-                    # Does not work untranslated on a 32-bit chroot/docker
-                    pass
-                else:
-                    assert ret == 0
+                assert os.posix_fallocate(fd, 0, 10) is None
             except OSError as inst:
-                """ ZFS seems not to support fallocate.
-                so skipping solaris-based since it is likely to come with ZFS
+                """ EINVAL on a 32-bit chroot/docker untranslated, and ZFS
+                seems not to support fallocate at all
                 """
-                if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+                if inst.errno != errno.EINVAL:
                     raise
             finally:
                 os.close(fd)
+
+        def test_os_posix_posix_fallocate_errno(self):
+            os = self.posix
+            import errno
+            with raises(OSError) as exc:
+                os.posix_fallocate(-42, 0, 10)
+            assert exc.value.errno == errno.EBADF
 
 
     def test_largefile(self):
@@ -2020,6 +2044,27 @@ class AppTestNt(object):
         assert ret == (u'c:\\', u'abc\\def.txt') 
         ret = nt._path_splitroot(u'//server/abc/xyz/def.txt')
         assert ret == (u'//server/abc/', u'xyz/def.txt') 
+        # a rooted path without a drive has a root, which is what
+        # importlib's _path_join() needs to reset the path it is building
+        assert nt._path_splitroot(u'\\A') == (u'\\', u'A')
+        assert nt._path_splitroot(u'/A') == (u'/', u'A')
+        assert nt._path_splitroot(u'\\') == (u'\\', u'')
+        # drives, with and without a root
+        assert nt._path_splitroot(u'D:') == (u'D:', u'')
+        assert nt._path_splitroot(u'D:A') == (u'D:', u'A')
+        assert nt._path_splitroot(u'C:\\A') == (u'C:\\', u'A')
+        # UNC and device paths keep everything up to the share
+        assert nt._path_splitroot(u'\\\\Server\\Share') == (
+            u'\\\\Server\\Share', u'')
+        assert nt._path_splitroot(u'\\\\Server\\Share\\A') == (
+            u'\\\\Server\\Share\\', u'A')
+        assert nt._path_splitroot(u'\\\\.\\device') == (
+            u'\\\\.\\device', u'')
+        assert nt._path_splitroot(u'\\\\?\\UNC\\server\\share\\d') == (
+            u'\\\\?\\UNC\\server\\share\\', u'd')
+        # relative paths have no root
+        assert nt._path_splitroot(u'A\\B') == (u'', u'A\\B')
+        assert nt._path_splitroot(u'') == (u'', u'')
 
     def test_dll_directory(self):
         nt = self.posix
@@ -2027,6 +2072,33 @@ class AppTestNt(object):
         assert nt._remove_dll_directory(ret)
         ret = nt._add_dll_directory(u'c:\\')
         assert nt._remove_dll_directory(ret)
+
+    def test_listdrives(self):
+        nt = self.posix
+        drives = nt.listdrives()
+        assert isinstance(drives, list)
+        assert all(isinstance(d, str) for d in drives)
+        # every entry is a root, and there is no empty trailing one
+        assert drives
+        assert all(d.endswith(':\\') for d in drives), drives
+
+    def test_listvolumes(self):
+        nt = self.posix
+        volumes = nt.listvolumes()
+        assert isinstance(volumes, list)
+        assert all(isinstance(v, str) for v in volumes)
+        # volumes are GUID paths, e.g. \\?\Volume{...}\
+        assert all(v.startswith('\\\\?\\') for v in volumes), volumes
+
+    def test__getvolumepathname(self):
+        nt = self.posix
+        for path in (self.path, self.path.encode()):
+            volume = nt._getvolumepathname(path)
+            assert type(volume) is type(path)
+        # the mount point is on the same drive as the path
+        volume = nt._getvolumepathname(self.path)
+        assert volume.upper()[:2] == self.path.upper()[:2]
+        raises(ValueError, nt._getvolumepathname, self.path + '\x00')
 
 
 class AppTestEnvironment(object):
