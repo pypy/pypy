@@ -75,33 +75,20 @@ class DFA:
 
     def recognize(self, inVec, pos = 0):
         crntState = self.start
-        lastAccept = False
-        i = pos
+        lastAccept = -1
         for i in range(pos, len(inVec)):
+            if self.accepts[crntState]:
+                lastAccept = i
             item = inVec[i]
             if ord(item) > 0x80:
                 item = NON_ASCII
-            accept = self.accepts[crntState]
             crntState = self._next_state(item, crntState)
-            if crntState != ERROR_STATE:
-                pass
-            elif accept:
-                return i
-            elif lastAccept:
-                # This is now needed b/c of exception cases where there are
-                # transitions to dead states
-                return i - 1
-            else:
-                return -1
+            if crntState == ERROR_STATE:
+                return lastAccept
             crntState = ord(crntState)
-            lastAccept = accept
-        # if self.states[crntState][1]:
         if self.accepts[crntState]:
-            return i + 1
-        elif lastAccept:
-            return i
-        else:
-            return -1
+            return len(inVec)
+        return lastAccept
 
 # ______________________________________________________________________
 

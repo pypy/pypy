@@ -288,6 +288,12 @@ class Plotter:
         check_token_error("0x\n",
                 "invalid hexadecimal literal",
                 2)
+        check_token_error("0x_\n",
+                "invalid hexadecimal literal",
+                3)
+        check_token_error("0b_2\n",
+                "invalid digit '2' in binary literal",
+                4)
         check_token_error("1_ \n",
                 "invalid decimal literal",
                 2)
@@ -353,9 +359,20 @@ class TestTokenizer310Changes(object):
         error = pytest.raises(TokenError, tokenize, "\x89")
         assert error.value.msg.startswith("Non-UTF-8 code starting with '\\x89' in file")
 
-    def test_invalid_float_exponent(self):
-        # 32e-+4 has an invalid exponent; should match CPython: "invalid decimal literal" at offset=8
-        check_token_error("x = 32e-+4", "invalid decimal literal", pos=8)
+    @pytest.mark.parametrize("source, pos", [
+        ("x = 32e-+4", 8),
+        ("x = 1.e-x", 8),
+        ("x = 1_0e-+4", 9),
+        ("x = 1.0E-", 9),
+        ("x = 0e-+4", 7),
+        ("x = 0123e+", 10),
+        ("x = 0123ex", 8),
+        ("x = 0__1", 6),
+        ("x = 0123_", 9),
+        ("x = 0_1_", 8),
+    ])
+    def test_invalid_decimal_literal(self, source, pos):
+        check_token_error(source, "invalid decimal literal", pos=pos)
 
 
 def _fstring_test_from_tokenize_output(tk_output):
