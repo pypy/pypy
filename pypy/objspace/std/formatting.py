@@ -195,8 +195,6 @@ def make_formatter_subclass(do_unicode):
         def getmappingvalue(self, key):
             # return the value corresponding to a key in the input dict
             space = self.space
-            if self.w_valuedict is None:
-                raise oefmt(space.w_TypeError, "format requires a mapping")
             if do_unicode:
                 lgt = rutf8.check_utf8(key, True)
                 w_key = space.newutf8(key, lgt)
@@ -206,6 +204,9 @@ def make_formatter_subclass(do_unicode):
 
         def parse_fmt(self):
             if self.peekchr() == '(':
+                if self.w_valuedict is None:
+                    raise oefmt(self.space.w_TypeError,
+                                "format requires a mapping")
                 w_value = self.getmappingvalue(self.getmappingkey())
             else:
                 w_value = None
