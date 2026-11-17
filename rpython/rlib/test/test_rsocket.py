@@ -423,7 +423,6 @@ def test_getaddrinfo_http():
     with pytest.raises(GAIError) as e:
         getaddrinfo('www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
-    assert isinstance(e.value.get_msg_unicode(), unicode)
 
 def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)

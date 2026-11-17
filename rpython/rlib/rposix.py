@@ -370,22 +370,15 @@ c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
 
 #___________________________________________________________________
 # Wrappers around posix functions, that accept either strings, or
-# instances with a "as_bytes()" method.
-# - pypy.modules.posix.interp_posix passes an object containing a unicode path
-#   which can encode itself with sys.filesystemencoding.
-# - but rpython.rtyper.module.ll_os.py on Windows will replace these functions
-#   with other wrappers that directly handle unicode strings.
+# instances with a "as_bytes()" method.  pypy.module.posix.interp_posix
+# resolves the path to a string before it gets here (utf8 on win32, where
+# these functions widen it back to wide characters).
 @specialize.argtype(0)
 @signature(types.any(), returns=s_Str0)
 def _as_bytes(path):
     assert path is not None
     if isinstance(path, str):
         return path
-    elif isinstance(path, unicode):
-        # This never happens in PyPy's Python interpreter!
-        # Only in raw RPython code that uses unicode strings.
-        # We implement python2 behavior: silently convert to ascii.
-        return path.encode('ascii')
     else:
         return path.as_bytes()
 
@@ -401,8 +394,6 @@ def _as_utf8(path):
     assert path is not None
     if isinstance(path, str):
         return path
-    if isinstance(path, unicode):
-        return path.encode("utf8")
     else:
         return path.as_utf8()
 
@@ -675,7 +666,7 @@ def chdir(path):
             res = rffi.cast(lltype.Signed, res)
             assert res > 0
             if res <= MAX_PATH + 1:
-                new_path = path.str(res).encode('utf8')
+                new_path = rffi.wcharpsize2utf8(path.raw, res)
             else:
                 with traits.scoped_alloc_buffer(res) as path:
                     res = win32traits.GetCurrentDirectory(res, path.raw)
@@ -683,7 +674,7 @@ def chdir(path):
                         raise rwin32.lastSavedWindowsError()
                     res = rffi.cast(lltype.Signed, res)
                     assert res > 0
-                    new_path = path.str(res).encode('utf8')
+                    new_path = rffi.wcharpsize2utf8(path.raw, res)
         utf8 = new_path
         if utf8[0] == '\\' or utf8[0] == '/':  # UNC path
                 return
@@ -730,11 +721,10 @@ def getfullpathname(path):
             if res >= length:
                 length = res + 1
                 continue
-            result = out_buf.str(res)
+            result = rffi.wcharpsize2utf8(out_buf.raw, res)
 
             assert result is not None
-            result = rstring.assert_str0(result)
-            return result.encode('utf8')
+            return rstring.assert_str0(result)
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -766,6 +756,7 @@ def getcwd():
 
 @replace_os_function('getcwdu')
 def getcwdu():
+    """Like getcwd(), but from the wide API; the result is utf8."""
     bufsize = 256
     while True:
         buf = lltype.malloc(rffi.CWCHARP.TO, bufsize, flavor='raw')
@@ -781,7 +772,7 @@ def getcwdu():
         if bufsize > 1024*1024:  # xxx hard-coded upper limit
                                  #     must be <2**31 for win32
             raise OSError(error, "getcwd result too large")
-    result = rffi.wcharp2unicode(res)
+    result = rffi.wcharp2utf8(res)[0]
     lltype.free(buf, flavor='raw')
     return result
 

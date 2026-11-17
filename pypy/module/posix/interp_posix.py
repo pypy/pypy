@@ -68,9 +68,6 @@ def dispatch_filename_2(func):
         return func(_path_w(space, w_fname1), _path_w(space, w_fname2), *args)
     return dispatch
 
-def u2utf8(space, u_str):
-    return space.newutf8(u_str.encode('utf-8'), len(u_str))
-
 @unwrap_spec(flag=c_int, mode=c_int)
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
@@ -428,11 +425,11 @@ if _WIN32:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
         try:
-            cur = os.getcwdu()
+            cur = os.getcwdu()      # utf8
         except OSError as e:
             raise wrap_oserror(space, e)
         else:
-            return u2utf8(space, cur)
+            return space.newutf8(cur, codepoints_in_utf8(cur))
 else:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""

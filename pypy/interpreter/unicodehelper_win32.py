@@ -135,8 +135,8 @@ if rwin32.WIN32:
                 if rwin32.MultiByteToWideChar(rwin32.CP_ACP, flags,
                                        dataptr, size, buf.raw, usize) == 0:
                     _decode_mbcs_error(s, errorhandler)
-                ret = buf.str(usize)
+                ret = rffi.wcharpsize2utf8(buf.raw, usize)
                 assert ret is not None
-                return ret.encode('utf-8'), usize, size
+                return ret, usize, size
 
 
