@@ -88,6 +88,8 @@ def W_Count___new__(space, w_subtype, w_start, w_step):
         except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
+        else:
+            r.w_step = space.newint(1)
     return r
 
 W_Count.typedef = TypeDef(

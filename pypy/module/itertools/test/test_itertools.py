@@ -39,6 +39,15 @@ class AppTestItertools(object):
         assert repr(it) == 'count(True, 2)'
         assert next(it) is True
 
+        class RaisingAdd(int):
+            def __add__(self, other):
+                raise RuntimeError
+            def __radd__(self, other):
+                raise RuntimeError
+        it = itertools.count(RaisingAdd(0), RaisingAdd(1))
+        assert next(it) == 0
+        assert next(it) == 1
+
     def test_count_invalid(self):
         import itertools
 
