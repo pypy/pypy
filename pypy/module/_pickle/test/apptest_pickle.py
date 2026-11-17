@@ -1243,3 +1243,18 @@ def test_subclass_without_calling_init():
 
     pytest.raises(PicklingError, MyPickler().dump, [1, 2, 3])
     pytest.raises(UnpicklingError, MyUnpickler().load)
+
+def test_unpickle_get_missing_memo():
+    for data in [b'g0\n.', b'h\x01.', b'j\x01\x00\x00\x00.', b'g-1\n.',
+                 b'Nq\x05h\x03.', b'g0\n\x85.', b']g3\na.']:
+        with raises(UnpicklingError) as excinfo:
+            pickle.loads(data)
+        assert 'Memo value not found at index' in str(excinfo.value)
+
+def test_unpickle_invalid_utf8_line():
+    for data in [b'g\xff\n.', b'L\xffL\n.', b'g\x95\x16\x0059\n.',
+                 b'p\xff\n.']:
+        with raises(UnicodeDecodeError):
+            pickle.loads(data)
+    with raises(UnicodeDecodeError):
+        pickle.loads(b'(i\xff\nfoo\n.')

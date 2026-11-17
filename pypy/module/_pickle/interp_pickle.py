@@ -2248,8 +2248,9 @@ class W_Unpickler(W_Root):
             data = data[:-1]
         if data and data[-1] == 'L':
             data = data[:-1]
+        lgt = check_utf8_or_raise(self.space, data)
         self.append(self.space.call_function(
-            self.space.w_int, self.space.newtext(data)))
+            self.space.w_int, self.space.newtext(data, lgt)))
     dispatch[ord(op.LONG[0])] = load_long
 
     def load_long1(self):
@@ -2544,8 +2545,8 @@ class W_Unpickler(W_Root):
 
     def load_inst(self):
         space = self.space
-        w_module = space.newtext(self.readline())
-        w_name = space.newtext(self.readline())
+        w_module = self._readline_ascii()
+        w_name = self._readline_ascii()
         w_klass = self.call_find_class(w_module, w_name)
         w_args = space.newlist(self.pop_mark())
         self._instantiate(w_klass, w_args)
@@ -2753,46 +2754,46 @@ class W_Unpickler(W_Root):
         self.append(w_val)
     dispatch[ord(op.DUP[0])] = load_dup
 
-    def load_get(self):
+    def _memo_get(self, i):
+        if 0 <= i < len(self.memo):
+            w_val = self.memo[i]
+            if w_val is not None:
+                return w_val
+        raise oefmt(unpickling_error(self.space),
+            'Memo value not found at index %d', i)
+
+    def _readline_int(self):
+        space = self.space
+        w_line = self._readline_text()
+        return space.int_w(space.call_function(space.w_int, w_line))
+
+    def _readline_text(self):
         data = self.readline()
-        try:
-            i = int(data)
-        except ValueError:
-            raise oefmt(self.space.w_ValueError, "invalid int literal %s", data)
-        try:
-            self.append(self.memo[i])
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                'Memo value not found at index %d', i)
+        lgt = check_utf8_or_raise(self.space, data)
+        return self.space.newtext(data, lgt)
+
+    def _readline_ascii(self):
+        w_line = self.space.newbytes(self.readline())
+        return self.space.call_method(w_line, 'decode',
+                                      self.space.newtext('ascii'))
+
+    def load_get(self):
+        i = self._readline_int()
+        self.append(self._memo_get(i))
     dispatch[ord(op.GET[0])] = load_get
 
     def load_binget(self):
         i = ord(self.read1())
-        try:
-            self.append(self.memo[i])
-        except IndexError as exc:
-            raise oefmt(unpickling_error(self.space),
-                'Memo value not found at index %d', i)
+        self.append(self._memo_get(i))
     dispatch[ord(op.BINGET[0])] = load_binget
 
     def load_long_binget(self):
         i = self.read_unpackI()
-        if i < 0:
-            raise oefmt(unpickling_error(self.space),
-                'Memo value not found at index %d', i)
-        try:
-            self.append(self.memo[i])
-        except IndexError as exc:
-            raise oefmt(unpickling_error(self.space),
-                'Memo value not found at index %d', i)
+        self.append(self._memo_get(i))
     dispatch[ord(op.LONG_BINGET[0])] = load_long_binget
 
     def load_put(self):
-        data = self.readline()
-        try:
-            i = int(data)
-        except ValueError:
-            raise oefmt(self.space.w_ValueError, "invalid int literal %s", data)
+        i = self._readline_int()
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative PUT argument")
         w_val = self._stack_top("PUT")
