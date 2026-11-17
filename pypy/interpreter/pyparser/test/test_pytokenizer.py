@@ -171,6 +171,18 @@ whatisthis"""'''
         assert tps == [tokens.NAME, tokens.NEWLINE, tokens.NAME,
                 tokens.NEWLINE, tokens.NEWLINE, tokens.ENDMARKER]
 
+    @pytest.mark.parametrize("field_indent", ["", "  "])
+    def test_fstring_multiline_field_dedent(self, field_indent):
+        # The old tokenizer sees a NEWLINE inside the field, so a dedent to
+        # a column that's not on its indentation stack is an IndentationError.
+        input = 'if 1:\n    f"""{\n%sx}"""\n' % field_indent
+        tps = [tk.token_type for tk in tokenize(input)]
+        assert tps == [tokens.NAME, tokens.NUMBER, tokens.COLON,
+                       tokens.NEWLINE, tokens.INDENT, tokens.FSTRING_START,
+                       tokens.LBRACE, tokens.NAME, tokens.RBRACE,
+                       tokens.FSTRING_END, tokens.NEWLINE, tokens.DEDENT,
+                       tokens.NEWLINE, tokens.ENDMARKER]
+
     def test_error_linecont(self):
         check_token_error("a \\ b",
                           "unexpected character after line continuation character",

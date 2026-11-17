@@ -873,7 +873,9 @@ def generate_tokens(lines, flags, filename='<unknown>'):
     token_list = []
     try:
         token_list = _generate_tokens(lines, flags, filename)
-    except TokenError as e:
+    except (TokenError, TokenIndentationError) as e:
+        # The old tokenizer can raise TokenIndentationError on valid
+        # multi-line f-string replacement fields.
         err1 = e
 
     t = Tokenizer(flags, filename)
