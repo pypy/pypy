@@ -476,6 +476,7 @@ class Tokenizer(object):
     def _tokenize_regular_normal(self, line):
         pseudomatch = pseudoDFA.recognize(line, self.pos)
         start = whiteSpaceDFA.recognize(line, self.pos)
+        assert start >= 0  # whiteSpaceDFA accepts the empty match
         if pseudomatch > start:
             return self._classify_token(line, start, pseudomatch)
 
