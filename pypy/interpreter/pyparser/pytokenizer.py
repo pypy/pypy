@@ -505,6 +505,8 @@ class Tokenizer(object):
         if line[self.pos] == "0":
             self._raise_token_error("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
                     line, self.lnum, self.pos+1)
+        if line[self.pos] in NUMCHARS:
+            _maybe_raise_invalid_float_exponent(line, self.lnum, self.pos, self.max, self.token_list)
         self._add_token(tokens.ERRORTOKEN, line[self.pos], self.lnum, self.pos, line)
         self.last_comment = ''
         self.pos += 1
