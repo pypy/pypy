@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import errno
 import signal as cpy_signal
 import sys
 import os
