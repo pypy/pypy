@@ -175,13 +175,9 @@ class W_SliceObject(W_Root):
             return space.w_False   # see comments in descr_eq()
         if not isinstance(w_other, W_SliceObject):
             return space.w_NotImplemented
-        if space.eq_w(self.w_start, w_other.w_start):
-            if space.eq_w(self.w_stop, w_other.w_stop):
-                return space.lt(self.w_step, w_other.w_step)
-            else:
-                return space.lt(self.w_stop, w_other.w_stop)
-        else:
-            return space.lt(self.w_start, w_other.w_start)
+        return space.lt(
+            space.newtuple([self.w_start, self.w_stop, self.w_step]),
+            space.newtuple([w_other.w_start, w_other.w_stop, w_other.w_step]))
 
     def descr_indices(self, space, w_length):
         """S.indices(len) -> (start, stop, stride)

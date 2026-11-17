@@ -64,6 +64,7 @@ def test_lt():
     assert not (slice(1, 2, 3) < slice(1, 0, 0))
     assert not (slice(1, 2, 3) < slice(1, 2, 0))
     assert not (slice(1, 2, 3) < slice(1, 2, 3))
+    assert not (slice(1, 2) < slice(1, 2))
 
 def test_long_indices():
     assert slice(-2 ** 100, 10, 1).indices(1000) == (0, 10, 1)
