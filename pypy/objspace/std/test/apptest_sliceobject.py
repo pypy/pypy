@@ -64,6 +64,23 @@ def test_lt():
     assert not (slice(1, 2, 3) < slice(1, 0, 0))
     assert not (slice(1, 2, 3) < slice(1, 2, 0))
     assert not (slice(1, 2, 3) < slice(1, 2, 3))
+    assert not (slice(1, 2) < slice(1, 2))
+
+def test_le_gt_ge():
+    assert slice(1, 2) <= slice(1, 2)
+    assert slice(0, 1, 2) <= slice(0, 1, 3)
+    assert not (slice(1, 2, 3) <= slice(1, 2, 0))
+    assert slice(1, 2, 3) > slice(1, 2, 0)
+    assert not (slice(1, 2) > slice(1, 2))
+    assert slice(1, 2) >= slice(1, 2)
+    assert not (slice(1, 2, 3) >= slice(1, 2, 4))
+    s = slice(1, 2)
+    assert s <= s
+    assert s >= s
+    assert not (s > s)
+    assert slice(1).__le__(1) is NotImplemented
+    assert slice(1).__gt__(1) is NotImplemented
+    assert slice(1).__ge__(1) is NotImplemented
 
 def test_long_indices():
     assert slice(-2 ** 100, 10, 1).indices(1000) == (0, 10, 1)
