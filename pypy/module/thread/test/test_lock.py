@@ -155,6 +155,11 @@ class AppTestRLock(GenericTestThread):
     """
     Tests for recursive locks.
     """
+    def test_constructor_ignores_arguments(self):
+        import _thread
+        lock = _thread.RLock(1, x=2)
+        assert type(lock) is _thread.RLock
+
     def test_reacquire(self):
         import _thread
         lock = _thread.RLock()
