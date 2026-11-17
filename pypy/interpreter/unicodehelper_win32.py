@@ -103,10 +103,7 @@ def _decode_helper(space, cp, s, w_s, flags, encoding, errors, errorhandler,
                                            encoding, errors, final, start, end)
                 res.append(r)
                 return pos, check_utf8(r, True)
-            buf_as_str = buf.str(outsize)
-            assert buf_as_str is not None
-            with rffi.scoped_nonmoving_unicodebuffer(buf_as_str) as dataptr:
-                conv = _unibuf_to_utf8(dataptr, outsize)
+            conv = _unibuf_to_utf8(buf.raw, outsize)
             res.append(conv)
             return end, codepoints_in_utf8(conv)
 
