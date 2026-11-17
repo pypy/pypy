@@ -5,7 +5,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     appleveldefs = {
        'factorial' : 'app_math.factorial',
-       'remainder' : 'app_math.remainder',
        'isqrt'     : 'app_math.isqrt',
        'prod'      : 'app_math.prod',
        'sumprod'   : 'app_math.sumprod',
@@ -37,6 +36,7 @@ class Module(MixedModule):
        'log2'           : 'interp_math.log2',
        'log10'          : 'interp_math.log10',
        'fmod'           : 'interp_math.fmod',
+       'remainder'      : 'interp_math.remainder',
        'atan'           : 'interp_math.atan',
        'ceil'           : 'interp_math.ceil',
        'sinh'           : 'interp_math.sinh',
