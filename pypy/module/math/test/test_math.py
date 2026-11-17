@@ -414,6 +414,13 @@ class AppTestMath:
         assert math.gcd(36) == 36
         assert math.gcd(-36) == 36
 
+    def test_gcd_single_index_argument(self):
+        import math
+        class Index:
+            def __index__(self):
+                return -6
+        assert math.gcd(Index()) == 6
+
     def test_lcm(self):
         import math
         assert math.lcm() == 1
