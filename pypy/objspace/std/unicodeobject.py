@@ -1795,15 +1795,11 @@ def ascii_from_object(space, w_obj):
     """Implements builtins.ascii()"""
     # repr is guaranteed to be unicode
     w_repr = space.repr(w_obj)
-    w_type = space.type(w_repr)
+    assert isinstance(w_repr, W_UnicodeObject)
+    if w_repr.is_ascii():
+        return w_repr
     w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
-    # Weird CPython logic
-    if w_type is space.w_text or (space.len_w(w_repr) != space.len_w(w_encoded)):
-        return decode_object(space, w_encoded, 'ascii', 'strict')
-    else:
-        w_obj = decode_object(space, w_encoded, 'ascii', 'strict')
-        w_newfunc = space.getattr(w_type, space.newtext('__new__'))
-        return space.call_function(w_newfunc, w_type, w_obj)
+    return decode_object(space, w_encoded, 'ascii', 'strict')
 
 def unicode_from_string(space, w_bytes):
     # this is a performance and bootstrapping hack

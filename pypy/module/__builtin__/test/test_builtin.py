@@ -90,6 +90,26 @@ class AppTestBuiltinApp:
         assert ascii(s) == \
             r"""'\'\x00"\n\r\t abcd\x85\xe9\U00012fff\ud800\U0001d121xxx.'"""
 
+    def test_ascii_returns_ascii_repr_unchanged(self):
+        class B(str):
+            def __new__(cls, value):
+                return str.__new__(cls, value + "!")
+
+        class A:
+            def __repr__(self):
+                return B("abc")
+
+        class C:
+            def __repr__(self):
+                return B("\xe9")
+
+        result = ascii(A())
+        assert result == "abc!"
+        assert type(result) is B
+        result = ascii(C())
+        assert result == "\\xe9!"
+        assert type(result) is str
+
     def test_bin(self):
         class Foo:
             def __index__(self):
