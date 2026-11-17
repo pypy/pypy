@@ -258,6 +258,11 @@ def test_incomplete_format():
     raises(ValueError, '%'.__mod__, ((23,),))
     raises((ValueError, TypeError), '%('.__mod__, ({},))
 
+def test_format_key_without_mapping():
+    raises(TypeError, '%('.__mod__, frozenset())
+    raises(TypeError, b'%('.__mod__, frozenset())
+    raises(ValueError, '%('.__mod__, {})
+
 def test_format_char():
     
     A = 65
