@@ -294,6 +294,14 @@ class AppTestAppSetTest:
         c = a.symmetric_difference(b)
         assert c == set([1,2,3,'a','b','c'])
 
+    def test_symmetric_difference_empty_left_operand_type(self):
+        result = frozenset() ^ {1}
+        assert result == frozenset({1})
+        assert type(result) is frozenset
+        result = set() ^ frozenset({1})
+        assert result == {1}
+        assert type(result) is set
+
     def test_symmetric_difference_update(self):
         a = set([1,2,3])
         b = set([3,4,5])

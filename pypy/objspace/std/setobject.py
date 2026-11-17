@@ -870,7 +870,8 @@ class EmptySetStrategy(SetStrategy):
         return True
 
     def symmetric_difference(self, w_set, w_other):
-        return w_other.copy_real()
+        return w_set.from_storage_and_strategy(
+            w_other.get_storage_copy(), w_other.strategy)
 
     def symmetric_difference_update(self, w_set, w_other):
         w_set.strategy = w_other.strategy
