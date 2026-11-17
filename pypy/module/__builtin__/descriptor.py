@@ -19,18 +19,19 @@ class W_Super(W_Root):
             raise oefmt(space.w_TypeError,
                         "super() expected at most 2 arguments (%d given)",
                         len(args_w))
-        w_starttype = args_w[0] if len(args_w) >= 1 else space.w_None
-        w_obj_or_type = args_w[1] if len(args_w) >= 2 else space.w_None
-        if space.is_none(w_starttype):
+        if len(args_w) == 0:
             frame = space.getexecutioncontext().gettopframe()
             w_starttype, w_obj_or_type = _super_from_frame(space, frame)
+        else:
+            w_starttype = args_w[0]
+            w_obj_or_type = args_w[1] if len(args_w) == 2 else space.w_None
+        if not space.isinstance_w(w_starttype, space.w_type):
+            raise oefmt(space.w_TypeError, "super() argument 1 must be a type, not %T", w_starttype)
 
         if space.is_none(w_obj_or_type):
             w_type = None  # unbound super object
             w_obj_or_type = None
         else:
-            if not space.isinstance_w(w_starttype, space.w_type):
-                raise oefmt(space.w_TypeError, "super() argument 1 must be a type, not %T", w_starttype)
             w_type = _super_check(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
         self.w_objtype = w_type

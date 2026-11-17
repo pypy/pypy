@@ -148,6 +148,16 @@ class AppTestBuiltinApp:
             message = e.args[0]
             assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
 
+    def test_super_first_argument_not_a_type(self):
+        raises(TypeError, super, 1)
+        raises(TypeError, super, None)
+        raises(TypeError, super, None, 1)
+
+        class A(object):
+            def meth(self):
+                return super(None, self)
+        raises(TypeError, A().meth)
+
     def test_super_various(self):
 
         class A(object):
