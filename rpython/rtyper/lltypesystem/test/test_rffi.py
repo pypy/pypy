@@ -577,7 +577,7 @@ class BaseTestRffi:
             with scoped_alloc_unicodebuffer(len(d)) as s:
                 for i in range(len(d)):
                     s.raw[i] = d[i]
-                return s.str(len(d)-1).encode('ascii')
+                return wcharpsize2utf8(s.raw, len(d)-1)
         assert f() == d[:-1]
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == d[:-1]

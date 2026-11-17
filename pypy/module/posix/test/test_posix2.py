@@ -1325,6 +1325,41 @@ class AppTestUnicodeFilename:
         assert content == b"test"
 
 
+class TestPathW:
+    """_path_w is what hands rposix a path, so rposix never sees anything
+    but a string.  The win32 branch is unreachable on posix, hence the
+    monkeypatching."""
+    spaceconfig = dict(usemodules=['posix'])
+
+    def test_bytes(self):
+        from pypy.module.posix.interp_posix import _path_w
+        space = self.space
+        assert _path_w(space, space.newbytes('abc')) == 'abc'
+        space.raises_w(space.w_TypeError, _path_w, space,
+                       space.newbytes('a\x00b'))
+
+    def test_unicode_posix(self, monkeypatch):
+        from pypy.module.posix import interp_posix
+        space = self.space
+        monkeypatch.setattr(interp_posix, '_WIN32', False)
+        monkeypatch.setattr(space.sys, 'filesystemencoding', 'utf-8')
+        assert interp_posix._path_w(space, space.newutf8('caf\xc3\xa9', 4)) \
+            == 'caf\xc3\xa9'
+
+    def test_unicode_win32(self, monkeypatch):
+        from pypy.module.posix import interp_posix
+        space = self.space
+        monkeypatch.setattr(interp_posix, '_WIN32', True)
+        assert interp_posix._path_w(space, space.newutf8('caf\xc3\xa9', 4)) \
+            == 'caf\xc3\xa9'
+        # no codec in the way, so a lone surrogate survives, as it does on
+        # CPython where the str goes straight to the wide API
+        w_surrogate = space.newutf8('\xed\xa0\x80', 1)
+        assert interp_posix._path_w(space, w_surrogate) == '\xed\xa0\x80'
+        space.raises_w(space.w_TypeError, interp_posix._path_w, space,
+                       space.newutf8('a\x00b', 3))
+
+
 from pypy import pypydir
 class TestPexpect(object):
     # XXX replace with AppExpectTest class as soon as possible

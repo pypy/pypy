@@ -3,7 +3,6 @@ from __future__ import print_function
 import signal as cpy_signal
 import sys
 import os
-import errno
 
 from pypy.interpreter.error import (
     OperationError, exception_from_saved_errno, oefmt)
@@ -316,9 +315,11 @@ def set_wakeup_fd(space, fd):
     if fd != -1:
         try:
             os.fstat(fd)
-        except OSError as e:
-            if e.errno == errno.EBADF:
-                raise oefmt(space.w_ValueError, "invalid fd")
+        except OSError:
+            # like CPython, any fstat() failure means an unusable fd.  On
+            # windows the error is a WindowsError, which has no errno to
+            # compare against EBADF
+            raise oefmt(space.w_ValueError, "invalid fd")
     old_fd = pypysig_set_wakeup_fd(fd, True)
     return space.newint(intmask(old_fd))
 

@@ -48,6 +48,9 @@ def w_array(space, w_cls, typecode, __args__):
             a.descr_fromstring(space, w_initializer)
         elif w_initializer_type is space.w_list:
             a.descr_fromlist(space, w_initializer)
+        elif (typecode == 'u' and
+              space.isinstance_w(w_initializer, space.w_unicode)):
+            a.fromunicode_items(space, w_initializer)
         else:
             a.extend(w_initializer, True)
     return a
@@ -458,7 +461,7 @@ class W_ArrayBase(W_Root):
         # string arguments at multiples of the unicode byte size.
         # Let's only accept unicode arguments for now.
         if self.typecode == 'u':
-            self.fromsequence(w_ustr)
+            self.fromunicode_items(space, w_ustr)
         else:
             raise oefmt(space.w_ValueError,
                         "fromunicode() may only be called on type 'u' arrays")
@@ -472,9 +475,13 @@ class W_ArrayBase(W_Root):
         an array of some other type.
         """
         if self.typecode == 'u':
+            s = self.len
+            if s < 0:
+                s = 0
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            utf8 = wcharpsize2utf8(space, buf, self.len)
-            return space.newutf8(utf8, self.len)
+            utf8 = wcharpsize2utf8(space, buf, s)
+            # not s: a surrogate pair is two items but one codepoint
+            return space.newutf8(utf8, rutf8.codepoints_in_utf8(utf8))
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -744,6 +751,9 @@ class W_ArrayBase(W_Root):
     def check_valid_unicode(self, space, s):
         pass # overwritten by u
 
+    def fromunicode_items(self, space, w_ustr):
+        pass # overwritten by u
+
 W_ArrayBase.typedef = TypeDef(
     'array.array', None, None, "read-write",
     __new__ = interp2app(w_array),
@@ -911,6 +921,27 @@ def make_array(mytype):
             return rffi.cast(mytype.arrayptrtype, self._buffer)
 
         if mytype.unwrap == 'utf8_len_w':
+            def fromunicode_items(self, space, w_ustr):
+                # items are wchar_t, so where wchar_t is 2 bytes a codepoint
+                # outside the BMP becomes a surrogate pair of two items,
+                # like CPython's PyUnicode_AsWideChar()
+                utf8, ulen = space.utf8_len_w(w_ustr)
+                if mytype.bytes == 2:
+                    wlen = rffi.utf82wcharp_ex_len(utf8)
+                    wbuf = rffi.utf82wcharp_ex(utf8, ulen)
+                else:
+                    wlen = ulen
+                    wbuf = rffi.utf82wcharp(utf8, ulen)
+                try:
+                    oldlen = self.len
+                    self.setlen(oldlen + wlen)
+                    buf = self.get_buffer()
+                    for i in range(wlen):
+                        buf[oldlen + i] = wbuf[i]
+                    keepalive_until_here(self)
+                finally:
+                    rffi.free_wcharp(wbuf)
+
             def check_valid_unicode(self, space, s):
                 i = 0
                 while i < len(s):
@@ -957,6 +988,10 @@ def make_array(mytype):
                 if lgt != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 uchar = rutf8.codepoint_at_pos(utf8, 0)
+                if mytype.bytes == 2 and uchar > 0xffff:
+                    # one item is one wchar_t, like CPython's u_setitem
+                    raise oefmt(space.w_TypeError,
+                                "array item must be unicode character")
                 return rffi.cast(mytype.itemtype, uchar)
             #
             # "regular" case: it fits in an rpython integer (lltype.Signed)
