@@ -85,10 +85,16 @@ def _path_w(space, w_path):
     # widens it back to wide characters.  Keeping rposix on plain strings is
     # what stops its path functions from having to be specialized on a
     # wrapper object as well.
-    if _WIN32 and space.isinstance_w(w_path, space.w_unicode):
-        # as CPython does: no codec, so a lone surrogate reaches the
-        # wide API instead of raising
-        res = space.utf8_w(w_path)
+    if _WIN32:
+        w_path = fspath(space, w_path)
+        if space.isinstance_w(w_path, space.w_unicode):
+            # as CPython does: no codec, so a lone surrogate reaches the
+            # wide API instead of raising
+            res = space.utf8_w(w_path)
+        else:
+            # PEP 529: bytes are decoded with utf-8/surrogatepass, so
+            # undecodable bytes are an error
+            res = space.utf8_w(space.fsdecode(w_path))
         if '\x00' in res:
             raise oefmt(space.w_ValueError, "embedded null character")
         return res
@@ -147,7 +153,13 @@ def _path_from_unicode(space, w_value):
     return Path(-1, path_b, _WIN32, w_value)
 
 def _path_from_bytes(space, w_value):
-    path_b = space.bytes0_w(w_value)
+    if _WIN32:
+        # PEP 529: bytes are decoded with utf-8/surrogatepass, so undecodable
+        # bytes are an error.  The round-trip leaves path_b as utf8, which is
+        # what rposix widens back to wide characters.
+        path_b = space.bytes0_w(space.fsencode(space.fsdecode(w_value)))
+    else:
+        path_b = space.bytes0_w(w_value)
     return Path(-1, path_b, False, w_value)
 
 @specialize.arg(2, 3)
