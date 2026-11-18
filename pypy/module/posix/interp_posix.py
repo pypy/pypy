@@ -863,18 +863,38 @@ if _WIN32:
             ulen = codepoints_in_utf8(fullpath)
             return space.newtext(fullpath, ulen)
 
-def getcwdb(space):
-    """Return the current working directory."""
-    try:
-        cur = os.getcwd()
-    except OSError as e:
-        raise wrap_oserror(space, e, eintr_retry=False)
-    else:
-        return space.newbytes(cur)
+if _WIN32:
+    def getcwd(space):
+        """Return the current working directory as a string."""
+        # Use the wide API: _getcwd() would return the path in the ANSI
+        # codepage, which is not what fsdecode() expects.  Call rposix
+        # directly, since untranslated os.getcwdu() is the host's and
+        # returns a unicode object instead of utf8.
+        try:
+            cur = rposix.getcwdu()      # utf8
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        else:
+            return space.newutf8(cur, codepoints_in_utf8(cur))
 
-def getcwd(space):
-    """Return the current working directory as a string."""
-    return space.fsdecode(getcwdb(space))
+    def getcwdb(space):
+        """Return the current working directory."""
+        # PEP 529: bytes paths are utf8, not the ANSI codepage that
+        # _getcwd() would return
+        return space.fsencode(getcwd(space))
+else:
+    def getcwdb(space):
+        """Return the current working directory."""
+        try:
+            cur = os.getcwd()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        else:
+            return space.newbytes(cur)
+
+    def getcwd(space):
+        """Return the current working directory as a string."""
+        return space.fsdecode(getcwdb(space))
 
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""
