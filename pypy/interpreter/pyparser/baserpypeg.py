@@ -176,13 +176,6 @@ def without_invalid(func):
     without_invalid_wrapper.func_name = func.func_name + "_without_invalid_wrapper"
     return without_invalid_wrapper
 
-def isspace(s):
-    res = True
-    for c in s:
-        if not c.isspace():
-            res = False
-    return res
-
 class NameDefaultPair(object):
     def __init__(self, arg, value):
         self.arg = arg
@@ -235,8 +228,6 @@ class Parser:
                 self.type_ignores.append(tok)
                 continue
             if tok.token_type in (tokens.NL, tokens.COMMENT):
-                continue
-            if tok.token_type == tokens.ERRORTOKEN and isspace(tok.value):
                 continue
             if tok.token_type == tokens.WARNING:
                 self._warnings.append(tok)

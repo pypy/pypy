@@ -476,13 +476,11 @@ class Tokenizer(object):
     def _tokenize_regular_normal(self, line):
         pseudomatch = pseudoDFA.recognize(line, self.pos)
         start = whiteSpaceDFA.recognize(line, self.pos)
-        if pseudomatch >= 0:                            # scan for tokens
-            done = self._classify_token(line, start, pseudomatch)
-            return done
+        assert start >= 0  # whiteSpaceDFA accepts the empty match
+        if pseudomatch > start:
+            return self._classify_token(line, start, pseudomatch)
 
-        if start < 0:
-            start = self.pos
-        if start<self.max and line[start] in single_quoted:
+        if line[start] in single_quoted:
             if self._in_fstring_interpolation():
                 prev_state = self.state_stack[-2]
                 fmode = prev_state.mode
@@ -498,37 +496,19 @@ class Tokenizer(object):
 
             raise_unterminated_string(False, line, self.lnum, start+1,
                                         self.token_list, self.lnum, len(line))
-        if line[self.pos] == "0":
-            self._raise_token_error("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
-                    line, self.lnum, self.pos+1)
-        if line[self.pos] in NUMCHARS:
-            _maybe_raise_invalid_float_exponent(line, self.lnum, self.pos, self.max, self.token_list)
-        self._add_token(tokens.ERRORTOKEN, line[self.pos], self.lnum, self.pos, line)
-        self.last_comment = ''
-        self.pos += 1
-        return False
+        if line[start] == "\\":
+            self._raise_token_error("unexpected character after line continuation character", line,
+                             self.lnum, start + 2)
+        raise_unknown_character(line, start, self.lnum, self.token_list, self.flags)
 
-    def _classify_token(self, line, start, pseudomatch):
-        if start < 0:
-            start = self.pos
-        end = pseudomatch
-
-        if start == end:
-            if line[start] == "\\":
-                self._raise_token_error("unexpected character after line continuation character", line,
-                                 self.lnum, start + 2)
-
-            raise_unknown_character(line, start, self.lnum, self.token_list, self.flags)
-
+    def _classify_token(self, line, start, end):
         self.pos = end
         token, initial = line[start:end], line[start]
         if (initial in NUMCHARS or \
            (initial == '.' and token != '.' and token != '...')):
             # ordinary number
             self._add_token(tokens.NUMBER, token, self.lnum, start, line, self.lnum, end)
-            warned = _maybe_raise_number_error(token, line, self.lnum, start, end, self.token_list)
-            if not warned:
-                _maybe_raise_invalid_float_exponent(line, self.lnum, start, self.max, self.token_list)
+            _maybe_raise_number_error(token, line, self.lnum, start, end, self.token_list)
             self.last_comment = ''
         elif initial in '\r\n':
             if not self.parenstack:
@@ -844,49 +824,61 @@ def generate_tokens(lines, flags, filename='<unknown>'):
     return Tokenizer(flags, filename).tokenize_lines(lines)
 
 
-def _maybe_raise_invalid_float_exponent(line, lnum, pos, max, token_list):
-    """Detect invalid float exponents like 32e-+4 (DFA won't match them).
-    Raises 'invalid decimal literal' at the sign position, matching CPython."""
-    i = pos
-    while i < max and line[i] in NUMCHARS:
-        i += 1
-    if i >= max or line[i] not in 'eE':
-        return
-    i += 1  # skip e/E
-    if i < max and line[i] in '+-':
-        sign_pos = i
-        i += 1
-    else:
-        sign_pos = -1
-    if i < max and line[i] in NUMCHARS:
-        return  # valid exponent
-    err_pos = sign_pos if sign_pos >= 0 else i - 1
-    raise HardTokenError("invalid decimal literal", line, lnum, err_pos + 1, token_list)
+def _is_bad_exponent_sign(line, e_pos):
+    sign = _get_next_or_nul(line, e_pos + 1)
+    return (sign == "+" or sign == "-") and _get_next_or_nul(line, e_pos + 2) not in NUMCHARS
+
+def _maybe_raise_decimal_error(token, ch, line, lnum, start, end, token_list):
+    # The DFA's longest match stops short of a leading-zero integer or a
+    # malformed exponent; report them like CPython's tokenizer.
+    zeros_only = True
+    for c in token:
+        if c != "0" and c != "_":
+            zeros_only = False
+            break
+    if zeros_only:
+        j = end
+        has_digits = False
+        while True:
+            c = _get_next_or_nul(line, j)
+            if c in NUMCHARS:
+                has_digits = True
+            elif c == "_":
+                if _get_next_or_nul(line, j + 1) not in NUMCHARS:
+                    raise HardTokenError("invalid decimal literal", line, lnum, j + 1, token_list)
+            else:
+                break
+            j += 1
+        if has_digits:
+            if c != "e" and c != "E":
+                raise TokenError("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
+                        line, lnum, start + 1, token_list)
+            if _is_bad_exponent_sign(line, j):
+                raise HardTokenError("invalid decimal literal", line, lnum, j + 2, token_list)
+            raise HardTokenError("invalid decimal literal", line, lnum, j, token_list)
+    if ch == "_":
+        raise HardTokenError("invalid decimal literal", line, lnum, end + 1, token_list)
+    if (ch == "e" or ch == "E") and _is_bad_exponent_sign(line, end):
+        raise HardTokenError("invalid decimal literal", line, lnum, end + 2, token_list)
 
 def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
     ch = _get_next_or_nul(line, end)
-    if end == start + 1 and token[0] == "0":
-        if ch == "b":
-            token = "0b"
+    if end == start + 1 and token[0] == "0" and (ch == "b" or ch == "o" or ch == "x"):
+        token = "0" + ch
+        end += 1
+        ch = _get_next_or_nul(line, end)
+        if ch == "_":
             end += 1
             ch = _get_next_or_nul(line, end)
-            if not ch.isdigit():
-                raise HardTokenError("invalid binary literal",
-                        line, lnum, end, token_list)
-        elif ch == "o":
-            token = "0o"
-            end += 1
-            ch = _get_next_or_nul(line, end)
-            if not ch.isdigit():
-                raise HardTokenError("invalid octal literal",
-                        line, lnum, end, token_list)
-        elif ch == "x":
-            token = "0x"
-            end += 1
-            ch = _get_next_or_nul(line, end)
-            if not ch.isdigit():
-                raise HardTokenError("invalid hexadecimal literal",
-                        line, lnum, end, token_list)
+        if not ch.isdigit():
+            if token == "0b":
+                kind = "binary"
+            elif token == "0o":
+                kind = "octal"
+            else:
+                kind = "hexadecimal"
+            raise HardTokenError("invalid %s literal" % kind,
+                    line, lnum, end, token_list)
     if token.startswith("0b"):
         kind = "binary"
         nextch = _skip_underscore(ch, line, end)
@@ -915,9 +907,7 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
 
     else:
         kind = "decimal"
-        if ch == "_":
-            raise HardTokenError("invalid decimal literal",
-                    line, lnum, end + 1, token_list)
+        _maybe_raise_decimal_error(token, ch, line, lnum, start, end, token_list)
 
     # now that we've covered the actual error cases, let's see whether we need
     # to insert a WARNING token
@@ -953,10 +943,6 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                 raise_invalid_unicode_char(code, line, lnum, end, token_list)
         raise HardTokenError("invalid %s literal" % kind,
                          line, lnum, start + 1, token_list, lnum, end + 2)
-    # if we already warned about "<number>else", the 'e' is not the start
-    # of a float exponent, so the caller must not also run
-    # _maybe_raise_invalid_float_exponent on it
-    return warn
 
 
 def _get_next_or_nul(line, end):
