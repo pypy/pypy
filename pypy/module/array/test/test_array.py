@@ -293,6 +293,25 @@ class AppTestArray(object):
         b = self.array('u', u'hi')
         assert len(b) == 2 and b[0] == 'h' and b[1] == 'i'
 
+    def test_fromunicode_outside_bmp(self):
+        # an item is one wchar_t, so where that is 2 bytes a codepoint
+        # outside the BMP is stored as a surrogate pair of two items,
+        # and tounicode() puts it back together
+        astral = u'\U0001f600'
+        a = self.array('u', astral)
+        if a.itemsize == 2:
+            assert len(a) == 2
+            # like CPython's u_setitem: it does not fit in one item
+            raises(TypeError, a.__setitem__, 0, astral)
+        else:
+            assert len(a) == 1
+        assert a.tounicode() == astral
+
+        b = self.array('u')
+        b.fromunicode(astral)
+        assert len(b) == len(a)
+        assert b.tounicode() == astral
+
     def test_setslice_to_extend(self):
         a = self.array('i')
         a[0:1] = self.array('i', [9])

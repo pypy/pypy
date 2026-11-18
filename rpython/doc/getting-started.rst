@@ -37,7 +37,7 @@ a silly example (note that closures are not RPython)::
   sub = generator('sub')
 
   def entry_point(argv):
-      print add(sub(int(argv[1]), 3) 4)
+      print add(sub(int(argv[1]), 3), 4)
       return 0
 
 In this example ``entry_point`` is RPython,  ``add`` and ``sub`` are RPython,

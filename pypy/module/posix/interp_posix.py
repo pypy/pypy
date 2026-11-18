@@ -80,41 +80,28 @@ def wrap_uid(space, uid):
         return space.newint(uid)     # an unsigned number
 wrap_gid = wrap_uid
 
-class FileEncoder(object):
-    is_unicode = True
-
-    def __init__(self, space, w_obj):
-        self.space = space
-        self.w_obj = w_obj
-
-    def as_bytes(self):
-        return self.space.fsencode_w(self.w_obj)
-
-    def as_utf8(self):
-        ret = self.space.fsencode_w(self.w_obj)
-        if '\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
-        return ret
-
-class FileDecoder(object):
-    is_unicode = False
-
-    def __init__(self, space, w_obj):
-        self.space = space
-        self.w_obj = w_obj
-
-    def as_bytes(self):
-        return self.space.fsencode_w(self.w_obj)
-
-    def as_utf8(self):
-        ret = self.space.fsdecode_w(self.w_obj)
-        if '\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
-        return ret
+def _path_w(space, w_path):
+    # Resolve the path here, like Path.as_bytes: utf8 on win32, where rposix
+    # widens it back to wide characters.  Keeping rposix on plain strings is
+    # what stops its path functions from having to be specialized on a
+    # wrapper object as well.
+    if _WIN32:
+        w_path = fspath(space, w_path)
+        if space.isinstance_w(w_path, space.w_unicode):
+            # as CPython does: no codec, so a lone surrogate reaches the
+            # wide API instead of raising
+            res = space.utf8_w(w_path)
+        else:
+            # PEP 529: bytes are decoded with utf-8/surrogatepass, so
+            # undecodable bytes are an error
+            res = space.utf8_w(space.fsdecode(w_path))
+        if '\x00' in res:
+            raise oefmt(space.w_ValueError, "embedded null character")
+        return res
+    return space.fsencode_w(w_path)
 
 @specialize.memo()
 def make_dispatch_function(func, tag, allow_fd_fn=None):
-    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
         if allow_fd_fn is not None:
             try:
@@ -123,12 +110,7 @@ def make_dispatch_function(func, tag, allow_fd_fn=None):
                 pass
             else:
                 return allow_fd_fn(fd, *args)
-        if space.isinstance_w(w_fname, space.w_unicode):
-            fname = FileEncoder(space, w_fname)
-            return func(fname, *args)
-        else:
-            fname = FileDecoder(space, w_fname)
-            return func(fname, *args)
+        return func(_path_w(space, w_fname), *args)
     return dispatch
 
 @specialize.arg(0, 1)
@@ -138,22 +120,7 @@ def dispatch_filename(func, tag=0, allow_fd_fn=None):
 @specialize.memo()
 def dispatch_filename_2(func):
     def dispatch(space, w_fname1, w_fname2, *args):
-        if space.isinstance_w(w_fname1, space.w_unicode):
-            fname1 = FileEncoder(space, w_fname1)
-            if space.isinstance_w(w_fname2, space.w_unicode):
-                fname2 = FileEncoder(space, w_fname2)
-                return func(fname1, fname2, *args)
-            else:
-                fname2 = FileDecoder(space, w_fname2)
-                return func(fname1, fname2, *args)
-        else:
-            fname1 = FileDecoder(space, w_fname1)
-            if space.isinstance_w(w_fname2, space.w_unicode):
-                fname2 = FileEncoder(space, w_fname2)
-                return func(fname1, fname2, *args)
-            else:
-                fname2 = FileDecoder(space, w_fname2)
-                return func(fname1, fname2, *args)
+        return func(_path_w(space, w_fname1), _path_w(space, w_fname2), *args)
     return dispatch
 
 @specialize.arg(0)
@@ -186,7 +153,13 @@ def _path_from_unicode(space, w_value):
     return Path(-1, path_b, _WIN32, w_value)
 
 def _path_from_bytes(space, w_value):
-    path_b = space.bytes0_w(w_value)
+    if _WIN32:
+        # PEP 529: bytes are decoded with utf-8/surrogatepass, so undecodable
+        # bytes are an error.  The round-trip leaves path_b as utf8, which is
+        # what rposix widens back to wide characters.
+        path_b = space.bytes0_w(space.fsencode(space.fsdecode(w_value)))
+    else:
+        path_b = space.bytes0_w(w_value)
     return Path(-1, path_b, False, w_value)
 
 @specialize.arg(2, 3)
@@ -322,9 +295,6 @@ def argument_unavailable(space, funcname, arg):
             "%s: %s unavailable on this platform", funcname, arg)
 
 _open_inhcache = rposix.SetNonInheritableCache()
-
-def u2utf8(space, u_str):
-    return space.newutf8(u_str.encode('utf-8'), len(u_str))
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0o777,
@@ -908,12 +878,16 @@ if _WIN32:
 if _WIN32:
     def getcwd(space):
         """Return the current working directory as a string."""
+        # Use the wide API: _getcwd() would return the path in the ANSI
+        # codepage, which is not what fsdecode() expects.  Call rposix
+        # directly, since untranslated os.getcwdu() is the host's and
+        # returns a unicode object instead of utf8.
         try:
-            cur = os.getcwdu()
+            cur = rposix.getcwdu()      # utf8
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
         else:
-            return u2utf8(space, cur)
+            return space.newutf8(cur, codepoints_in_utf8(cur))
 
     def getcwdb(space):
         """Return the current working directory."""

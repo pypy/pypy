@@ -1,9 +1,9 @@
 from __future__ import print_function
 
+import errno
 import signal as cpy_signal
 import sys
 import os
-import errno
 
 from pypy.interpreter.error import (
     OperationError, exception_from_saved_errno, oefmt, wrap_oserror)
@@ -354,7 +354,6 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
         raise oefmt(space.w_ValueError,
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
-
     send_flags = 0
     if fd != -1:
         if WIN32:

@@ -223,8 +223,8 @@ def make__getfinalpathname_impl(traits):
                     VOLUME_NAME_DOS)
                 if result == 0:
                     raise rwin32.lastSavedWindowsError("GetFinalPathNameByHandle")
-                res = buf.str(rffi.cast(lltype.Signed, result))
-                return res.encode('utf8'), len(res)
+                reslen = rffi.cast(lltype.Signed, result)
+                return rffi.wcharpsize2utf8(buf.raw, reslen), reslen
         finally:
             rwin32.CloseHandle(hFile)
 

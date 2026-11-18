@@ -123,8 +123,11 @@ def pyssl_error(obj, ret):
                     # s = obj.get_socket_or_None()
                     if sys.platform == 'win32':
                         if err.ws:
+                            # err.ws is a WSA error code, which os.strerror()
+                            # does not know about.  CPython uses
+                            # PyErr_SetFromWindowsErr() here.
                             return fill_sslerror(obj, OSError, err.ws,
-                                                 os.strerror(err.ws), e) 
+                                                 ffi.getwinerror(err.ws)[1], e)
                     if err.c:
                         ffi.errno = err.c 
                     return fill_sslerror(obj, OSError, err.c, os.strerror(err.c), e) 

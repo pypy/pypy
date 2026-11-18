@@ -1851,37 +1851,63 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         class X(object):
             def __del__(self):
                 counter.val += 1
-        def f(should_disable):
+        def f(n):
+            # n <= 0: run with the gc enabled, allocating 1MB at a time until
+            # x1 is freed, and return the number of MB it took (-1 if x1 was
+            # never freed).
+            #  n > 0: allocate n MB with the gc disabled, which
+            # must not free x1.  Return 1 if x1 was freed while the gc was
+            # disabled, plus 10 if it was freed after enabling it again.
             x1 = X()
             rgc.collect() # make x1 old
             assert not rgc.can_move(x1)
             x1 = None
             #
-            if should_disable:
+            if n > 0:
                 gc.disable()
                 assert not gc.isenabled()
-            # try to trigger a major collection
-            N = 1300 # this should be enough, increase if not
+                limit = n
+            else:
+                limit = 500
             lst = []
-            for i in range(N):
-                lst.append(chr(i%256) * (1024*1024))
-                #print i, counter.val
+            i = 0
+            while i < limit:
+                lst.append(chr(i % 256) * (1024*1024))
+                i += 1
+                if n <= 0 and counter.val:
+                    break
             #
+            if n <= 0:
+                if counter.val:
+                    return i
+                return -1
+            res = 0
+            if counter.val:
+                res = 1
+            #
+            counter.val = 0
             gc.enable()
             assert gc.isenabled()
-            return counter.val
+            # x1 is still garbage, so the gc must be able to free it now
+            rgc.collect()
+            if counter.val:
+                res += 10
+            return res
         return f
 
     def test_enable_disable(self):
-        # first, run with normal gc. If the assert fails it means that in the
-        # loop we don't allocate enough mem to trigger a major collection. Try
-        # to increase N
-        deleted = self.run("enable_disable", 0)
-        assert deleted == 1, 'This should not fail, try to increment N'
-        #
-        # now, run with gc.disable: this should NOT free x1
-        deleted = self.run("enable_disable", 1)
-        assert deleted == 0
+        def myrunner(args):
+            env = os.environ.copy()
+            # the first major collection happens once 8 times the
+            # nursery size has been allocated
+            env['PYPY_GC_NURSERY'] = '1MB'
+            return subprocess.check_output(args, env=env)
+        mb = self.run("enable_disable", 0, runner=myrunner)
+        assert mb > 0, 'x1 was never freed, even with the gc enabled'
+        # allocate twice as much with gc.disable() to force a major collection
+        res = self.run("enable_disable", 2 * mb, runner=myrunner)
+        assert not res & 1, 'x1 was freed while the gc was disabled'
+        assert res == 10, 'x1 was not freed after gc.enable()'
 
     def define_collect_step(self):
         class Counter(object):

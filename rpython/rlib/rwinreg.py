@@ -181,5 +181,5 @@ def ExpandEnvironmentStrings(source, unicode_len):
             if _ExpandEnvironmentStringsW(src_buf,
                                           dest_buf.raw, size) == 0:
                 raise rwin32.lastSavedWindowsError("ExpandEnvironmentStrings")
-            res = dest_buf.str(size-1) # remove trailing \0
-            return res.encode('utf8'), len(res)
+            # size-1 removes the trailing \0
+            return rffi.wcharpsize2utf8(dest_buf.raw, size - 1), size - 1

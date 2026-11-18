@@ -25,7 +25,6 @@ class TestPosixStatFunctions:
             # msec resolution, +- rounding error
             expected = int(os.stat(f).st_mtime * 1000)
             assert abs(int(rposix_stat.stat(f).st_mtime * 1000) - expected) < 2
-            assert abs(int(rposix_stat.stat(unicode(f)).st_mtime * 1000) - expected) < 2
 
         if sys.platform == 'win32':
             check(os.environ['SYSTEMDRIVE'])   # C:

@@ -1514,9 +1514,6 @@ class scoped_alloc_unicodebuffer:
         return self
     def __exit__(self, *args):
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
-    def str(self, length):
-        return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
-                                   self.size, length)
 
 class scoped_alloc_utf8buffer:
     def __init__(self, size):

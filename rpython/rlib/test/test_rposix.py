@@ -86,13 +86,13 @@ class TestPosixFunction:
 
     @win_only
     def test__getfullpathname_long(self):
-        ustuff = u"C:" + u"\\abcd" * 100
-        res = rposix.getfullpathname(ustuff)
-        assert res == ustuff
+        stuff = "C:" + "\\abcd" * 100
+        res = rposix.getfullpathname(stuff)
+        assert res == stuff
 
     @win_only
     def test__getfullpathname_unicode(self):
-        res = rposix.getfullpathname(u"foo\xf2\xf2")
+        res = rposix.getfullpathname("foo\xc3\xb2\xc3\xb2")   # utf8
         assert res
 
     def test_getcwd(self):
@@ -587,7 +587,6 @@ class TestRegisteredFunctions:
     def test_open(self):
         def f():
             os.open('/tmp/t', 0, 0)
-            os.open(u'/tmp/t', 0, 0)
         compile(f, ())
 
 
