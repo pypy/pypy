@@ -173,8 +173,8 @@ whatisthis"""'''
 
     @pytest.mark.parametrize("field_indent", ["", "  "])
     def test_fstring_multiline_field_dedent(self, field_indent):
-        # The old tokenizer sees a NEWLINE inside the field, so a dedent to
-        # a column that's not on its indentation stack is an IndentationError.
+        # A newline inside a replacement field isn't a NEWLINE, so the next
+        # line's indentation must not be checked against the indentation stack.
         input = 'if 1:\n    f"""{\n%sx}"""\n' % field_indent
         tps = [tk.token_type for tk in tokenize(input)]
         assert tps == [tokens.NAME, tokens.NUMBER, tokens.COLON,
