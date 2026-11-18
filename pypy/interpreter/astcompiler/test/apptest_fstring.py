@@ -383,12 +383,8 @@ def test_fstring_nesting_limits():
         compile("f'{" + "(" * 500 + "}'", "<t>", "eval")
     assert info.value.msg == "too many nested parentheses"
 
-    def nested(n):
-        if n == 0:
-            return "1+1"
-        return 'f"{' + nested(n - 1) + '}"'
     with raises(SyntaxError) as info:
-        compile(nested(160), "<t>", "eval")
+        compile('f"{' * 160 + "1+1" + '}"' * 160, "<t>", "eval")
     assert info.value.msg == "too many nested f-strings"
 
     with raises(SyntaxError) as info:
