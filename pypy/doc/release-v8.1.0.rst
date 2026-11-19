@@ -115,7 +115,7 @@ Speedups and enhancements
 Python 3.12
 -----------
 
-- Fix failing tests for windows64: ``-A`` test were not runnig at all, others
+- Fix failing tests for windows64: ``-A`` test were not running at all, others
   were crashing
 
 C API
