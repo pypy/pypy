@@ -753,8 +753,7 @@ def gcd(space, integers_w):
     if len(integers_w) == 0:
         return space.newint(0)
     if len(integers_w) == 1:
-        space.index(integers_w[0]) # for the error
-        return space.abs(integers_w[0])
+        return space.abs(space.index(integers_w[0]))
     if len(integers_w) == 2:
         return gcd_two(space, integers_w[0], integers_w[1])
     return _gcd_many(space, integers_w)
