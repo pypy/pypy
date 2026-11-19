@@ -41,8 +41,8 @@ STDLIB_VER = "2.7"
 
 POSIX_EXE = 'pypy'
 
-from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
-        MissingDependenciesError, cffi_build_scripts)
+from lib_pypy.pypy_tools.build_cffi_imports import (MissingDependenciesError,
+        cffi_build_scripts)
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -170,20 +170,18 @@ def create_package(basedir, options, _fake=False):
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
-    if not options.no_cffi:
-        failures = create_cffi_import_libraries(
-            str(pypy_c), options, str(basedir),
-            embed_dependencies=options.embed_dependencies,
-            rebuild=options.rebuild_extensions,
-        )
-
-        for key, module in failures:
-            print("""!!!!!!!!!!\nBuilding {0} bindings failed.
-                You can either install development headers package,
-                add the --without-{0} option to skip packaging this
-                binary CFFI extension, or say --without-cffi.""".format(key),
-                file=sys.stderr)
-        if len(failures) > 0:
+    only = [key for key, module in cffi_build_scripts
+            if module is not None and not getattr(options, 'no_' + key, False)]
+    if not options.no_cffi and only:
+        argv = [str(basedir.join('lib_pypy', 'pypy_tools',
+                                 'build_cffi_imports.py')),
+                '--only', ','.join(only),
+               ]
+        if options.embed_dependencies:
+            argv.append('--embed-dependencies')
+        if options.rebuild_extensions:
+            argv.append('--rebuild')
+        if subprocess.call([str(pypy_c)] + argv, cwd=str(basedir)) != 0:
             return 1, None
 
     if ARCH == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
