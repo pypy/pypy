@@ -462,6 +462,9 @@ class AppTestMath:
         raises(ValueError, math.remainder, 3, 0)
         raises(ValueError, math.remainder, math.inf, 3)
         raises(TypeError, math.remainder, "abc", 1)
+        raises(TypeError, math.remainder, 1.0, "1")
+        raises(TypeError, math.remainder, "1", 1.0)
+        raises(TypeError, math.remainder, 1.0, b"x")
 
     def test_isqrt(self):
         import math
