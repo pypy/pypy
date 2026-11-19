@@ -1040,6 +1040,12 @@ class AppTestItertools26(object):
         # will access tuple element 1 if not clamped
         p.__setstate__((0, 0, 0x1000))
         raises(StopIteration, next, p)
+        # the state must be a tuple with one index per pool
+        p = product((1, 2), (3,))
+        for state in [(), (0,), (0, 0, 0), [0, 0]]:
+            with raises(ValueError):
+                p.__setstate__(state)
+        assert list(p) == [(1, 3), (2, 3)]
 
     def test_permutations(self):
         from itertools import permutations
