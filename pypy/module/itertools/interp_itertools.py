@@ -412,17 +412,19 @@ class W_ISlice(W_Root):
         return self
 
     def next_w(self):
-        if self.iterable is None:
+        # use a local variable: a reentrant call may set self.iterable to None
+        w_iterator = self.iterable
+        if w_iterator is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         if self.count != self.next:
-            self._ignore_items()
+            self._ignore_items(w_iterator)
         stop = self.stop
         if 0 <= stop <= self.count:
             self.iterable = None
             raise OperationError(self.space.w_StopIteration,
                                     self.space.w_None)
         try:
-            item = self.space.next(self.iterable)
+            item = self.space.next(w_iterator)
         except OperationError as e:
             if e.match(self.space, self.space.w_StopIteration):
                 self.iterable = None
@@ -436,8 +438,7 @@ class W_ISlice(W_Root):
             self.next = new_next
         return item
 
-    def _ignore_items(self):
-        w_iterator = self.iterable
+    def _ignore_items(self, w_iterator):
         greenkey = self.space.iterator_greenkey(w_iterator)
         while True:
             islice_ignore_items_driver.jit_merge_point(
