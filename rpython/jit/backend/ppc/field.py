@@ -14,6 +14,7 @@ ValueError: field 'test' can't accept value 65536
 >>> 
 
 """
+from rpython.tool.twothree import long
 
 
 class Field(object):

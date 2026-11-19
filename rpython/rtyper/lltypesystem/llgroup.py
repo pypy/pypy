@@ -152,6 +152,7 @@ class CombinedSymbolic(llmemory.Symbolic):
         assert other >= HALFSHIFT
         return self.rest >> other
 
+    __hash__ = llmemory.Symbolic.__hash__
     def __eq__(self, other):
         if (isinstance(other, CombinedSymbolic) and
             self.lowpart is other.lowpart):

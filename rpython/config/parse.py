@@ -23,7 +23,7 @@ def parse_info(text):
                 #
             else:
                 # in case of dedent, must kill the extra items from 'current'
-                for n in current.keys():
+                for n in list(current.keys()):
                     if n > indent:
                         del current[n]
             #

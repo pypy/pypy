@@ -9,6 +9,7 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import getgcflavor
 from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator.classdesc import ClassDesc
+from rpython.tool.twothree import cmp, ordering_from_cmp
 
 
 def normalize_call_familes(annotator):
@@ -43,7 +44,7 @@ def normalize_calltable(annotator, callfamily):
 
 def raise_call_table_too_complex_error(callfamily, annotator):
     msg = []
-    items = callfamily.calltables.items()
+    items = list(callfamily.calltables.items())
     for i, (shape1, table1) in enumerate(items):
         for shape2, table2 in items[i + 1:]:
             if shape1 == shape2:
@@ -76,7 +77,7 @@ def raise_call_table_too_complex_error(callfamily, annotator):
     raise TyperError("\n".join(msg))
 
 def normalize_calltable_row_signature(annotator, shape, row):
-    graphs = row.values()
+    graphs = list(row.values())
     assert graphs, "no graph??"
     sig0 = graphs[0].signature
     defaults0 = graphs[0].defaults
@@ -102,12 +103,12 @@ def normalize_calltable_row_signature(annotator, shape, row):
         assert not varargname, "XXX not implemented"
         assert not kwargname, "XXX not implemented" # ?
         inputargs_s = [annotator.binding(v) for v in graph.getargs()]
-        argorder = range(shape_cnt)
+        argorder = list(range(shape_cnt))
         for key in shape_keys:
             i = list(argnames).index(key)
             assert i not in argorder
             argorder.append(i)
-        need_reordering = (argorder != range(call_nbargs))
+        need_reordering = (argorder != list(range(call_nbargs)))
         if need_reordering or len(graph.getargs()) != call_nbargs:
             oldblock = graph.startblock
             inlist = []
@@ -243,7 +244,7 @@ def create_class_constructors(annotator):
     for family in call_families.infos():
         if len(family.descs) <= 1:
             continue
-        descs = family.descs.keys()
+        descs = list(family.descs)
         if not isinstance(descs[0], ClassDesc):
             continue
         # Note that if classes are in the same callfamily, their __init__
@@ -299,6 +300,7 @@ def create_instantiate_function(annotator, classdef):
 class TooLateForNewSubclass(Exception):
     pass
 
+@ordering_from_cmp
 class TotalOrderSymbolic(ComputedIntSymbolic):
 
     def __init__(self, orderwitness, peers):

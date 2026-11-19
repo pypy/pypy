@@ -1,5 +1,5 @@
 
-from cStringIO import StringIO
+from rpython.tool.twothree import StringIO
 from rpython.config import support
 import os, sys, py
 

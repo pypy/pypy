@@ -2,7 +2,7 @@
 from rpython.translator.platform import host, CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.tool.udir import udir
-from StringIO import StringIO
+from rpython.tool.twothree import StringIO
 import sys, os
 
 def test_echo():

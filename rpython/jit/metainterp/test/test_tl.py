@@ -1,6 +1,7 @@
 import py
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.tool.twothree import get_function
 
 
 class ToyLanguageTests:
@@ -131,14 +132,14 @@ class ToyLanguageTests:
                    Stack.append,
                    Stack.pop]
         for meth in methods:
-            meth_func = meth.im_func
+            meth_func = get_function(meth)
             assert not hasattr(meth_func, '_jit_look_inside_')
             meth_func._jit_look_inside_ = False
         try:
             self.test_tl_call(listops=False)
         finally:
             for meth in methods:
-                meth_func = meth.im_func
+                meth_func = get_function(meth)
                 del meth_func._jit_look_inside_
 
 class TestLLtype(ToyLanguageTests, LLJitMixin):

@@ -1,10 +1,5 @@
 import sys, gc
-try:
-    import cStringIO
-except ImportError as e:
-    if sys.version_info.major > 2:
-        raise RuntimeError('use python 2 to run tests')
-    raise
+from rpython.tool.twothree import StringIO
 import traceback
 
 # Track allocations to detect memory leaks.
@@ -71,7 +66,7 @@ def stop_tracking_allocations(check, prev=None, do_collection=gc.collect):
 def remember_malloc(obj, framedepth=1):
     if TRACK_ALLOCATIONS:
         frame = sys._getframe(framedepth)
-        sio = cStringIO.StringIO()
+        sio = StringIO()
         traceback.print_stack(frame, limit=10, file=sio)
         tb = sio.getvalue()
         ALLOCATED[id(obj)] = (obj, tb)
@@ -85,7 +80,7 @@ def _forget(d, obj):
     # Slow path: the object may be freed through a different wrapper of
     # the same allocation than the one that was remembered (e.g. a
     # render_as_const cast in cpyext).  Fall back to an equality scan.
-    for key, (o, tb) in d.items():
+    for key, (o, tb) in list(d.items()):
         try:
             match = o is obj or o == obj
         except Exception:

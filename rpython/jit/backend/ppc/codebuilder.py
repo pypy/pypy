@@ -16,6 +16,7 @@ from rpython.rlib.objectmodel import we_are_translated
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.backend.ppc.rassemblermaker import make_rassembler
+from rpython.tool.twothree import get_function
 
 
 # the following instructions can't accept "r0" as the second argument
@@ -1437,7 +1438,7 @@ def make_operations():
         opname = key.lower()
         methname = "emit_%s" % opname
         if hasattr(PPCBuilder, methname):
-            oplist[val] = getattr(PPCBuilder, methname).im_func
+            oplist[val] = get_function(getattr(PPCBuilder, methname))
         else:
             oplist[val] = not_implemented
     return oplist

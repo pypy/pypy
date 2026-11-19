@@ -26,6 +26,7 @@ class MockInstr(object):
 
     __str__ = __repr__
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return (self.__class__ == other.__class__
                 and self.name == other.name

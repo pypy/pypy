@@ -1508,8 +1508,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 oplist = [RegAlloc.not_implemented_op] * rop._LAST
 
 import itertools
-iterate = itertools.chain(RegAlloc.__dict__.iteritems(),
-                          VectorRegallocMixin.__dict__.iteritems())
+iterate = itertools.chain(RegAlloc.__dict__.items(),
+                          VectorRegallocMixin.__dict__.items())
 for name, value in iterate:
     if name.startswith('consider_'):
         name = name[len('consider_'):]

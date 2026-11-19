@@ -4,6 +4,7 @@ from rpython.flowspace.model import Variable
 from rpython.flowspace.generator import (
     make_generator_entry_graph, get_variable_names)
 from rpython.translator.simplify import join_blocks
+from rpython.tool.twothree import get_function
 
 
 # ____________________________________________________________
@@ -101,7 +102,7 @@ class TestGenerator:
         GeneratorIterator = graph._tweaked_func._generator_next_method_of_
         assert hasattr(GeneratorIterator, 'next')
         #
-        graph_next = build_flow(GeneratorIterator.next.im_func)
+        graph_next = build_flow(get_function(GeneratorIterator.next))
         join_blocks(graph_next)
         if option.view:
             graph_next.show()

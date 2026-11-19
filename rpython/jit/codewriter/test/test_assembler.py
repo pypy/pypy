@@ -10,6 +10,7 @@ from rpython.jit.metainterp.support import ptr2int
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.rarithmetic import r_int, r_uint
+from rpython.tool.twothree import unichr
 
 
 def test_assemble_simple():

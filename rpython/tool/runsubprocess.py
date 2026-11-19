@@ -9,16 +9,19 @@ import os
 from subprocess import PIPE, Popen
 
 PY2 = (sys.version_info.major == 2)
-if PY2:
-    text = unicode
-else:
-    text = str
+text = type(u'')
+
+def native_str(data):
+    if isinstance(data, str):
+        return data
+    return data.decode('utf-8', 'surrogateescape')
 
 def run_subprocess(executable, args, env=None, cwd=None):
     if isinstance(args, list) and sys.platform != 'win32':
         args = [a.encode('latin1') if isinstance(a, text) else a
                 for a in args]
-    return _run(executable, args, env, cwd)
+    returncode, stdout, stderr = _run(executable, args, env, cwd)
+    return returncode, native_str(stdout), native_str(stderr)
 
 shell_default = False
 if sys.platform == 'win32':

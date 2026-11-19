@@ -237,6 +237,6 @@ class TestOpParserWithMock(BaseTestOparser):
                 sys.modules[modname] = newmod
 
     def teardown_class(cls):
-        for modname, mod in sys.modules.iteritems():
+        for modname, mod in list(sys.modules.items()):
             if isinstance(mod, ForbiddenModule):
                 sys.modules[modname] = mod.old_mod

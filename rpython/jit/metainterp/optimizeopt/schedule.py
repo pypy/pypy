@@ -972,6 +972,7 @@ class Pair(Pack):
         assert isinstance(right, Node)
         Pack.__init__(self, [left, right])
 
+    __hash__ = Pack.__hash__
     def __eq__(self, other):
         if isinstance(other, Pair):
             return self.left is other.left and \

@@ -6,6 +6,7 @@ from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.tool.oparser import OpParser
 from rpython.tool.logparser import parse_log_file, extract_category
 from copy import copy
+from rpython.tool.twothree import intern, xrange
 
 def parse_code_data(arg):
     name = None

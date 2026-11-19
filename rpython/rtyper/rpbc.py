@@ -21,6 +21,7 @@ from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
 from rpython.translator.unsimplify import varoftype
+from rpython.tool.twothree import get_function
 
 
 def small_cand(rtyper, s_pbc):
@@ -62,8 +63,8 @@ class __extend__(annmodel.SomePBC):
         return getRepr(rtyper, self)
 
     def rtyper_makekey(self):
-        lst = list(self.descriptions)
-        lst.sort()
+        # any canonical order; Python 2 compared the descs by address
+        lst = sorted(self.descriptions, key=id)
         if self.subset_of:
             t = self.subset_of.rtyper_makekey()
         else:
@@ -287,8 +288,8 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
         return result
 
     def convert_const(self, value):
-        if isinstance(value, types.MethodType) and value.im_self is None:
-            value = value.im_func  # unbound method -> bare function
+        if isinstance(value, types.MethodType) and value.__self__ is None:
+            value = get_function(value)  # unbound method -> bare function
         elif isinstance(value, staticmethod):
             value = value.__get__(42)  # hackish, get the function wrapped by staticmethod
         if value is None:
@@ -433,8 +434,8 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         return chr(self.descriptions.index(funcdesc))
 
     def convert_const(self, value):
-        if isinstance(value, types.MethodType) and value.im_self is None:
-            value = value.im_func   # unbound method -> bare function
+        if isinstance(value, types.MethodType) and value.__self__ is None:
+            value = get_function(value)   # unbound method -> bare function
         if value is None:
             assert self.descriptions[0] is None
             return chr(0)
@@ -595,7 +596,7 @@ def conversion_table(r_from, r_to):
                 t[i] = chr(j)
             else:
                 l.append(None)
-        if l == range(len(r_from.descriptions)):
+        if l == list(range(len(r_from.descriptions))):
             r = None
         else:
             r = inputconst(typeOf(t), t)
@@ -915,7 +916,7 @@ class MethodOfFrozenPBCRepr(Repr):
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
         if isinstance(hop2.args_v[0], Constant):
             boundmethod = hop2.args_v[0].value
-            hop2.args_v[0] = Constant(boundmethod.im_self)
+            hop2.args_v[0] = Constant(boundmethod.__self__)
         if call_args:
             hop2.swap_fst_snd_args()
             _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
@@ -1177,9 +1178,9 @@ class MethodsPBCRepr(Repr):
     def convert_const(self, method):
         if method is None:
             return nullptr(self.lowleveltype.TO)
-        if getattr(method, 'im_func', None) is None:
+        if getattr(method, '__func__', None) is None:
             raise TyperError("not a bound method: %r" % method)
-        return self.r_im_self.convert_const(method.im_self)
+        return self.r_im_self.convert_const(method.__self__)
 
     def get_r_implfunc(self):
         r_class = self.r_im_self.rclass

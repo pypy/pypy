@@ -59,7 +59,7 @@ class CodeWriter(object):
         def kib(size):
             return round(size/1024., 2)
         print("estimated output sizes [KiB]")
-        print("TOTAL", kib(sum(value for key, value in self.size_estimates.iteritems() if key != "unknown" and key != "code")))
+        print("TOTAL", kib(sum(value for key, value in self.size_estimates.items() if key != "unknown" and key != "code")))
         for category, size in self.size_estimates.most_common():
             if category == "code":
                 continue

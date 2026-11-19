@@ -18,6 +18,7 @@ from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
 from rpython.annotator.model import AnnotatorError, TLS
+from rpython.tool.twothree import cmp
 
 BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
@@ -766,7 +767,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         flags = ins1.flags
         if flags:
             flags = flags.copy()
-            for key, value in flags.items():
+            for key, value in list(flags.items()):
                 if key not in ins2.flags or ins2.flags[key] != value:
                     del flags[key]
         return SomeInstance(basedef,

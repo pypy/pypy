@@ -6,6 +6,7 @@ import struct
 from rpython.rlib import runicode
 
 from hypothesis import given, settings, strategies
+from rpython.tool.twothree import unichr, unicode
 
 
 def test_unichr():

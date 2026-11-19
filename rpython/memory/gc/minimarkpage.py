@@ -99,7 +99,7 @@ class ArenaCollection(object):
         # small_request_threshold (included), contains either NULL or
         # a pointer to a page that has room for at least one more
         # allocation of the given size.
-        length = small_request_threshold / WORD + 1
+        length = small_request_threshold // WORD + 1
         self.page_for_size          = self._new_page_ptr_list(length)
         self.full_page_for_size     = self._new_page_ptr_list(length)
         self.old_page_for_size      = self._new_page_ptr_list(length)

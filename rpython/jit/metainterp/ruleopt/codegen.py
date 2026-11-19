@@ -550,7 +550,7 @@ class IRCodegen(parse.Visitor):
         return self.bindings[varname]
 
     def self_method(self, name, *args, **kwargs):
-        kwargs = [(key, value) for key, value in kwargs.iteritems()]
+        kwargs = [(key, value) for key, value in kwargs.items()]
         return ir.Call(ir.Attribute(self.self_ref, name), list(args), kwargs)
 
     def constant_expr(self, target):

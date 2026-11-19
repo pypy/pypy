@@ -21,6 +21,7 @@ from rpython.tool.udir import udir
 from rpython.translator import cdir
 from rpython.conftest import option
 from rpython.rlib.jit import JitDriver
+from rpython.tool.twothree import unichr, unicode
 
 def setup_module(module):
     if os.name == 'nt':

@@ -21,6 +21,7 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
+from rpython.tool.twothree import get_function
 
 SIZE_LIVE_OP = OFFSET_SIZE + 1
 
@@ -235,7 +236,7 @@ class BlackholeInterpBuilder(object):
         # it means that either the implementation is missing, or that it
         # should not appear here at all but instead be transformed away
         # by codewriter/jtransform.py.
-        unboundmethod = getattr(BlackholeInterpreter, 'bhimpl_' + name).im_func
+        unboundmethod = get_function(getattr(BlackholeInterpreter, 'bhimpl_' + name))
         verbose = self.verbose
         argtypes = unrolling_iterable(unboundmethod.argtypes)
         resulttype = unboundmethod.resulttype

@@ -1,5 +1,6 @@
 import py
 from rpython.tool.identity_dict import identity_dict, IdentityDictPurePython
+from rpython.tool.twothree import long
 
 class TestIdentityDictNative:
     identity_dict = identity_dict

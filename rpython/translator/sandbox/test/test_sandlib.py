@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import py
-import errno, os, StringIO
+import errno, os
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.sandbox.sandlib import SandboxedProc

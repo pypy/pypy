@@ -22,6 +22,7 @@ from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import maxint, LONG_BIT
 from rpython.translator.platform import CompilationError
 import os, sys
+from rpython.tool.twothree import unichr, unicode
 
 class CConstant(Symbolic):
     """ A C-level constant, maybe #define, rendered directly.
@@ -1280,11 +1281,11 @@ def sizeof(tp):
         return size
     if (tp is lltype.Signed or isinstance(tp, lltype.Ptr)
                             or tp is llmemory.Address):
-        return LONG_BIT/8
+        return LONG_BIT // 8
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
-        return r_wchar_t.BITS/8
+        return r_wchar_t.BITS // 8
     if tp is lltype.Float:
         return 8
     if tp is lltype.SingleFloat:
@@ -1293,7 +1294,7 @@ def sizeof(tp):
         # :-/
         return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
-    return tp._type.BITS/8
+    return tp._type.BITS // 8
 sizeof._annspecialcase_ = 'specialize:memo'
 
 def offsetof(STRUCT, fieldname):

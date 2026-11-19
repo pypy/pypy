@@ -16,6 +16,7 @@ from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
 from rpython.tool.udir import udir
 from rpython.config.translationoption import DEFL_GC
 from rpython.config.config import ConfigError
+from rpython.tool.twothree import get_function
 
 
 class X(object):
@@ -142,7 +143,7 @@ class BaseFrameworkTests(object):
                 continue
             definefunc = getattr(cls, fullname)
             _, name = fullname.split('_', 1)
-            beforefunc, loopfunc, afterfunc = definefunc.im_func(cls)
+            beforefunc, loopfunc, afterfunc = get_function(definefunc)(cls)
             if beforefunc is None:
                 def beforefunc(n, x):
                     return n, x, None, None, None, None, None, None, None, None, None, ''

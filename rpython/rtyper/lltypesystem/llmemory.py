@@ -494,6 +494,7 @@ class fakeaddress(object):
     #def __hash__(self):
     #    raise TypeError("don't put addresses in a prebuilt dictionary")
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         if isinstance(other, fakeaddress):
             try:
@@ -613,6 +614,7 @@ class AddressAsInt(Symbolic):
         return model.SomeInteger()
     def lltype(self):
         return lltype.Signed
+    __hash__ = Symbolic.__hash__
     def __eq__(self, other):
         return self.adr == cast_int_to_adr(other)
     def __ne__(self, other):

@@ -6,7 +6,7 @@ import collections
 import types
 
 from rpython.tool.error import source_lines
-from rpython.tool.twothree import builtins
+from rpython.tool.twothree import PY2, builtins
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -15,9 +15,10 @@ from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline, rpython_print_end)
 from rpython.flowspace.operation import op
-from rpython.flowspace.bytecode import BytecodeCorruption
+from rpython.flowspace.bytecode import BytecodeCorruption, Segment
 
 w_None = const(None)
+ModuleNotFoundError = getattr(builtins, 'ModuleNotFoundError', ImportError)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -393,8 +394,10 @@ class FlowContext(object):
             self.recorder.guessexception(self, *exceptions)
 
     def has_exc_handler(self):
-        return any(isinstance(block, (ExceptBlock, FinallyBlock))
-                for block in self.blockstack)
+        return (any(isinstance(block, (ExceptBlock, FinallyBlock))
+                    for block in self.blockstack) or
+                self.pycode.has_handler(
+                    self.pycode.outer_offset(self.last_offset)))
 
     def build_flow(self):
         graph = self.graph
@@ -488,6 +491,7 @@ class FlowContext(object):
     def handle_bytecode(self, next_offset):
         self.last_offset = next_offset
         next_offset, methodname, oparg = self.pycode.read(next_offset)
+        self.following_offset = next_offset
         try:
             offset = getattr(self, methodname)(oparg)
             return offset if offset is not None else next_offset
@@ -500,6 +504,16 @@ class FlowContext(object):
             if isinstance(signal, block.handles):
                 return block.handle(self, signal)
             block.cleanupstack(self)
+        if isinstance(signal, Raise):
+            handler = self.pycode.find_handler(
+                self.pycode.outer_offset(self.last_offset))
+            if handler is not None:
+                target, depth, lasti = handler
+                self.dropvaluesuntil(depth)
+                if lasti:
+                    self.pushvalue(const(self.last_offset))
+                self.pushvalue(signal)
+                return target
         return signal.nomoreblocks(self)
 
     def getlocalvarname(self, index):
@@ -878,6 +892,8 @@ class FlowContext(object):
     def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
+        if isinstance(w_newvalue, Raise):
+            w_newvalue = w_newvalue.w_exc.w_value
         self.locals_w = self.locals_w[:]
         self.locals_w[varindex] = w_newvalue
         if isinstance(w_newvalue, Variable):
@@ -957,6 +973,9 @@ class FlowContext(object):
             keywords[key] = w_value
         arguments = self.popvalues(n_arguments)
         w_function = self.popvalue()
+        self.do_call(w_function, arguments, keywords, w_star)
+
+    def do_call(self, w_function, arguments, keywords, w_star):
         try:
             # py3-style print function
             if w_function.value == print:
@@ -1198,6 +1217,290 @@ class FlowContext(object):
     LOAD_CLOSURE = BAD_OPCODE
     MAKE_CLOSURE = BAD_OPCODE
 
+    # PyPy 3 bytecode
+
+    def LOAD_METHOD(self, nameindex):
+        self.LOAD_ATTR(nameindex)
+        self.pushvalue(w_None)
+
+    def pop_keywords(self):
+        w_names = self.popvalue()
+        values = self.popvalues(len(w_names.value))
+        return dict(zip(w_names.value, values))
+
+    def CALL_METHOD_KW(self, n_arguments):
+        keywords = self.pop_keywords()
+        arguments = self.popvalues(n_arguments - len(keywords))
+        self.popvalue()
+        self.do_call(self.popvalue(), arguments, keywords, None)
+
+    def CALL_FUNCTION_EX(self, has_kwarg):
+        keywords = {}
+        if has_kwarg:
+            w_kwargs = self.stack.pop()
+            if not isinstance(w_kwargs, PendingDict):
+                raise FlowingError("Dict-unpacking is not RPython")
+            keywords = dict(zip(w_kwargs.keys, w_kwargs.items_w))
+        w_star = self.stack.pop()
+        arguments = []
+        if isinstance(w_star, PendingTuple):
+            arguments = w_star.items_w
+            w_star = w_star.w_star
+        elif isinstance(w_star, Pending):
+            w_star = w_star.materialize(self)
+        self.do_call(self.popvalue(), arguments, keywords, w_star)
+
+    def BUILD_CONST_KEY_MAP(self, itemcount):
+        w_keys = self.popvalue()
+        values = self.popvalues(itemcount)
+        self.pushvalue(PendingDict(values, keys=w_keys.value))
+
+    def DICT_MERGE(self, oparg):
+        raise FlowingError("Dict-unpacking is not RPython")
+
+    def LIST_TO_TUPLE(self, oparg):
+        w_list = self.stack.pop()
+        if isinstance(w_list, PendingList):
+            self.pushvalue(PendingTuple(w_list.items_w, w_list.w_star))
+        else:
+            self.pushvalue(op.simple_call(const(tuple), w_list).eval(self))
+
+    def POP_JUMP_FORWARD_IF_NONE(self, target):
+        w_value = self.popvalue()
+        if self.guessbool(op.is_(w_value, w_None).eval(self)):
+            return target
+
+    def POP_JUMP_FORWARD_IF_NOT_NONE(self, target):
+        w_value = self.popvalue()
+        if not self.guessbool(op.is_(w_value, w_None).eval(self)):
+            return target
+
+    for _name in '''BEFORE_ASYNC_WITH BINARY_MATRIX_MULTIPLY BUILD_STRING
+            CHECK_EG_MATCH COPY_DICT_WITHOUT_KEYS DELETE_DEREF DICT_UPDATE
+            END_ASYNC_FOR FORMAT_VALUE GET_AITER GET_ANEXT GET_AWAITABLE
+            GET_LEN GET_YIELD_FROM_ITER INPLACE_MATRIX_MULTIPLY
+            LOAD_BUILD_CLASS LOAD_CLASSDEREF MATCH_CLASS MATCH_KEYS
+            MATCH_MAPPING MATCH_SEQUENCE PREP_RERAISE_STAR SETUP_ANNOTATIONS
+            SET_UPDATE UNPACK_EX YIELD_FROM'''.split():
+        locals()[_name] = BAD_OPCODE
+    del _name
+
+    def DUP_TOP_TWO(self, oparg):
+        self.DUP_TOPX(2)
+
+    def IS_OP(self, invert):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        if invert:
+            self.pushvalue(self.cmp_is_not(w_1, w_2))
+        else:
+            self.pushvalue(self.cmp_is(w_1, w_2))
+
+    def CONTAINS_OP(self, invert):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        if invert:
+            self.pushvalue(self.cmp_not_in(w_1, w_2))
+        else:
+            self.pushvalue(self.cmp_in(w_1, w_2))
+
+    def LIST_EXTEND(self, oparg):
+        w_iterable = self.popvalue()
+        w_list = self.stack[-oparg]
+        if isinstance(w_list, PendingList) and w_list.w_star is None:
+            self.stack[-oparg] = PendingList(w_list.items_w, w_iterable)
+            return
+        w_list = self.peekvalue(oparg - 1)
+        w_extend = op.getattr(w_list, const('extend')).eval(self)
+        op.simple_call(w_extend, w_iterable).eval(self)
+
+    def LOAD_ASSERTION_ERROR(self, oparg):
+        self.pushvalue(const(AssertionError))
+
+    def COPY(self, n):
+        self.pushvalue(self.peekvalue(n - 1))
+
+    def SWAP(self, n):
+        w_top = self.peekvalue()
+        self.settopvalue(self.peekvalue(n - 1))
+        self.settopvalue(w_top, n - 1)
+
+    def PUSH_EXC_INFO(self, oparg):
+        signal = self.popvalue()
+        if self.last_exception is None:
+            self.pushvalue(w_None)
+        else:
+            self.pushvalue(Raise(self.last_exception))
+        self.pushvalue(signal)
+        self.last_exception = signal.w_exc
+
+    def POP_EXCEPT(self, oparg):
+        w_previous = self.popvalue()
+        if isinstance(w_previous, Raise):
+            self.last_exception = w_previous.w_exc
+        else:
+            self.last_exception = None
+
+    def CHECK_EXC_MATCH(self, oparg):
+        w_check_class = self.popvalue()
+        signal = self.peekvalue()
+        self.pushvalue(self.cmp_exc_match(signal.w_exc.w_type, w_check_class))
+
+    def JUMP_IF_NOT_EXC_MATCH(self, target):
+        w_check_class = self.popvalue()
+        signal = self.popvalue()
+        if not self.exception_match(signal.w_exc.w_type, w_check_class):
+            return target
+
+    def RERAISE(self, oparg):
+        raise self.popvalue()
+
+    def BEFORE_WITH(self, oparg):
+        w_manager = self.peekvalue()
+        w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
+        self.settopvalue(w_exit)
+        w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
+        self.pushvalue(op.simple_call(w_enter).eval(self))
+
+    def WITH_EXCEPT_START(self, oparg):
+        w_exc = self.peekvalue().w_exc
+        w_exitfunc = self.peekvalue(3)
+        op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
+                       ).eval(self)
+        self.pushvalue(const(False))
+
+    if not PY2:
+        def popvalue(self):
+            w_value = self.stack.pop()
+            if isinstance(w_value, Pending):
+                w_value = w_value.materialize(self)
+            return w_value
+
+        def peekvalue(self, index_from_top=0):
+            index = ~index_from_top
+            w_value = self.stack[index]
+            if isinstance(w_value, Pending):
+                w_value = self.stack[index] = w_value.materialize(self)
+            return w_value
+
+        def popvalues(self, n):
+            if n == 0:
+                return []
+            values_w = self.stack[-n:]
+            del self.stack[-n:]
+            for i, w_value in enumerate(values_w):
+                if isinstance(w_value, Pending):
+                    values_w[i] = w_value.materialize(self)
+            return values_w
+
+        def BUILD_LIST(self, itemcount):
+            if itemcount == 0:
+                self.pushvalue(op.newlist().eval(self))
+            else:
+                self.pushvalue(PendingList(self.popvalues(itemcount)))
+
+        def LOAD_INLINED(self, index):
+            self.pushvalue(const(self.pycode.segments[index]))
+
+        def LOAD_CLOSURE(self, oparg):
+            self.pushvalue(w_None)
+
+        def RETURN_INLINED(self, oparg):
+            return self.pycode.segment_at(self.last_offset).return_offset
+
+        def CALL_FUNCTION(self, oparg):
+            w_function = self.stack[-1 - oparg]
+            if not (isinstance(w_function, Constant) and
+                    isinstance(w_function.value, Segment)):
+                return self.call_function(oparg)
+            w_iterator = self.popvalue()
+            self.stack.pop()
+            segment = w_function.value
+            segment.return_offset = self.following_offset
+            segment.call_offset = self.last_offset
+            self.locals_w = self.locals_w[:]
+            self.locals_w[segment.local_shift] = w_iterator
+            return segment.start
+
+        _build_slice_py2 = BUILD_SLICE
+        _binary_subscr_py2 = BINARY_SUBSCR
+        _store_subscr_py2 = STORE_SUBSCR
+        _delete_subscr_py2 = DELETE_SUBSCR
+
+        def BUILD_SLICE(self, numargs):
+            if numargs != 2:
+                return self._build_slice_py2(numargs)
+            self.pushvalue(PendingSlice(self.popvalues(2)))
+
+        def BINARY_SUBSCR(self, oparg):
+            w_subscr = self.stack[-1]
+            if not isinstance(w_subscr, PendingSlice):
+                return self._binary_subscr_py2(oparg)
+            self.stack.pop()
+            self.slice(*w_subscr.items_w)
+
+        def STORE_SUBSCR(self, oparg):
+            w_subscr = self.stack[-1]
+            if not isinstance(w_subscr, PendingSlice):
+                return self._store_subscr_py2(oparg)
+            self.stack.pop()
+            self.storeslice(*w_subscr.items_w)
+
+        def DELETE_SUBSCR(self, oparg):
+            w_subscr = self.stack[-1]
+            if not isinstance(w_subscr, PendingSlice):
+                return self._delete_subscr_py2(oparg)
+            self.stack.pop()
+            self.deleteslice(*w_subscr.items_w)
+
+        def CALL_METHOD(self, n_arguments):
+            arguments = self.popvalues(n_arguments)
+            self.popvalue()
+            self.do_call(self.popvalue(), arguments, {}, None)
+
+        def CALL_FUNCTION_KW(self, n_arguments):
+            keywords = self.pop_keywords()
+            arguments = self.popvalues(n_arguments - len(keywords))
+            self.do_call(self.popvalue(), arguments, keywords, None)
+
+        def BUILD_MAP(self, itemcount):
+            items = self.popvalues(2 * itemcount)
+            w_dict = op.newdict().eval(self)
+            for i in range(itemcount):
+                op.setitem(w_dict, items[2 * i], items[2 * i + 1]).eval(self)
+            self.pushvalue(w_dict)
+
+        def MAKE_FUNCTION(self, flags):
+            w_codeobj = self.popvalue()
+            if isinstance(w_codeobj.value, Segment):
+                if flags & 0x08:
+                    self.popvalue()
+                self.pushvalue(w_codeobj)
+                return
+            if flags & 0x08:
+                raise ValueError("RPython functions cannot create closures"
+                                 "\nin %r" % (self.graph.func,))
+            if flags & ~0x01:
+                raise FlowingError("Dynamically created function must not"
+                                   " have keyword-only defaults or"
+                                   " annotations.")
+            defaults = []
+            if flags & 0x01:
+                w_defaults = self.popvalue()
+                if not isinstance(w_defaults, Constant):
+                    raise FlowingError("Dynamically created function must"
+                                       " have constant default values.")
+                defaults = [const(value) for value in w_defaults.value]
+            self.pushvalue(self.newfunction(w_codeobj, defaults))
+
+        _raise_varargs_py2 = RAISE_VARARGS
+
+        def RAISE_VARARGS(self, nbargs):
+            if nbargs == 2:
+                self.popvalue()
+                nbargs = 1
+            self._raise_varargs_py2(nbargs)
+
 ### Frame blocks ###
 
 class FlowSignal(Exception):
@@ -1218,6 +1521,7 @@ class FlowSignal(Exception):
     def nomoreblocks(self, ctx):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
+    __hash__ = Exception.__hash__
     def __eq__(self, other):
         return type(other) is type(self) and other.args == self.args
 
@@ -1252,7 +1556,7 @@ class Raise(FlowSignal):
 
     def nomoreblocks(self, ctx):
         w_exc = self.w_exc
-        if w_exc.w_type == const(ImportError):
+        if w_exc.w_type in (const(ImportError), const(ModuleNotFoundError)):
             msg = 'ImportError is raised in RPython: %s' % (
                 getattr(w_exc.w_value, 'value', '<not a constant message>'),)
             raise ImportError(msg)
@@ -1311,6 +1615,70 @@ class Continue(FlowSignal):
     @staticmethod
     def rebuild(w_jump_to):
         return Continue(w_jump_to.value)
+
+
+class Pending(FlowSignal):
+    """A list, tuple or dict display of PyPy 3 bytecode that is on the
+    value stack but not built yet.  f(a, *b, k=c) builds its arguments this
+    way, and the call takes them apart again; anything else that reads the
+    value builds it.  A FlowSignal only so that frame states can hold it."""
+
+    def __init__(self, items_w, w_star=None, keys=None):
+        self.items_w = items_w
+        self.w_star = w_star
+        self.keys = keys
+
+    @property
+    def args(self):
+        if self.w_star is None:
+            return self.items_w
+        return self.items_w + [self.w_star]
+
+    def rebuild(self, *args_w):
+        args_w = list(args_w)
+        if self.w_star is None:
+            return type(self)(args_w, None, self.keys)
+        return type(self)(args_w[:-1], args_w[-1], self.keys)
+
+    def all_items(self):
+        w_star = self.w_star
+        if w_star is None:
+            return self.items_w
+        if isinstance(w_star, Constant) and type(w_star.value) is tuple:
+            return self.items_w + [const(value) for value in w_star.value]
+        return None
+
+    def materialize_list(self, ctx):
+        items_w = self.all_items()
+        if items_w is not None:
+            return op.newlist(*items_w).eval(ctx)
+        w_list = op.newlist(*self.items_w).eval(ctx)
+        w_extend = op.getattr(w_list, const('extend')).eval(ctx)
+        op.simple_call(w_extend, self.w_star).eval(ctx)
+        return w_list
+
+class PendingList(Pending):
+    materialize = Pending.materialize_list
+
+class PendingTuple(Pending):
+    def materialize(self, ctx):
+        items_w = self.all_items()
+        if items_w is not None:
+            return op.newtuple(*items_w).eval(ctx)
+        w_list = self.materialize_list(ctx)
+        return op.simple_call(const(tuple), w_list).eval(ctx)
+
+class PendingSlice(Pending):
+    def materialize(self, ctx):
+        w_start, w_end = self.items_w
+        return op.newslice(w_start, w_end, w_None).eval(ctx)
+
+class PendingDict(Pending):
+    def materialize(self, ctx):
+        w_dict = op.newdict().eval(ctx)
+        for key, w_value in zip(self.keys, self.items_w):
+            op.setitem(w_dict, const(key), w_value).eval(ctx)
+        return w_dict
 
 
 class FrameBlock(object):

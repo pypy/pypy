@@ -3,11 +3,12 @@ from rpython.rlib.unroll import SpecTag
 from rpython.flowspace.flowcontext import FlowContext
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.pygraph import PyGraph
+from rpython.tool.twothree import get_function
 
 class TestFrameState:
     def get_context(self, func):
         try:
-            func = func.im_func
+            func = get_function(func)
         except AttributeError:
             pass
         code = HostCode._from_code(func.__code__)

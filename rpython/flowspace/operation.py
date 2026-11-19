@@ -9,7 +9,7 @@ import types
 from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
-from rpython.tool.twothree import builtins
+from rpython.tool.twothree import ClassType, builtins, with_metaclass
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
@@ -17,6 +17,7 @@ from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
+from rpython.tool.twothree import is_long, long, unichr
 
 
 NOT_REALLY_CONST = {
@@ -41,8 +42,8 @@ builtins_exceptions = {
     float: [ValueError],
     chr: [ValueError],
 }
+builtins_exceptions[unichr] = [ValueError]
 if hasattr(builtins, 'unicode'):
-    builtins_exceptions[builtins.unichr] = [ValueError]
     builtins_exceptions[builtins.unicode] = [UnicodeDecodeError]
 
 
@@ -65,8 +66,7 @@ class HLOperationMeta(type):
             cls._transform = DoubleDispatchRegistry()
 
 
-class HLOperation(SpaceOperation):
-    __metaclass__ = HLOperationMeta
+class HLOperation(with_metaclass(HLOperationMeta, SpaceOperation)):
     pure = False
     can_overflow = False
     dispatch = None  # number of arguments to dispatch on
@@ -140,7 +140,8 @@ class PureOperation(HLOperation):
                 # result.  The result is probably meant to be sent to
                 # an intmask(), but the 'long' constant confuses the
                 # annotator a lot.
-                if self.can_overflow and type(result) is long:
+                if (self.can_overflow and type(result) is long and
+                        is_long(result)):
                     pass
                 # don't constant-fold getslice on lists, either
                 elif self.opname == 'getslice' and type(result) is list:
@@ -660,8 +661,8 @@ class CallOp(HLOperation):
             c = w_callable.value
             if (isinstance(c, (types.BuiltinFunctionType,
                                types.BuiltinMethodType,
-                               types.ClassType,
-                               types.TypeType)) and
+                               ClassType,
+                               type)) and
                     c.__module__ in [builtins.__name__, 'exceptions']):
                 return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins

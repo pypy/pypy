@@ -16,6 +16,7 @@ from rpython.rlib import rstack
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
+from rpython.tool.twothree import unicode
 
 # ____________________________________________________________
 

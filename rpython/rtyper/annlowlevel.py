@@ -15,6 +15,7 @@ from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
 from rpython.rtyper.rmodel import warning
+from rpython.tool.twothree import unicode
 
 
 class KeyComp(object):

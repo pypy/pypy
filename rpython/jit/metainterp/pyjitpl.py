@@ -27,6 +27,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, always_inlin
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
+from rpython.tool.twothree import get_function
 
 SIZE_LIVE_OP = OFFSET_SIZE + 1
 
@@ -3912,7 +3913,7 @@ def _get_opimpl_method(name, argcodes):
         elif not we_are_translated():
             assert self._result_argcode in 'v?' or 'ovf' in name
     #
-    unboundmethod = getattr(MIFrame, 'opimpl_' + name).im_func
+    unboundmethod = get_function(getattr(MIFrame, 'opimpl_' + name))
     argtypes = unrolling_iterable(unboundmethod.argtypes)
     handler.__name__ = 'handler_' + name
     return handler

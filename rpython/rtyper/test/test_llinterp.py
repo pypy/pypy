@@ -58,7 +58,7 @@ def clear_tcache():
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                     backendopt=False, config=None, **extraconfigopts):
-    extra_key = [(key, value) for key, value in extraconfigopts.iteritems()]
+    extra_key = [(key, value) for key, value in extraconfigopts.items()]
     extra_key.sort()
     extra_key = tuple(extra_key)
     key = ((func,) + tuple([typeOf(x) for x in values]) +

@@ -2,6 +2,7 @@
 import py
 from rpython.rlib.rstrategies import rstrategies as rs
 from rpython.rlib.objectmodel import import_from_mixin
+from rpython.tool.twothree import with_metaclass
 
 # === Define small model tree
 
@@ -14,6 +15,7 @@ class W_Object(W_AbstractObject):
 class W_Integer(W_AbstractObject):
     def __init__(self, value):
         self.value = value
+    __hash__ = W_AbstractObject.__hash__
     def __eq__(self, other):
         return isinstance(other, W_Integer) and self.value == other.value
 
@@ -58,8 +60,7 @@ w_nil = W_Object()
 
 # === Define concrete strategy classes
 
-class AbstractStrategy(object):
-    __metaclass__ = rs.StrategyMetaclass
+class AbstractStrategy(with_metaclass(rs.StrategyMetaclass, object)):
     import_from_mixin(rs.AbstractStrategy)
     import_from_mixin(rs.SafeIndexingMixin)
     def __init__(self, factory, w_self=None, size=0):

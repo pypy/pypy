@@ -73,7 +73,7 @@ def _translate_cache(cache, link):
 
 def _storesink_block(block, cache, inputlink):
     def clear_cache_for(cache, concretetype, fieldname):
-        for k in cache.keys():
+        for k in list(cache.keys()):
             if k[0].concretetype == concretetype and k[1] == fieldname:
                 del cache[k]
     replacements = {}

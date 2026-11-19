@@ -130,7 +130,7 @@ def make_interp(supports_call):
 
             elif opcode == DIV:
                 a, b = stack.pop(), stack.pop()
-                stack.append( b / a )
+                stack.append( b // a )
 
             elif opcode == EQ:
                 a, b = stack.pop(), stack.pop()

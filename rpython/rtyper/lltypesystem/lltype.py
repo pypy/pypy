@@ -1,6 +1,7 @@
 import weakref
-from thread import _local
-from types import MethodType, NoneType
+from threading import local as _local
+from types import MethodType
+NoneType = type(None)
 
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
 from rpython.annotator.model import (
@@ -13,6 +14,7 @@ from rpython.rlib.rarithmetic import (
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
+from rpython.tool.twothree import get_function, long, unichr, unicode
 
 class State(_local):
     pass
@@ -241,6 +243,7 @@ class Typedef(LowLevelType):
     def __repr__(self):
         return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
 
+    __hash__ = LowLevelType.__hash__
     def __eq__(self, other):
         return other == self.OF
 
@@ -812,9 +815,10 @@ def typeOf(val):
             raise UninitializedMemoryAccess("typeOf uninitialized value")
         if tp is NoneType:
             return Void   # maybe
-        if tp is int:
+        if tp is int and int is not long:
             return Signed
         if tp is long:
+            # on Python 3 long is int, and only the range tells them apart
             if -maxint-1 <= val <= maxint:
                 return Signed
             elif longlongmask(val) == val:
@@ -1541,9 +1545,9 @@ class SomePtr(SomeObject):
             return ll_to_annotation(v)
         else:
             if isinstance(v, MethodType):
-                ll_ptrtype = typeOf(v.im_self)
+                ll_ptrtype = typeOf(v.__self__)
                 assert isinstance(ll_ptrtype, (Ptr, InteriorPtr))
-                return SomeLLADTMeth(ll_ptrtype, v.im_func)
+                return SomeLLADTMeth(ll_ptrtype, get_function(v))
             return immutablevalue(v)
     getattr.can_only_throw = []
 
@@ -2044,7 +2048,7 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         raise NotImplementedError('_subarray._getid()')
 
     def _cleanup_cache():
-        for T, d in _subarray._cache.items():
+        for T, d in list(_subarray._cache.items()):
             newcache = weakref.WeakKeyDictionary()
             for key, value in d.items():
                 try:

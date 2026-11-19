@@ -17,6 +17,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, lloperation, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY, FieldListAccessor
+from rpython.tool.twothree import get_function
 
 
 def promote_virtualizable(*args):
@@ -1167,7 +1168,7 @@ class ImplicitVirtualizableTests(object):
         t = get_translator()
         f_graph, portal_graph = [graph for graph in t.graphs
                                        if getattr(graph, 'func', None) is f]
-        init_graph = t._graphof(Frame.__init__.im_func)
+        init_graph = t._graphof(get_function(Frame.__init__))
 
         def direct_calls(graph):
             return [op.args[0].value._obj._callable.__name__

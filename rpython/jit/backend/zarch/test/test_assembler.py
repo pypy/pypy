@@ -25,6 +25,7 @@ from rpython.rlib.longlong2float import (float2longlong,
         DOUBLE_ARRAY_PTR, singlefloat2uint_emulator)
 from rpython.rlib.rarithmetic import r_uint, intmask
 import ctypes
+from rpython.tool.twothree import get_function
 
 CPU = getcpuclass()
 
@@ -120,7 +121,7 @@ class TestRunningAssembler(object):
         i = rop.INT_ADD
         from rpython.jit.backend.zarch import assembler
         assert assembler.asm_operations[i] \
-            is AssemblerZARCH.emit_int_add.im_func
+            is get_function(AssemblerZARCH.emit_int_add)
 
     def test_sync(self):
         self.a.mc.XGR(r.r2, r.r2)

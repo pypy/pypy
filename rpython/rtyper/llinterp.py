@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import cStringIO
+from rpython.tool.twothree import StringIO
 import os
 import sys
 import traceback
@@ -19,6 +19,7 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
 from rpython.tool.ansi_print import AnsiLogger
+from rpython.tool.twothree import long
 
 # by default this logger's output is disabled.
 # e.g. tests can then switch on logging to get more help
@@ -45,7 +46,7 @@ class LLException(Exception):
         etype = self.args[0]
         #evalue = self.args[1]
         if len(self.args) > 2:
-            f = cStringIO.StringIO()
+            f = StringIO()
             original_type, original_value, original_tb = self.args[2]
             traceback.print_exception(original_type, original_value, original_tb,
                                       file=f)
@@ -324,10 +325,12 @@ class LLFrame(object):
             for i, op in enumerate(block.operations):
                 self.curr_operation_index = i
                 self.eval_operation(op)
-        except LLException as e:
+        except LLException as exc:
+            # Python 3 unbinds the name of 'except ... as' at its end
+            e = exc
             if op is not block.raising_op:
                 raise
-        except RuntimeError as e:
+        except RuntimeError:
             rstackovf.check_stack_overflow()
             # xxx fish fish fish for proper etype and evalue to use
             rtyper = self.llinterpreter.typer

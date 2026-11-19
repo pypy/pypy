@@ -55,6 +55,24 @@ PY2_BUILTINS = (
 ).split()
 
 
+class ImportedNamesExcluded(object):
+    """Count matches of a pattern, except the names that the module imports
+    from twothree or functools: those are no longer the removed built-ins."""
+
+    IMPORT = re.compile(r'(?m)^\s*from\s+(?:rpython\.tool\.twothree|functools)'
+                        r'\s+import\s+(?:\(([^)]*)\)|([^\n]*))')
+
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def findall(self, code):
+        imported = set()
+        for in_parens, on_line in self.IMPORT.findall(code):
+            for name in (in_parens or on_line).split(','):
+                imported.add(name.split()[-1] if name.strip() else '')
+        return [m for m in self.pattern.findall(code) if m not in imported]
+
+
 def count_bare_tuple_comprehensions(tokens):
     """Count list comprehensions iterating over an unparenthesized tuple.
 
@@ -175,7 +193,8 @@ CATEGORIES = [
      re.compile(r'(?m)^\s*(?:import|from)\s+(?:%s)\b' % '|'.join(PY2_STDLIB)),
      'import of a module renamed in Python 3'),
     ('py2_builtin',
-     re.compile(r'(?<![\w.])(?:%s)(?![\w])' % '|'.join(PY2_BUILTINS)),
+     ImportedNamesExcluded(
+         re.compile(r'(?<![\w.])(?:%s)(?![\w])' % '|'.join(PY2_BUILTINS))),
      'use of a builtin removed in Python 3'),
     ('sys_maxint',
      re.compile(r'(?m)\bsys\.maxint\b|^\s*from\s+sys\s+import\b.*\bmaxint\b'),

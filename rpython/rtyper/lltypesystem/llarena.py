@@ -40,7 +40,7 @@ class Arena(object):
         else:
             stop = start + llmemory.raw_malloc_usage(size)
         assert 0 <= start <= stop <= self.nbytes
-        for offset, ptr in self.objectptrs.items():
+        for offset, ptr in list(self.objectptrs.items()):
             size = self.objectsizes[offset]
             if offset < start:   # object is before the cleared area
                 assert offset + size <= start, "object overlaps cleared area"
@@ -224,6 +224,7 @@ class fakearenaaddress(llmemory.fakeaddress):
                 offset += objectsize // 2      # arbitrary
         return arena, offset
 
+    __hash__ = llmemory.fakeaddress.__hash__
     def __eq__(self, other):
         if isinstance(other, fakearenaaddress):
             arena = other.arena

@@ -30,6 +30,7 @@ import math
 import time
 
 from rpython.rlib import rrandom
+from rpython.tool.twothree import xrange
 
 PRINT_IT = True
 

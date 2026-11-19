@@ -21,6 +21,7 @@ from rpython.rlib.debug import have_debug_prints_for
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
+from rpython.tool.twothree import get_function
 
 
 CONST_ZERO_FLOAT = Const._new(0.0)
@@ -56,7 +57,7 @@ PASS_OP_ON = OptimizationResult(None, None)
 
 @specialize.memo()
 def have_postprocess(cls):
-    return cls.propagate_postprocess.im_func is not Optimization.propagate_postprocess.im_func
+    return get_function(cls.propagate_postprocess) is not get_function(Optimization.propagate_postprocess)
 
 class Optimization(object):
     next_optimization = None

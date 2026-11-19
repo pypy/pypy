@@ -40,6 +40,7 @@ class MockInstruction(object):
     def __call__(self, *args):
         self.args = args
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         assert isinstance(other, MockInstruction)
         return self.name == other.name and self.args == other.args

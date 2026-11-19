@@ -24,23 +24,23 @@ class GcCache(object):
 
     def setup_descrs(self):
         all_descrs = []
-        for k, v in self._cache_size.iteritems():
+        for k, v in self._cache_size.items():
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
-        for k, v in self._cache_field.iteritems():
-            for k1, v1 in v.iteritems():
+        for k, v in self._cache_field.items():
+            for k1, v1 in v.items():
                 v1.descr_index = len(all_descrs)
                 all_descrs.append(v1)
-        for k, v in self._cache_array.iteritems():
+        for k, v in self._cache_array.items():
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
-        for k, v in self._cache_arraylen.iteritems():
+        for k, v in self._cache_arraylen.items():
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
-        for k, v in self._cache_call.iteritems():
+        for k, v in self._cache_call.items():
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
-        for k, v in self._cache_interiorfield.iteritems():
+        for k, v in self._cache_interiorfield.items():
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
         assert len(all_descrs) < 2**15

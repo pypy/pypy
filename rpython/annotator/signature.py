@@ -9,6 +9,7 @@ from rpython.annotator.model import (
 from rpython.annotator.listdef import ListDef
 from rpython.annotator.dictdef import DictDef
 from rpython.rtyper import extregistry
+from rpython.tool.twothree import ClassType, unicode
 
 _annotation_cache = {}
 
@@ -19,7 +20,7 @@ def _annotation_key(t):
         return ('list', _annotation_key(t[0]))
     elif isinstance(t, dict):
         assert len(t.keys()) == 1
-        return ('dict', _annotation_key(t.items()[0]))
+        return ('dict', _annotation_key(list(t.items())[0]))
     elif isinstance(t, tuple):
         return tuple([_annotation_key(i) for i in t])
     elif extregistry.is_registered(t):
@@ -67,8 +68,9 @@ def _compute_annotation(t, bookkeeper=None):
     elif isinstance(t, dict):
         return SomeDict(
                 DictDef(bookkeeper,
-                        annotation(t.keys()[0]), annotation(t.values()[0])))
-    elif type(t) is types.NoneType:
+                        annotation(list(t.keys())[0]),
+                        annotation(list(t.values())[0])))
+    elif type(t) is type(None):
         return s_None
     elif extregistry.is_registered(t):
         entry = extregistry.lookup(t)
@@ -82,7 +84,7 @@ def annotationoftype(t, bookkeeper=False):
 
     """The most precise SomeValue instance that contains all
     objects of type t."""
-    assert isinstance(t, (type, types.ClassType))
+    assert isinstance(t, (type, ClassType))
     if t is bool:
         return SomeBool()
     elif t is int:
@@ -93,7 +95,7 @@ def annotationoftype(t, bookkeeper=False):
         return SomeString()
     elif t is unicode:
         return SomeUnicodeString()
-    elif t is types.NoneType:
+    elif t is type(None):
         return s_None
     elif bookkeeper and extregistry.is_registered_type(t):
         return (extregistry.lookup_type(t)

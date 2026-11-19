@@ -15,6 +15,7 @@ from rpython.flowspace.objspace import build_flow
 from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.sourcetools import nice_repr_for_func
 from rpython.config.translationoption import get_platform
+from rpython.tool.twothree import get_function
 
 log = AnsiLogger("flowgraph")
 
@@ -169,7 +170,7 @@ def graphof(translator, func):
     result = []
     if hasattr(func, 'im_func'):
         # make it possible to translate bound methods
-        func = func.im_func
+        func = get_function(func)
     for graph in translator.graphs:
         if getattr(graph, 'func', None) is func:
             result.append(graph)

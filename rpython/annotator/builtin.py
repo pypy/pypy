@@ -17,6 +17,7 @@ from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
 from rpython.annotator.model import AnnotatorError
+from rpython.tool.twothree import unichr, unicode, xrange
 
 
 def constpropagate(func, args_s, s_result):
@@ -188,11 +189,18 @@ def builtin_max(*s_values):
         return s
 
 # collect all functions
-import __builtin__
-for name, value in globals().items():
+from rpython.tool.twothree import builtins
+# list(): the loop variables are globals too, so on Python 3 the first
+# iteration would change the dict being iterated over
+for name, value in list(globals().items()):
     if name.startswith('builtin_'):
-        original = getattr(__builtin__, name[8:])
+        # unicode, unichr and xrange are not built-ins on Python 3
+        if (name[8:] in ('unicode', 'unichr', 'xrange')
+                and not hasattr(builtins, 'unicode')):
+            continue
+        original = getattr(builtins, name[8:])
         BUILTIN_ANALYZERS[original] = value
+BUILTIN_ANALYZERS[unichr] = builtin_unichr
 
 
 @analyzer_for(getattr(object.__init__, 'im_func', object.__init__))

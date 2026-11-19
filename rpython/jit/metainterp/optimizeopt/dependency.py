@@ -1120,6 +1120,7 @@ class IndexVar(AbstractValue):
             return True, c
         return False, 0
 
+    __hash__ = AbstractValue.__hash__
     def __eq__(self, other):
         if not self.same_variable(other):
             return False
@@ -1196,6 +1197,7 @@ class MemoryRef(object):
     def same_array(self, other):
         return self.array is other.array and self.descr == other.descr
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         """ NOT_RPYTHON """
         if not self.same_array(other):

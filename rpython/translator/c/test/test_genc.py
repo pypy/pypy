@@ -659,11 +659,11 @@ def test_generated_c_source():
     c_src = get_generated_c_source(is_perfect_number, [int])
     c_fn_src = extract_c_function(c_src, 'pypy_g_is_perfect_number')
     expected_comment_lines = [
-        '/* is_perfect_number:31: while div < n: */',
-        # line 32 (if n % div == 0:) is eliminated by merge_if_blocks
-        '/* is_perfect_number:33: sum += div */',
-        '/* is_perfect_number:34: div += 1 */',
-        '/* is_perfect_number:35: return n == sum */']
+        '/* is_perfect_number:32: while div < n: */',
+        # line 33 (if n % div == 0:) is eliminated by merge_if_blocks
+        '/* is_perfect_number:34: sum += div */',
+        '/* is_perfect_number:35: div += 1 */',
+        '/* is_perfect_number:36: return n == sum */']
     for exp_line in expected_comment_lines:
         assert c_fn_src.count(exp_line) == 1
 

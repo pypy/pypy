@@ -50,7 +50,7 @@ def build_table(lst):
     for j in range(7):
         row = []
         for i in range(7):
-            (x, y) = it.next()
+            (x, y) = next(it)
             row.append((x, y))
         table.append(row)
     return table

@@ -189,6 +189,7 @@ class rbigint(object):
         self._size = abs(self._size) * sign
 
     # __eq__ and __ne__ method exist for testing only, they are not RPython!
+    __hash__ = object.__hash__
     @not_rpython
     def __eq__(self, other):
         if not isinstance(other, rbigint):
@@ -1442,7 +1443,7 @@ class rbigint(object):
         if selfsign == -1 and not dont_invert:
             return _rshift_negative(self, int_other)
 
-        wordshift = int_other / SHIFT
+        wordshift = int_other // SHIFT
         newsize = self.numdigits() - wordshift
         if newsize <= 0:
             return NULLRBIGINT
@@ -1465,7 +1466,7 @@ class rbigint(object):
 
     @jit.elidable
     def rqshift(self, int_other):
-        wordshift = int_other / SHIFT
+        wordshift = int_other // SHIFT
         loshift = int_other % SHIFT
         newsize = self.numdigits() - wordshift
 
@@ -2464,7 +2465,7 @@ def _x_divrem(v1, w1):
         assert vv >= 0
         assert wm1 >= 1
 
-        q = vv / wm1
+        q = vv // wm1
         r = vv % wm1 # This seems to be slightly faster on widen digits than vv - wm1 * q.
         vj2 = v.digit(abs(j-2))
         while wm2 * q > ((r << SHIFT) | vj2):

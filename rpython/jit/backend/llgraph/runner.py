@@ -23,6 +23,8 @@ from rpython.rtyper import rclass
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import Symbolic, compute_hash
+from functools import reduce
+from rpython.tool.twothree import unichr
 
 class LLAsmInfo(object):
     def __init__(self, lltrace):
@@ -113,6 +115,7 @@ class TypeIDSymbolic(Symbolic):
     def __init__(self, STRUCT_OR_ARRAY):
         self.STRUCT_OR_ARRAY = STRUCT_OR_ARRAY
 
+    __hash__ = Symbolic.__hash__
     def __eq__(self, other):
         return self.STRUCT_OR_ARRAY is other.STRUCT_OR_ARRAY
 
@@ -491,7 +494,7 @@ class LLGraphCPU(model.AbstractCPU):
 
     def setup_descrs(self):
         all_descrs = []
-        for k, v in self.descrs.iteritems():
+        for k, v in self.descrs.items():
             v.descr_index = len(all_descrs)
             all_descrs.append(v)
         return all_descrs
@@ -1081,6 +1084,7 @@ class LLFrame(object):
         for box, arg in zip(argboxes, args):
             self.setenv(box, arg)
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         # this is here to avoid crashes in 'token == TOKEN_TRACING_RESCALL'
         from rpython.jit.metainterp.virtualizable import TOKEN_NONE
@@ -1633,7 +1637,7 @@ def _setup():
         execute.__name__ = 'execute_' + opname
         return execute
 
-    for k, v in rop.__dict__.iteritems():
+    for k, v in rop.__dict__.items():
         if not k.startswith("_"):
             fname = 'execute_' + k.lower()
             if not hasattr(LLFrame, fname):

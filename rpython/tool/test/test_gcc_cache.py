@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import sys
-import cStringIO
+from rpython.tool.twothree import StringIO
 import py
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -79,7 +79,7 @@ def test_gcc_ask_doesnt_log_errors():
     eci = ExternalCompilationInfo()
     oldstderr = sys.stderr
     try:
-        sys.stderr = capture = cStringIO.StringIO()
+        sys.stderr = capture = StringIO()
         py.test.raises(CompilationError, try_compile_cache, [f], eci)
     finally:
         sys.stderr = oldstderr
@@ -91,7 +91,7 @@ def test_execute_code_ignore_errors():
     eci = ExternalCompilationInfo()
     oldstderr = sys.stderr
     try:
-        sys.stderr = capture = cStringIO.StringIO()
+        sys.stderr = capture = StringIO()
         py.test.raises(CompilationError, build_executable_cache,
                        [f], eci, True)
     finally:
@@ -112,7 +112,7 @@ def test_execute_code_show_runtime_error():
         eci = ExternalCompilationInfo()
         oldstderr = sys.stderr
         try:
-            sys.stderr = capture = cStringIO.StringIO()
+            sys.stderr = capture = StringIO()
             output = build_executable_cache([f], eci, True)
         finally:
             sys.stderr = oldstderr

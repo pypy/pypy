@@ -6,6 +6,7 @@ unittests.
 We define argument types as default arguments to the snippet
 functions.
 """
+from rpython.tool.twothree import long
 
 numtype = (int, float)
 anytype = (int, float, str)

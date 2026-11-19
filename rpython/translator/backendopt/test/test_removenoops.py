@@ -13,6 +13,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.conftest import option
+from rpython.tool.twothree import get_function
 
 
 def get_graph(fn, signature, all_opts=True):
@@ -142,7 +143,7 @@ def test_remove_duplicate_casts():
     ops = getops(graph)
     assert len(ops['cast_pointer']) < num_cast_pointer
     print(len(ops['cast_pointer']), num_cast_pointer)
-    graph_getsum = graphof(t, B.getsum.im_func)
+    graph_getsum = graphof(t, get_function(B.getsum))
     num_cast_pointer = len(getops(graph_getsum)['cast_pointer'])
     changed = remove_duplicate_casts(graph_getsum, t)
     assert changed

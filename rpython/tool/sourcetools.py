@@ -8,6 +8,7 @@
 
 import sys, os, inspect, types
 import py
+from rpython.tool.twothree import getargspec
 
 def render_docstr(func, indent_str='', closing_str=''):
     """ Render a docstring as a string of lines.
@@ -52,7 +53,7 @@ class NiceCompile(object):
             srcname = srcname[:-1]
         if os.path.exists(srcname):
             self.srcname = srcname
-            self.srctext = file(srcname).read()
+            self.srctext = open(srcname).read()
         else:
             # missing source, what to do?
             self.srctext = None
@@ -302,7 +303,7 @@ def rpython_wrapper(f, template, templateargs=None, **globaldict):
     """
     if templateargs is None:
         templateargs = {}
-    srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+    srcargs, srcvarargs, srckeywords, defaults = getargspec(f)
     assert not srcvarargs, '*args not supported by rpython_wrapper'
     assert not srckeywords, '**kwargs not supported by rpython_wrapper'
     #

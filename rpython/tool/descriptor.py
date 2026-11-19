@@ -2,8 +2,8 @@ class InstanceMethod(object):
     "Like types.InstanceMethod, but with a reasonable (structural) equality."
 
     def __init__(self, im_func, im_self, im_class):
-        self.im_func = im_func
-        self.im_self = im_self
+        self.im_func = self.__func__ = im_func
+        self.im_self = self.__self__ = im_self
         self.im_class = im_class
 
     def __call__(self, *args, **kwds):

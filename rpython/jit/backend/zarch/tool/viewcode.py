@@ -10,8 +10,9 @@ Try:
 from __future__ import print_function
 
 import sys
+from rpython.tool.twothree import long
 print(sys.path)
-import new
+import types
 import operator
 import py
 import re
@@ -25,7 +26,7 @@ tmpfile = str(udir.join('dump.tmp'))
 
 # hack hack
 import rpython.tool
-mod = new.module('rpython.tool.udir')
+mod = types.ModuleType('rpython.tool.udir')
 mod.udir = udir
 sys.modules['rpython.tool.udir'] = mod
 rpython.tool.udir = mod
@@ -152,6 +153,7 @@ class CodeRange(object):
         return _cmp
     __lt__ = cmpop(operator.lt)
     __le__ = cmpop(operator.le)
+    __hash__ = object.__hash__
     __eq__ = cmpop(operator.eq)
     __ne__ = cmpop(operator.ne)
     __gt__ = cmpop(operator.gt)
@@ -410,11 +412,11 @@ if __name__ == '__main__':
         print(__doc__, file=sys.stderr)
         sys.exit(2)
     #
-    import cStringIO
+    from rpython.tool.twothree import StringIO
     from rpython.tool import logparser
     log1 = logparser.parse_log_file(sys.argv[1])
     text1 = logparser.extract_category(log1, catprefix='jit-backend-dump')
-    f = cStringIO.StringIO()
+    f = StringIO()
     f.writelines(text1)
     f.seek(0)
     del log1, text1

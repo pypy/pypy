@@ -18,8 +18,8 @@ Light Gray  0;37     White         1;37
 import os
 if os.environ.get('TERM', 'dumb').find('256') > 0:
     try:
-        from ansiramp import ansi_ramp80
-        palette = map(lambda x: "38;5;%d" % x, ansi_ramp80)
+        from rpython.tool.ansiramp import ansi_ramp80
+        palette = ["38;5;%d" % x for x in ansi_ramp80]
     except ImportError:
         import warnings
         warnings.warn("ansiramp not installed; falling back to 8-color palette (pip install ansiramp for 256-color support)")
@@ -162,7 +162,7 @@ class Driver(object):
 
     def print_pixel(self, colour, invert=1):
         chars = [".", ".", "+", "*", "%", "#"]
-        idx = lambda chars: (colour+1) * (len(chars) - 1) / self.max_colour
+        idx = lambda chars: (colour+1) * (len(chars) - 1) // self.max_colour
         if invert:
             idx = lambda chars, idx=idx:len(chars) - 1 - idx(chars)
         char = chars[idx(chars)]

@@ -47,7 +47,8 @@ class RegAllocator(object):
                 for v in link.args:
                     die_at.pop(v, None)
             die_at = [(value, key) for (key, value) in die_at.items()]
-            die_at.sort()
+            # by position only: Python 3 cannot compare the Variables of a tie
+            die_at.sort(key=lambda item: item[0])
             die_at.append((sys.maxsize,))
             # Done.  XXX the code above this line runs 3 times
             # (for kind in KINDS) to produce the same result...
@@ -136,7 +137,7 @@ class RegAllocator(object):
             return False
 
     def swapcolors(self, col1, col2):
-        for key, value in self._coloring.items():
+        for key, value in list(self._coloring.items()):
             if value == col1:
                 self._coloring[key] = col2
             elif value == col2:

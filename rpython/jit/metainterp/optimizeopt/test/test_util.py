@@ -658,6 +658,7 @@ class BaseTest(LLtypeMixin):
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):
         return FakeDescr()
+    __hash__ = compile.ResumeGuardDescr.__hash__
     def __eq__(self, other):
         return isinstance(other, FakeDescr)
 

@@ -8,6 +8,7 @@ import py
 
 from rpython.flowspace.model import Variable
 from rpython.rlib import jit
+from rpython.tool.twothree import get_function
 
 
 SHOW_TRACEBACK = False
@@ -115,7 +116,7 @@ def format_simple_call(annotator, oper, msg):
             try:
                 if isinstance(func, type):
                     func_name = "%s.__init__" % func.__name__
-                    func = func.__init__.im_func
+                    func = get_function(func.__init__)
                 else:
                     func_name = func.__name__
                 r = "function %s <%s, line %s>" % (func_name,
@@ -160,12 +161,12 @@ def debug(drv, use_pdb=True):
 def offset2lineno(c, stopat):
     # even position in lnotab denote byte increments, odd line increments.
     # see dis.findlinestarts in the python std. library for more details
-    tab = c.co_lnotab
+    tab = bytearray(c.co_lnotab)
     line = c.co_firstlineno
     addr = 0
     for i in range(0, len(tab), 2):
-        addr = addr + ord(tab[i])
+        addr = addr + tab[i]
         if addr > stopat:
             break
-        line = line + ord(tab[i+1])
+        line = line + tab[i+1]
     return line

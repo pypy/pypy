@@ -15,6 +15,7 @@ from rpython.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from rpython.conftest import option
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import summary
+from rpython.tool.twothree import get_function
 
 def sanity_check(t):
     # look for missing '.concretetype'
@@ -382,7 +383,7 @@ class TestInline(BaseRtypingTest):
         def f(i):
             a = A(117, i)
             return a.area()
-        eval_func = self.check_inline(A.__init__.im_func, f, [int])
+        eval_func = self.check_inline(get_function(A.__init__), f, [int])
         result = eval_func([120])
         assert result == 30
 

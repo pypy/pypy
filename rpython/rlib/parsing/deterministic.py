@@ -1,11 +1,6 @@
 from __future__ import with_statement
 import py
 
-try:
-    set
-except NameError:
-    from sets import Set as set, ImmutableSet as frozenset
-
 def compress_char_set(chars):
     # type: (str) -> list[(str, int)]
     """Take the character list and compress runs of adjacent
@@ -175,7 +170,7 @@ class DFA(object):
                         targets.setdefault(target, set()).add(state)
                     if len(targets) != 1:
                         #print "\nsplitting %s with %r\ninto %s" % (equivalent, char, targets.values())
-                        for target, newequivalent in targets.iteritems():
+                        for target, newequivalent in targets.items():
                             #print "   ", newequivalent
                             newequivalent = frozenset(newequivalent)
                             new_equivalence_sets.add(newequivalent)
@@ -218,7 +213,7 @@ class DFA(object):
                 if state in self.final_states:
                     newfinal_states.add(i)
             newnames.append(name)
-        for (state, char), nextstate in self.transitions.iteritems():
+        for (state, char), nextstate in self.transitions.items():
             newstate = newstate_to_index[state_to_set[state]]
             newnextstate = newstate_to_index[state_to_set[nextstate]]
             newtransitions[newstate, char] = newnextstate
@@ -242,10 +237,10 @@ class DFA(object):
         # state_to_chars is a dict containing the sets of
         #   Ex: state_to_chars = { 0: set('a','b','c'), ...}
         state_to_chars = {}
-        for (state, char), nextstate in self.transitions.iteritems():
+        for (state, char), nextstate in self.transitions.items():
             state_to_chars.setdefault(state, {}).setdefault(nextstate, set()).add(char)
         above = set()
-        for state, nextstates in state_to_chars.iteritems():
+        for state, nextstates in state_to_chars.items():
             above.add(state)
             with result.block("if state == %s:" % (state, )):
                 with result.block("if i < len(input):"):
@@ -257,7 +252,7 @@ class DFA(object):
                     else:
                         result.emit("break")
                 elif_prefix = ""
-                for nextstate, chars in nextstates.iteritems():
+                for nextstate, chars in nextstates.items():
                     final = nextstate in self.final_states
                     compressed = compress_char_set(chars)
                     if nextstate in above:
@@ -309,8 +304,10 @@ class DFA(object):
         # type: () -> Callable[[DFARunner, int], int]
         """Generate and compile a lexing function for use with a runner."""
         code = self.generate_lexing_code()
-        exec(py.code.Source(code).compile())
-        return recognize
+        # exec() cannot create a function's local variables on Python 3
+        namespace = {}
+        exec(py.code.Source(code).compile(), globals(), namespace)
+        return namespace['recognize']
 
     def generate_lexing_code(self):
         # type: () -> str
@@ -324,7 +321,7 @@ class DFA(object):
         result.emit("state = 0")
         result.start_block("while 1:")
         state_to_chars = {}
-        for (state, char), nextstate in self.transitions.iteritems():
+        for (state, char), nextstate in self.transitions.items():
             state_to_chars.setdefault(state, {}).setdefault(nextstate, set()).add(char)
         state_to_chars_sorted = sorted(state_to_chars.items())
         above = set()
@@ -344,7 +341,7 @@ class DFA(object):
                     else:
                         result.emit("return ~i")
                 elif_prefix = ""
-                for nextstate, chars in nextstates.iteritems():
+                for nextstate, chars in nextstates.items():
                     final = nextstate in self.final_states
                     compressed = compress_char_set(chars)
                     if nextstate in above:
@@ -409,7 +406,7 @@ return ~i""")
         result.names = self.names
         result.start_states = set([0])
         result.final_states = self.final_states.copy()
-        for (state, input), nextstate in self.transitions.iteritems():
+        for (state, input), nextstate in self.transitions.items():
             result.add_transition(state, nextstate, input)
         return result
 
@@ -430,9 +427,9 @@ return ~i""")
                 'state%s [label="%s", shape=%s%s];' %
                     (i, repr(self.names[i]).replace("\\", "\\\\"), shape, extra))
         edges = {}
-        for (state, input), next_state in self.transitions.iteritems():
+        for (state, input), next_state in self.transitions.items():
             edges.setdefault((state, next_state), set()).add(input)
-        for (state, next_state), inputs in edges.iteritems():
+        for (state, next_state), inputs in edges.items():
             inputs = make_nice_charset_repr(inputs)
             result.append('state%s -- state%s [label="%s", arrowhead=normal];' %
                           (state, next_state, repr(inputs).replace("\\", "\\\\")))
@@ -577,9 +574,9 @@ class NFA(object):
             chars_to_states = {}
             for state in ndastates:
                 sub_transitions = self.transitions.get(state, {})
-                for char, next_states in sub_transitions.iteritems():
+                for char, next_states in sub_transitions.items():
                     chars_to_states.setdefault(char, set()).update(next_states)
-            for char, states in chars_to_states.iteritems():
+            for char, states in chars_to_states.items():
                 if char is None:
                     continue
                 fda[fdastate, char] = get_dfa_state(states)
@@ -592,10 +589,10 @@ class NFA(object):
         for i, name in enumerate(other.names):
             new_state = self.add_state(name)
             mapping[i] = new_state
-        for state, subtransitions in other.transitions.iteritems():
+        for state, subtransitions in other.transitions.items():
             new_state = mapping[state]
             new_subtransitions = self.transitions.setdefault(new_state, {})
-            for input, next_states in subtransitions.iteritems():
+            for input, next_states in subtransitions.items():
                 next_states = [mapping[i] for i in next_states]
                 new_subtransitions.setdefault(input, set()).update(next_states)
         return mapping
@@ -636,8 +633,8 @@ class NFA(object):
             result.append(
                 'state%s [label="%s", peripheries=%s%s];' %
                     (i, self.names[i], peripheries, extra))
-        for state, sub_transitions in self.transitions.iteritems():
-            for input, next_states in sub_transitions.iteritems():
+        for state, sub_transitions in self.transitions.items():
+            for input, next_states in sub_transitions.items():
                 for next_state in next_states:
                     result.append(
                         'state%s -- state%s [label="%s", arrowhead=normal];' %

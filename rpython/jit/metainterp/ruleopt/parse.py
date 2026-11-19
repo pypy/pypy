@@ -87,6 +87,7 @@ class BaseAst(BaseBox):
     def getsourcepos(self):
         return self.sourcepos
 
+    __hash__ = BaseBox.__hash__
     def __eq__(self, other):
         if type(self) != type(other):
             return NotImplemented

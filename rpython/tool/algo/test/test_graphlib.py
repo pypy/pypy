@@ -1,4 +1,5 @@
 from __future__ import print_function
+import itertools
 
 from hypothesis import given, example, assume, settings, HealthCheck, strategies as st
 from rpython.tool.algo.graphlib import *
@@ -223,8 +224,10 @@ class TestBugCase:
 class TestBadCase:
     # a complete graph
     NUM = 50
-    edges = make_edge_dict([Edge(i, j) for i in range(NUM)
-                                       for j in range(NUM)])
+    # only the outermost iterable of a comprehension in a class body can
+    # see NUM on Python 3
+    edges = make_edge_dict([Edge(i, j) for i, j in
+                            itertools.product(range(NUM), range(NUM))])
     vertices = dict.fromkeys(range(NUM))
 
     def test_break_cycles(self):

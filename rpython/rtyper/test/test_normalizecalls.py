@@ -7,6 +7,7 @@ from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.normalizecalls import TotalOrderSymbolic, MAX
 from rpython.rtyper.normalizecalls import TooLateForNewSubclass
+from rpython.tool.twothree import get_function
 
 
 def test_TotalOrderSymbolic():
@@ -190,9 +191,9 @@ class TestNormalize(object):
             return x.fn()
 
         translator = self.rtype(dummyfn, [int], int)
-        base_graph = graphof(translator, Base.fn.im_func)
-        sub1_graph = graphof(translator, Sub1.fn.im_func)
-        sub2_graph = graphof(translator, Sub2.fn.im_func)
+        base_graph = graphof(translator, get_function(Base.fn))
+        sub1_graph = graphof(translator, get_function(Sub1.fn))
+        sub2_graph = graphof(translator, get_function(Sub2.fn))
         assert base_graph.getreturnvar().concretetype == lltype.Signed
         assert sub1_graph.getreturnvar().concretetype == lltype.Signed
         assert sub2_graph.getreturnvar().concretetype == lltype.Signed
@@ -332,10 +333,10 @@ class TestNormalizeAfterTheFact(TestNormalize):
             assert not ll_issubclass(base_vtable, sub3_vtable)
 
         translator = self.rtype(dummyfn, [int], int, checkfunction)
-        base_graph    = graphof(translator, PBase.fn.im_func)
-        sub1_graph    = graphof(translator, PSub1.fn.im_func)
-        sub2_graph    = graphof(translator, PSub2.fn.im_func)
-        sub3_graph    = graphof(translator, Sub3.fn.im_func)
+        base_graph    = graphof(translator, get_function(PBase.fn))
+        sub1_graph    = graphof(translator, get_function(PSub1.fn))
+        sub2_graph    = graphof(translator, get_function(PSub2.fn))
+        sub3_graph    = graphof(translator, get_function(Sub3.fn))
         dummyfn_graph = graphof(translator, dummyfn)
         assert base_graph.getreturnvar().concretetype == lltype.Signed
         assert sub1_graph.getreturnvar().concretetype == lltype.Signed

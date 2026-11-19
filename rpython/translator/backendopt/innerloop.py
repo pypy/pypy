@@ -103,7 +103,8 @@ def find_inner_loops(graph, check_exitswitch_type=None):
                len(cycle))            # minimize len(cycle)
         loops.append((key, loop))
 
-    loops.sort()
+    # by key only: Python 3 cannot compare the Loops of a tie
+    loops.sort(key=lambda item: item[0])
 
     # returns 'loops' without overlapping blocks
     result = []

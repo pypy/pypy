@@ -5,6 +5,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
 import os, sys
+from rpython.tool.twothree import long
 exec('import %s as posix' % os.name)
 
 def setup_module(module):

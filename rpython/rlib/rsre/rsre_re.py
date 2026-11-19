@@ -11,6 +11,7 @@ from rpython.rlib.rsre.rpy import get_code as _get_code
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
+from rpython.tool.twothree import unicode
 rsre_char.set_unicode_db(unicodedb)
 
 

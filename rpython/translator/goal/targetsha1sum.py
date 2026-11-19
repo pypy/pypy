@@ -25,7 +25,7 @@ def target(*args):
     return entry_point, None
 
 if __name__ == '__main__':
-    from sha import sha as RSHA
+    from hashlib import sha1 as RSHA
     import sys
     res = entry_point(sys.argv)
     sys.exit(res)

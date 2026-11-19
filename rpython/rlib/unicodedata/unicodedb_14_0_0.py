@@ -7,7 +7,7 @@ from rpython.rlib.unicodedata.supportcode import (signed_ord, _all_short,
     _all_ushort, _all_int32, _all_uint32, _cjk_prefix, _hangul_prefix,
     _lookup_hangul, _hangul_L, _hangul_V, _hangul_T)
 
-import unicodedb_3_2_0 as base_mod
+from rpython.rlib.unicodedata import unicodedb_3_2_0 as base_mod
 version = '14.0.0'
 
 # ____________________________________________________________

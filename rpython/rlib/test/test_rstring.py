@@ -8,6 +8,7 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 from hypothesis import given, strategies as st, assume
+from rpython.tool.twothree import buffer, unicode
 
 def test_split():
     def check_split(value, sub, *args, **kwargs):

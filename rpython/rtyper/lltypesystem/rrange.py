@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem.lltype import Ptr, GcStruct, Signed, malloc, Void
 from rpython.rtyper.rrange import AbstractRangeRepr, AbstractRangeIteratorRepr
 from rpython.rtyper.error import TyperError
+from rpython.tool.twothree import range_bounds, xrange
 
 # ____________________________________________________________
 #
@@ -59,6 +60,29 @@ class RangeRepr(AbstractRangeRepr):
         AbstractRangeRepr.__init__(self, step, *args)
         self.ll_newrange = ll_newrange
         self.ll_newrangest = ll_newrangest
+        self.const_cache = {}
+
+    def convert_const(self, rng):
+        # a prebuilt range object
+        if not isinstance(rng, xrange):
+            raise TyperError("expected a range: %r" % (rng,))
+        try:
+            return self.const_cache[rng]
+        except KeyError:
+            pass
+        start, stop, step = range_bounds(rng)
+        if self.step != 0:
+            if step != self.step:
+                raise TyperError("range %r is not of step %d" % (
+                    rng, self.step))
+            result = malloc(self.RANGE.TO, immortal=True)
+        else:
+            result = malloc(RANGEST, immortal=True)
+            result.step = step
+        result.start = start
+        result.stop = stop
+        self.const_cache[rng] = result
+        return result
 
     def make_iterator_repr(self, variant=None):
         if variant is not None:

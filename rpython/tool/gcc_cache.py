@@ -1,5 +1,6 @@
 from hashlib import md5
 import py, os, sys
+from rpython.tool.twothree import native_bytes
 
 def cache_file_path(c_files, eci, cachename):
     "Builds a filename to cache compilation data"
@@ -10,7 +11,7 @@ def cache_file_path(c_files, eci, cachename):
     cache_dir = cache_root.join(cachename).ensure(dir=1)
     filecontents = [c_file.read() for c_file in c_files]
     key = repr((filecontents, eci, platform.key()))
-    hash = md5(key).hexdigest()
+    hash = md5(key.encode("utf-8")).hexdigest()   # repr() is ASCII on Python 2
     return cache_dir.join(hash)
 
 def build_executable_cache(c_files, eci, ignore_errors=False):
@@ -43,7 +44,7 @@ def try_atomic_write(path, data):
     path = str(path)
     tmppath = '%s~%d' % (path, os.getpid())
     f = open(tmppath, 'wb')
-    f.write(data)
+    f.write(native_bytes(data))
     f.close()
     try:
         os.rename(tmppath, path)

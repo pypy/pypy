@@ -1,4 +1,5 @@
 import random, os
+from rpython.tool.twothree import xrange
 try:
     import cffi
 except ImportError:

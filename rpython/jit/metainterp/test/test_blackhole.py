@@ -8,6 +8,7 @@ from rpython.jit.metainterp import history, pyjitpl, jitexc, resoperation
 from rpython.jit.codewriter.assembler import JitCode
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.llinterp import LLException
+from rpython.tool.twothree import get_function
 
 
 class FakeCodeWriter:
@@ -222,16 +223,16 @@ class TestBlackhole(LLJitMixin):
         assert builder.num_interpreters == 2
 
 def test_bad_shift():
-    pytest.raises(ValueError, BlackholeInterpreter.bhimpl_int_lshift.im_func, 7, 100)
-    pytest.raises(ValueError, BlackholeInterpreter.bhimpl_int_rshift.im_func, 7, 100)
-    pytest.raises(ValueError, BlackholeInterpreter.bhimpl_uint_rshift.im_func, 7, 100)
-    pytest.raises(ValueError, BlackholeInterpreter.bhimpl_int_lshift.im_func, 7, -1)
-    pytest.raises(ValueError, BlackholeInterpreter.bhimpl_int_rshift.im_func, 7, -1)
-    pytest.raises(ValueError, BlackholeInterpreter.bhimpl_uint_rshift.im_func, 7, -1)
+    pytest.raises(ValueError, get_function(BlackholeInterpreter.bhimpl_int_lshift), 7, 100)
+    pytest.raises(ValueError, get_function(BlackholeInterpreter.bhimpl_int_rshift), 7, 100)
+    pytest.raises(ValueError, get_function(BlackholeInterpreter.bhimpl_uint_rshift), 7, 100)
+    pytest.raises(ValueError, get_function(BlackholeInterpreter.bhimpl_int_lshift), 7, -1)
+    pytest.raises(ValueError, get_function(BlackholeInterpreter.bhimpl_int_rshift), 7, -1)
+    pytest.raises(ValueError, get_function(BlackholeInterpreter.bhimpl_uint_rshift), 7, -1)
 
-    assert BlackholeInterpreter.bhimpl_int_lshift.im_func(100, 3) == 100<<3
-    assert BlackholeInterpreter.bhimpl_int_rshift.im_func(100, 3) == 100>>3
-    assert BlackholeInterpreter.bhimpl_uint_rshift.im_func(100, 3) == 100>>3
+    assert get_function(BlackholeInterpreter.bhimpl_int_lshift)(100, 3) == 100<<3
+    assert get_function(BlackholeInterpreter.bhimpl_int_rshift)(100, 3) == 100>>3
+    assert get_function(BlackholeInterpreter.bhimpl_uint_rshift)(100, 3) == 100>>3
 
 def test_debug_fatalerror():
     from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
@@ -240,6 +241,6 @@ def test_debug_fatalerror():
     msg.chars[0] = "!"
     msg = lltype.cast_opaque_ptr(llmemory.GCREF, msg)
     e = pytest.raises(LLFatalError,
-                       BlackholeInterpreter.bhimpl_debug_fatalerror.im_func,
+                       get_function(BlackholeInterpreter.bhimpl_debug_fatalerror),
                        msg)
     assert str(e.value) == '!'

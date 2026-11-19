@@ -916,7 +916,7 @@ def _ll_dict_del(d, hash, index):
 
     # If the dictionary is at least 87.5% dead items, then consider shrinking
     # it.
-    if d.num_live_items + DICT_INITSIZE <= len(d.entries) / 8:
+    if d.num_live_items + DICT_INITSIZE <= len(d.entries) // 8:
         ll_dict_resize(d)
 
 def ll_dict_resize(d):

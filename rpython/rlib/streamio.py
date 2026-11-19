@@ -41,6 +41,7 @@ from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
+from rpython.tool.twothree import unicode
 O_BINARY = getattr(os, "O_BINARY", 0)
 
 #          (basemode, plus)

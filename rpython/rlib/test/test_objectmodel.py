@@ -14,6 +14,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret, LLException, gengraph
 from rpython.conftest import option
+from rpython.tool.twothree import get_function
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant
@@ -115,8 +116,8 @@ def test_annotate_r_dict_bm():
     a = t.buildannotator()
     a.build_types(func_r_dict_bm, [])
     #t.view()
-    strange_key_eq = Strange.key_eq.im_func
-    strange_key_hash = Strange.key_hash.im_func
+    strange_key_eq = get_function(Strange.key_eq)
+    strange_key_hash = get_function(Strange.key_hash)
 
     Strange_def = a.bookkeeper.getuniqueclassdef(Strange)
 
@@ -743,28 +744,28 @@ def test_import_from_mixin():
             pass
     class A:    # old-style
         import_from_mixin(M)
-    assert A.f.im_func is not M.f.im_func
+    assert get_function(A.f) is not get_function(M.f)
 
     class M(object):
         def f(self):
             pass
     class A:    # old-style
         import_from_mixin(M)
-    assert A.f.im_func is not M.f.im_func
+    assert get_function(A.f) is not get_function(M.f)
 
     class M:    # old-style
         def f(self):
             pass
     class A(object):
         import_from_mixin(M)
-    assert A.f.im_func is not M.f.im_func
+    assert get_function(A.f) is not get_function(M.f)
 
     class M(object):
         def f(self):
             pass
     class A(object):
         import_from_mixin(M)
-    assert A.f.im_func is not M.f.im_func
+    assert get_function(A.f) is not get_function(M.f)
 
     class MBase(object):
         a = 42
@@ -784,9 +785,9 @@ def test_import_from_mixin():
         import_from_mixin(M)
         c = 88
 
-    assert A.f.im_func is not M.f.im_func
-    assert A.f.im_func is not MBase.f.im_func
-    assert A.g.im_func is not MBase.g.im_func
+    assert get_function(A.f) is not get_function(M.f)
+    assert get_function(A.f) is not get_function(MBase.f)
+    assert get_function(A.g) is not get_function(MBase.g)
     assert A().f() == "there"
     assert A.a == 84
     assert A.b == 43

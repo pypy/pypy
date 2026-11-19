@@ -24,6 +24,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.tool.twothree import get_function
 
 
 class TempInt(TempVar):
@@ -1407,13 +1408,13 @@ for key, value in rop.__dict__.items():
         continue
     method_name = 'prepare_op_%s' % key
     if hasattr(Regalloc, method_name):
-        func = getattr(Regalloc, method_name).im_func
+        func = get_function(getattr(Regalloc, method_name))
         regalloc_operations[value] = func
     method_name = 'prepare_guard_op_%s' % key
     if hasattr(Regalloc, method_name):
-        func = getattr(Regalloc, method_name).im_func
+        func = get_function(getattr(Regalloc, method_name))
         regalloc_guard_operations[value] = func
     method_name = 'prepare_comp_op_%s' % key
     if hasattr(Regalloc, method_name):
-        func = getattr(Regalloc, method_name).im_func
+        func = get_function(getattr(Regalloc, method_name))
         regalloc_comp_operations[value] = func

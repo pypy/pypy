@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os, py
+from rpython.tool.twothree import unicode
 if os.name != 'nt':
     py.test.skip('tests for win32 only', allow_module_level=True)
 
@@ -88,7 +89,7 @@ def test_wenviron():
     assert rwin32._wgetenv(name) == value
     env = dict(rwin32._wenviron_items())
     assert env[name] == value
-    for key, value in env.iteritems():
+    for key, value in env.items():
         assert type(key) is str
         assert type(value) is str
 
