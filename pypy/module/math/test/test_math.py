@@ -437,6 +437,10 @@ class AppTestMath:
         import math
         assert math.tau == math.pi * 2.0
 
+    def test_degrees_multiplies(self):
+        import math
+        assert math.degrees(326885) == 18729130.886133917
+
     def test_remainder(self):
         import math
         assert math.remainder(3, math.pi) == 3 - math.pi

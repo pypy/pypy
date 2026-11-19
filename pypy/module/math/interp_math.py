@@ -423,11 +423,12 @@ def frexp(space, w_x):
     return space.newtuple2(space.newfloat(mant), space.newint(expo))
 
 degToRad = math.pi / 180.0
+radToDeg = 180.0 / math.pi
 
 def degrees(space, w_x):
     """degrees(x) -> converts angle x from radians to degrees
     """
-    return space.newfloat(_get_double(space, w_x) / degToRad)
+    return space.newfloat(_get_double(space, w_x) * radToDeg)
 
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
