@@ -189,14 +189,21 @@ def _build_dependency(name, patches=[], env=None):
                 return status, stdout, stderr
     if env is None:
         env = os.environ
+    env = env.copy()
     if sys.platform == 'darwin':
+        # The support library must target the same macOS version and
+        # architecture as the interpreter.  configure and make know nothing of
+        # sysconfig or ARCHFLAGS, so the arch goes in CC, which also links.
         target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
         if target:
-            # override the value for building support libraries
-            env = env.copy()
             env['MACOSX_DEPLOYMENT_TARGET'] = target
             print('setting MACOSX_DEPLOYMENT_TARGET to "{}"'.format(target))
-        
+        cc = env.get('CC', 'cc')
+        if '-arch' not in cc:
+            cc = '{} -arch {}'.format(cc, platform.machine())
+            env['CC'] = cc
+            print('setting CC to "{}"'.format(cc))
+
     for args in build_cmds:
         print('running', ' '.join(args), 'in', sources, file=sys.stderr)
         status, stdout, stderr = run_subprocess(args[0], args[1:],
@@ -448,6 +455,12 @@ if __name__ == '__main__':
     finally:
         os.chdir(olddir)
     if len(failures) > 0:
+        for key, module in failures:
+            print("""!!!!!!!!!!\nBuilding {0} bindings failed.
+                You can either install development headers package,
+                add the --without-{0} option to skip packaging this
+                binary CFFI extension, or say --without-cffi.""".format(key),
+                file=sys.stderr)
         print('*** failed to build the CFFI modules %r' % (
             [f[1] for f in failures],), file=sys.stderr)
         print('''
