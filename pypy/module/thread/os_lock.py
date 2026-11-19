@@ -229,7 +229,7 @@ class W_RLock(W_Root):
             self.lock = lock
         return lock
 
-    def descr__new__(space, w_subtype):
+    def descr__new__(space, w_subtype, __args__):
         self = space.allocate_instance(W_RLock, w_subtype)
         W_RLock.__init__(self, space)
         return self
