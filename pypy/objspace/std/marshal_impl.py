@@ -251,7 +251,7 @@ def marshal_float(space, w_float, m):
 @unmarshaller(TYPE_FLOAT)
 def unmarshal_float(space, u, tc):
     return space.call_function(space.builtin.get('float'),
-                               space.newtext(u.get_pascal()))
+                               space.newbytes(u.get_pascal()))
 
 @unmarshaller(TYPE_BINARY_FLOAT)
 def unmarshal_float_bin(space, u, tc):
@@ -274,9 +274,9 @@ def marshal_complex(space, w_complex, m):
 @unmarshaller(TYPE_COMPLEX)
 def unmarshal_complex(space, u, tc):
     w_real = space.call_function(space.builtin.get('float'),
-                                 space.newtext(u.get_pascal()))
+                                 space.newbytes(u.get_pascal()))
     w_imag = space.call_function(space.builtin.get('float'),
-                                 space.newtext(u.get_pascal()))
+                                 space.newbytes(u.get_pascal()))
     w_t = space.builtin.get('complex')
     return space.call_function(w_t, w_real, w_imag)
 
