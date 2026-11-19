@@ -18,15 +18,19 @@ typedef struct {
 	Py_ssize_t ob_size; /* Number of items in variable part */
 } PyVarObject;
 
-struct _typeobject;
+typedef struct _typeobject PyTypeObject;
 typedef void (*freefunc)(void *);
 typedef void (*destructor)(PyObject *);
+#ifndef Py_LIMITED_API
 typedef Py_ssize_t printfunc;
+#endif
 typedef PyObject *(*getattrfunc)(PyObject *, char *);
 typedef PyObject *(*getattrofunc)(PyObject *, PyObject *);
 typedef int (*setattrfunc)(PyObject *, char *, PyObject *);
 typedef int (*setattrofunc)(PyObject *, PyObject *, PyObject *);
+#ifndef Py_LIMITED_API
 typedef int (*cmpfunc)(PyObject *, PyObject *);
+#endif
 typedef PyObject *(*reprfunc)(PyObject *);
 typedef Py_hash_t (*hashfunc)(PyObject *);
 typedef PyObject *(*richcmpfunc) (PyObject *, PyObject *, int);
@@ -85,6 +89,8 @@ typedef int (*objobjproc)(PyObject *, PyObject *);
 typedef int (*visitproc)(PyObject *, void *);
 typedef int (*traverseproc)(PyObject *, visitproc, void *);
 
+
+#ifndef Py_LIMITED_API
 
 typedef struct {
     /* Number implementations must check *both*
@@ -153,6 +159,8 @@ typedef struct {
     objobjargproc mp_ass_subscript;
 } PyMappingMethods;
 
+#endif /* !Py_LIMITED_API */
+
 /* Result of calling PyIter_Send
 
 Note: small deviation from CPython definitions here:
@@ -172,6 +180,8 @@ enum {
 
 typedef int PySendResult;
 
+#ifndef Py_LIMITED_API
+
 typedef int (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
 
 typedef struct {
@@ -186,6 +196,8 @@ typedef struct {
      releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
+#endif /* !Py_LIMITED_API */
+
 /* from methodobject.h (the `PyObject **` are `PyObject *const *` in CPython) */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
 typedef PyObject *(*_PyCFunctionFast) (PyObject *, PyObject **, Py_ssize_t);
@@ -195,7 +207,9 @@ typedef PyObject *(*_PyCFunctionFastWithKeywords) (PyObject *,
                                                    PyObject **, Py_ssize_t,
                                                    PyObject *);
 
+#ifndef Py_LIMITED_API
 typedef PyObject *(*PyNoArgsFunction)(PyObject *);
+#endif
 
 struct PyMethodDef {
     const char  *ml_name;   /* The name of the built-in function/method */
@@ -206,6 +220,8 @@ struct PyMethodDef {
 };
 typedef struct PyMethodDef PyMethodDef;
 
+#ifndef Py_LIMITED_API
+
 typedef struct {
     PyObject_HEAD
     PyMethodDef *m_ml; /* Description of the C function to call */
@@ -214,7 +230,11 @@ typedef struct {
     PyObject    *m_weakreflist; /* List of weak references */
 } PyCFunctionObject;
 
-typedef struct _typeobject {
+#endif /* !Py_LIMITED_API */
+
+#ifndef Py_LIMITED_API
+
+struct _typeobject {
     PyObject_VAR_HEAD
     const char *tp_name; /* For printing, in format "<module>.<name>" */
     Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
@@ -298,7 +318,9 @@ typedef struct _typeobject {
 
     /* bitset of which type-watchers care about this type */
     unsigned char tp_watched;
-} PyTypeObject;
+};
+
+#endif /* !Py_LIMITED_API */
 
 typedef struct{
     int slot;    /* slot id, see below */
@@ -312,6 +334,8 @@ typedef struct{
     unsigned int flags;
     PyType_Slot *slots; /* terminated by slot==0. */
 } PyType_Spec;
+
+#ifndef Py_LIMITED_API
 
 typedef struct _heaptypeobject {
     PyTypeObject ht_type;
@@ -332,6 +356,8 @@ typedef struct {
     PyCFunctionObject func;
     PyTypeObject *mm_class; /* Class that defines this method */
 } PyCMethodObject;
+
+#endif /* !Py_LIMITED_API */
 
 /* CPython uses PyObject *const * for the third arg, but we drop the const */
 typedef PyObject *(*PyCMethod)(PyObject *, PyTypeObject *, PyObject **,

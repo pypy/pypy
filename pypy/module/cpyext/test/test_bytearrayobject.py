@@ -170,6 +170,46 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         raises(TypeError, module.concat_raw, b'abc', u'def')
         raises(TypeError, module.concat_raw, memoryview(b'axbycz')[::2], b'def')
 
+    def test_ob_size(self):
+        module = self.import_extension('foo', [
+            ("obsize", "METH_O",
+             """
+                if (!PyByteArray_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "need a bytearray");
+                    return NULL;
+                }
+                return PyLong_FromSsize_t(Py_SIZE(args));
+             """),
+            ("resize_and_obsize", "METH_VARARGS",
+             """
+                PyObject *obj;
+                Py_ssize_t newsize;
+                if (!PyArg_ParseTuple(args, "On", &obj, &newsize))
+                    return NULL;
+                if (PyByteArray_Resize(obj, newsize) != 0)
+                    return NULL;
+                return PyLong_FromSsize_t(Py_SIZE(obj));
+             """),
+            ("basicsize_delta", "METH_NOARGS",
+             """
+                return PyLong_FromSsize_t(PyByteArray_Type.tp_basicsize -
+                                          sizeof(PyByteArrayObject));
+             """),
+            ])
+        # ob_size must be inside the object for Py_SIZE to be legal
+        assert module.basicsize_delta() == 0
+        b = bytearray(b"abcd")
+        assert module.obsize(b) == 4
+        assert module.resize_and_obsize(b, 7) == 7
+        assert module.obsize(b) == 7
+        assert module.resize_and_obsize(b, 2) == 2
+        assert module.obsize(b) == 2
+        assert module.obsize(bytearray()) == 0
+
+        class B(bytearray):
+            pass
+        assert module.obsize(B(b"xyz")) == 3
+
     def test_bytearray_resize(self):
         module = self.import_extension('foo', [
             ("bytearray_resize", "METH_VARARGS",

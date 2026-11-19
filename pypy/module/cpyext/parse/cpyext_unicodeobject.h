@@ -6,8 +6,10 @@
    With PEP 393, Py_UNICODE is deprecated and replaced with a
    typedef to wchar_t. */
 
+#ifndef Py_LIMITED_API
 #define PY_UNICODE_TYPE wchar_t
 typedef wchar_t Py_UNICODE;
+#endif /* !Py_LIMITED_API */
 
 /* Py_UCS4 and Py_UCS2 are typedefs for the respective
    unicode representations. */
@@ -18,6 +20,8 @@ typedef unsigned char Py_UCS1;
 
 
 /* --- Unicode Type ------------------------------------------------------- */
+
+#ifndef Py_LIMITED_API
 
 typedef struct {
         /*
@@ -166,6 +170,8 @@ typedef struct {
 #define SSTATE_INTERNED_MORTAL 1
 #define SSTATE_INTERNED_IMMORTAL 2
 #define SSTATE_INTERNED_IMMORTAL_STATIC 3
+
+#endif /* !Py_LIMITED_API */
 
 /* --- Constants ---------------------------------------------------------- */
 

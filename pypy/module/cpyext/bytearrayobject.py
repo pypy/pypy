@@ -3,11 +3,11 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, build_type_checkers,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING, PY_SSIZE_T_MAX)
+    bootstrap_function, cpython_api, cpython_struct, build_type_checkers,
+    PyVarObject, PyVarObjectFields, Py_ssize_t, CONST_STRING, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, make_typedescr, get_typedescr)
+    PyObject, as_pyobj, make_ref, make_typedescr, get_typedescr)
 # Type PyByteArrayObject represents a mutable array of bytes.
 # The Python API is that of a sequence;
 # the bytes are mapped to ints in [0, 256).
@@ -27,8 +27,25 @@ PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
 PyByteArrayObjectFields = PyVarObjectFields
 cpython_struct("PyByteArrayObject", PyByteArrayObjectFields, PyByteArrayObjectStruct)
 
+@bootstrap_function
+def init_bytearrayobject(space):
+    "Type description of PyByteArrayObject"
+    make_typedescr(space.w_bytearray.layout.typedef,
+                   basestruct=PyByteArrayObject.TO,
+                   attach=bytearray_attach)
+
 PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers(
     "ByteArray", "w_bytearray", export=False)
+
+def bytearray_attach(space, py_obj, w_obj, w_userdata=None):
+    "Fill ob_size, which is what Py_SIZE and CPython's macros read"
+    rffi.cast(PyVarObject, py_obj).c_ob_size = space.len_w(w_obj)
+
+def _update_ob_size(space, w_obj):
+    "The bytearray is mutable, so refresh ob_size whenever C asks about it"
+    if space.isinstance_w(w_obj, space.w_bytearray):
+        py_obj = as_pyobj(space, w_obj)
+        rffi.cast(PyVarObject, py_obj).c_ob_size = space.len_w(w_obj)
 
 #_______________________________________________________________________
 
@@ -74,6 +91,7 @@ def PyByteArray_Size(space, w_obj):
     """Return the size of bytearray after checking for a NULL pointer."""
     if not w_obj:
         return 0
+    _update_ob_size(space, w_obj)
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.CCHARP, error=0, abi3=True)
@@ -81,6 +99,7 @@ def PyByteArray_AsString(space, w_obj):
     """Return the contents of bytearray as a char array after checking for a
     NULL pointer."""
     if space.isinstance_w(w_obj, space.w_bytearray):
+        _update_ob_size(space, w_obj)
         return w_obj.nonmovable_carray(space)
     else:
         raise oefmt(space.w_TypeError,
@@ -99,6 +118,7 @@ def PyByteArray_Resize(space, w_obj, newlen):
         elif oldlen > newlen:
             assert newlen >= 0
             space.delslice(w_obj, space.newint(newlen), space.newint(oldlen))
+        _update_ob_size(space, w_obj)
         return 0
     else:
         raise oefmt(space.w_TypeError,

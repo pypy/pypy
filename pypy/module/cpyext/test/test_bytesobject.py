@@ -63,6 +63,26 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         assert module.test_is_bytes(b"")
         assert not module.test_is_bytes(())
 
+    def test_layout(self):
+        # PyPy's header exposes this struct to any extension, so ob_sval must
+        # follow ob_shash with nothing in between, as in CPython
+        module = self.import_extension('foo', [
+            ("read_sval", "METH_O",
+             """
+                struct cpy_bytes {
+                    PyObject_VAR_HEAD
+                    Py_hash_t ob_shash;
+                    char ob_sval[1];
+                };
+                struct cpy_bytes *s = (struct cpy_bytes *)args;
+                return PyBytes_FromStringAndSize(s->ob_sval, Py_SIZE(args));
+             """),
+            ])
+        assert module.read_sval(b"abcd") == b"abcd"
+        assert module.read_sval(b"") == b""
+        assert module.read_sval(b"a\x00b") == b"a\x00b"
+
+
     def test_bytes_buffer_init(self):
         module = self.import_extension('foo', [
             ("getbytes", "METH_NOARGS",

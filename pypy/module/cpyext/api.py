@@ -1714,10 +1714,17 @@ def generate_decls_and_callbacks(db, prefix=''):
             # build (prefix == 'PyPy'), so abi3 extensions can resolve them
             # directly; untranslated test builds (prefix == 'cpyexttest')
             # still mangle them, to avoid clashing with the host interpreter.
+            # Everything else is hidden under Py_LIMITED_API, like CPython:
+            # a limited-API build must not reach a function that only exists
+            # under a PyPy-mangled name.
+            if not func.abi3:
+                header.append("#ifndef Py_LIMITED_API")
             if not (func.abi3 and prefix == 'PyPy'):
                 _name = mangle_name(prefix, name)
                 header.append("#define %s %s" % (name, _name))
             header.append(func.get_api_decl(name, db))
+            if not func.abi3:
+                header.append("#endif /* !Py_LIMITED_API */")
 
     for name, (typ, expr, abi3) in GLOBALS.iteritems():
         if '#' in name:
@@ -1727,9 +1734,13 @@ def generate_decls_and_callbacks(db, prefix=''):
             typ = 'PyObject*'
             header = pypy_decl
         if name not in SKIP_GLOBAL:
+            if not abi3:
+                decls[header].append('#ifndef Py_LIMITED_API')
             if not (abi3 and prefix == 'PyPy'):
                 decls[header].append('#define %s %s' % (name, mangle_name(prefix, name)))
             decls[header].append('PyAPI_DATA(%s) %s;' % (typ, name))
+            if not abi3:
+                decls[header].append('#endif /* !Py_LIMITED_API */')
 
     for header_name, header_decls in decls.iteritems():
         # Hardcoded :(

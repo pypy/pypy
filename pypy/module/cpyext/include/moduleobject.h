@@ -28,6 +28,10 @@ PyAPI_FUNC(PyObject *) PyModuleDef_Init(struct PyModuleDef*);
 
 /* abi3/limited-API shims */
 PyAPI_FUNC(const char *) PyModule_GetFilename(PyObject *);
+#ifdef Py_LIMITED_API
+#define PyModule_FromDefAndSpec(module, spec) \
+    PyModule_FromDefAndSpec2((module), (spec), PYTHON_API_VERSION)
+#endif
 
 #ifdef __cplusplus
 }

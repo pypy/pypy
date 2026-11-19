@@ -18,7 +18,9 @@ typedef struct {
     double ob_fval;
 } PyFloatObject;
 
+#ifndef Py_LIMITED_API
 #define PyFloat_STR_PRECISION 12
+#endif /* !Py_LIMITED_API */
 
 #define PyFloat_Check(op) PyObject_TypeCheck(op, &PyFloat_Type)
 #define PyFloat_CheckExact(op) Py_IS_TYPE((op), &PyFloat_Type)
@@ -34,6 +36,7 @@ typedef struct {
                 return PyFloat_FromDouble(-Py_HUGE_VAL);        \
         } while(0)
 
+#ifndef Py_LIMITED_API
 PyAPI_FUNC(int) PyFloat_Pack2(double x, char *p, int le);
 PyAPI_FUNC(int) PyFloat_Pack4(double x, char *p, int le);
 PyAPI_FUNC(int) PyFloat_Pack8(double x, char *p, int le);
@@ -41,6 +44,7 @@ PyAPI_FUNC(int) PyFloat_Pack8(double x, char *p, int le);
 PyAPI_FUNC(double) PyFloat_Unpack2(const char *p, int le);
 PyAPI_FUNC(double) PyFloat_Unpack4(const char *p, int le);
 PyAPI_FUNC(double) PyFloat_Unpack8(const char *p, int le);
+#endif /* !Py_LIMITED_API */
 PyAPI_FUNC(void) _PyFloat_InitState(void);
 
 

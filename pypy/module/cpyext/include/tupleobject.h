@@ -24,12 +24,14 @@ PyAPI_FUNC(PyObject *) _Py_tuple_new(PyTypeObject *type, PyObject *args, PyObjec
 PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);
 
 
+#ifndef Py_LIMITED_API
 /* Macro, trading safety for speed */
 #define PyTuple_GET_ITEM(op, i) (((PyTupleObject *)(op))->ob_item[i])
 #define PyTuple_GET_SIZE(op)    Py_SIZE(op)
 
 /* Macro, *only* to be used to fill in brand new tuples */
 #define PyTuple_SET_ITEM(op, i, v) (((PyTupleObject *)(op))->ob_item[i] = v)
+#endif /* !Py_LIMITED_API */
 
 #define PyTuple_Check(op) \
 		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TUPLE_SUBCLASS)

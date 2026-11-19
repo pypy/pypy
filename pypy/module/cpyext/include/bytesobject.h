@@ -8,7 +8,9 @@ extern "C" {
 
 #include <stdarg.h>
 
+#ifndef Py_LIMITED_API
 #define PyBytes_GET_SIZE(op) PyBytes_Size(op)
+#endif /* !Py_LIMITED_API */
 
 /*
 Type PyStringObject represents a character string.  An extra zero byte is
@@ -26,34 +28,19 @@ functions should be applied to nil objects.
 */
 
 /* Caching the hash (ob_shash) saves recalculation of a string's hash value.
-   Interning strings (ob_sstate) tries to ensure that only one string
-   object with a given value exists, so equality tests can be one pointer
-   comparison.  This is generally restricted to strings that "look like"
-   Python identifiers, although the intern() builtin can be used to force
-   interning of any string.
-   Together, these sped cpython up by up to 20%, and since they are part of the
-   "public" interface PyPy must reimpliment them. */
+   Since it is part of the "public" interface PyPy must reimplement it. */
 
 typedef struct {
     PyObject_VAR_HEAD
     Py_hash_t ob_shash;
-    int ob_sstate;
-    char ob_sval[1]; 
+    char ob_sval[1];
 
-    /* Invariants 
+    /* Invariants:
      *     ob_sval contains space for 'ob_size+1' elements.
      *     ob_sval[ob_size] == 0.
      *     ob_shash is the hash of the string or -1 if not computed yet.
-     *     ob_sstate != 0 iff the string object is in stringobject.c's
-     *       'interned' dictionary; in this case the two references
-     *       from 'interned' to this object are *not counted* in ob_refcnt.
      */
 } PyBytesObject;
-
-#define SSTATE_NOT_INTERNED 0
-#define SSTATE_INTERNED_MORTAL 1
-#define SSTATE_INTERNED_IMMORTAL 2
-#define PyString_CHECK_INTERNED(op) (((PyStringObject *)(op))->ob_sstate)
 
 #define PyBytes_Check(op) \
                  PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_BYTES_SUBCLASS)

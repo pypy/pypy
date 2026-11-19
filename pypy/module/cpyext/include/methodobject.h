@@ -66,6 +66,7 @@ extern "C" {
 #define PyCFunction_NewEx(ML, SELF, MOD) PyCMethod_New((ML), (SELF), (MOD), NULL)
 
 
+#ifndef Py_LIMITED_API
 /* Macros for direct access to these values. Type checks are *not*
    done, so use with care. */
 #define PyCFunction_GET_FUNCTION(func) \
@@ -78,10 +79,14 @@ extern "C" {
 #define PyCFunction_GET_CLASS(func) \
     (((PyCFunctionObject *)func) -> m_ml -> ml_flags & METH_METHOD ? \
          ((PyCMethodObject *)func) -> mm_class : NULL)
+#endif /* !Py_LIMITED_API */
 
 
 /* abi3/limited-API shims */
 #define PyCFunction_CheckExact(op) Py_IS_TYPE((op), &PyCFunction_Type)
+#ifdef Py_LIMITED_API
+#define PyCFunction_Check(op) PyObject_TypeCheck((op), &PyCFunction_Type)
+#endif
 PyAPI_FUNC(int) PyCFunction_GetFlags(PyObject *);
 PyAPI_FUNC(PyObject *) PyCFunction_GetSelf(PyObject *);
 

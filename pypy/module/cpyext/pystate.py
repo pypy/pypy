@@ -414,7 +414,7 @@ def PyThreadState_Delete(space, tstate):
     be held.  The thread state must have been reset with a previous call to
     PyThreadState_Clear()."""
 
-@cpython_api([], lltype.Void, abi3=True)
+@cpython_api([], lltype.Void)
 def PyThreadState_DeleteCurrent(space):
     """Destroy a thread state object.  The global interpreter lock need not
     be held.  The thread state must have been reset with a previous call to

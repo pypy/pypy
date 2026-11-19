@@ -36,8 +36,10 @@ struct PyCodeObject {
 // Macros (not static inline wrappers) so the target functions need not be
 // declared when this header is compiled on its own, e.g. during the cpyext
 // platform check before api.py has generated pypy_decl.h.
+#ifndef Py_LIMITED_API
 #define PyCode_New PyUnstable_Code_New
 #define PyCode_NewWithPosOnlyArgs PyUnstable_Code_NewWithPosOnlyArgs
+#endif /* !Py_LIMITED_API */
 
 
 #ifdef __cplusplus

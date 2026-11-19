@@ -139,9 +139,11 @@ extern "C" {
 #define PyDoc_STR(str) ""
 #endif
 
+#ifndef Py_LIMITED_API
 /* PyPy does not implement --with-fpectl */
 #define PyFPE_START_PROTECT(err_string, leave_stmt)
 #define PyFPE_END_PROTECT(v)
+#endif /* !Py_LIMITED_API */
 
 
 #endif /* !Py_PYTHON_H */
