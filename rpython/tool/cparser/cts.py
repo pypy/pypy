@@ -1,5 +1,4 @@
 import sys
-from itertools import izip
 from collections import OrderedDict
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -197,7 +196,7 @@ class CTypeSpace(object):
                 raise ValueError("configure_types() cannot make progress. "
                                  "Maybe the cdef is invalid?")
             result = rffi_platform.configure_entries(configure_now, eci)
-            for entry, TYPE in izip(configure_now, result):
+            for entry, TYPE in zip(configure_now, result):
                 # hack: prevent the source from being pasted into common_header.h
                 del TYPE._hints['eci']
                 self._config_entries[entry].become(TYPE)

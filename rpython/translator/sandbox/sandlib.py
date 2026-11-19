@@ -148,7 +148,7 @@ class SandboxedProc(object):
         """Start a timeout that will kill the subprocess after the given
         amount of time.  Only one timeout can be active at a time.
         """
-        import thread
+        from rpython.tool.twothree import thread
 
         def _waiting_thread():
             while True:
@@ -298,13 +298,13 @@ class SimpleIOSandboxedProc(SandboxedProc):
         """Send data to stdin. Read data from stdout and stderr,
         until end-of-file is reached. Wait for process to terminate.
         """
-        import cStringIO
+        from rpython.tool.twothree import StringIO
         if input:
             if isinstance(input, str):
-                input = cStringIO.StringIO(input)
+                input = StringIO(input)
             self._input = input
-        self._output = cStringIO.StringIO()
-        self._error = cStringIO.StringIO()
+        self._output = StringIO()
+        self._error = StringIO()
         self.handle_forever()
         output = self._output.getvalue()
         self._output = None

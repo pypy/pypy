@@ -3,7 +3,7 @@ try:
 except ImportError:
     idict = None
 
-from collections import MutableMapping
+from rpython.tool.twothree import MutableMapping
 
 
 class IdentityDictPurePython(MutableMapping):

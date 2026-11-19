@@ -119,8 +119,8 @@ class File(FSObject):
     def getsize(self):
         return len(self.data)
     def open(self):
-        import cStringIO
-        return cStringIO.StringIO(self.data)
+        from rpython.tool.twothree import StringIO
+        return StringIO(self.data)
 
 class RealFile(File):
     def __init__(self, path, mode=0):

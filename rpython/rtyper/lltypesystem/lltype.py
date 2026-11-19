@@ -1,5 +1,5 @@
 import weakref
-from thread import _local
+from threading import local as _local
 from types import MethodType, NoneType
 
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
