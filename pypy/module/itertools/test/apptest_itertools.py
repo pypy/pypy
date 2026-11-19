@@ -208,3 +208,12 @@ def test_tee_zero_does_not_call_iter():
         def __iter__(self):
             return None
     assert tee(NoneIter(), 0) == ()
+
+def test_count_index():
+    class Idx:
+        def __index__(self):
+            return 0
+    c = count(Idx())
+    assert type(c) is count
+    c = count(0, Idx())
+    assert type(c) is count
