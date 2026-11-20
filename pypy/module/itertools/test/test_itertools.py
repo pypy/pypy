@@ -29,6 +29,25 @@ class AppTestItertools(object):
         it = itertools.count(12.1, 1.0)
         assert repr(it) == 'count(12.1, 1.0)'
 
+    def test_count_int_subclass_start(self):
+        import itertools
+
+        it = itertools.count(True)
+        assert repr(it) == 'count(1)'
+        assert type(next(it)) is int
+        it = itertools.count(True, 2)
+        assert repr(it) == 'count(True, 2)'
+        assert next(it) is True
+
+        class RaisingAdd(int):
+            def __add__(self, other):
+                raise RuntimeError
+            def __radd__(self, other):
+                raise RuntimeError
+        it = itertools.count(RaisingAdd(0), RaisingAdd(1))
+        assert next(it) == 0
+        assert next(it) == 1
+
     def test_count_invalid(self):
         import itertools
 
