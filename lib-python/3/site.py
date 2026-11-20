@@ -712,6 +712,11 @@ def main():
     sethelper()
     if not sys.flags.isolated:
         enablerlcompleter()
+    if is_pypy:
+        try:
+            import _pypy_abi3_tags
+        except Exception:
+            pass
     execsitecustomize()
     if ENABLE_USER_SITE:
         execusercustomize()
