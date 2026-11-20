@@ -1105,6 +1105,31 @@ class AppTestPartialEvaluation:
         )
         # With the correct exception, "replace" returns an "?" or u"\ufffd" replacement
 
+    def test_errors_out_of_range(self):
+        import codecs
+        e = UnicodeDecodeError('utf-8', b'abc', 0, 1, 'r')
+        e.end = 24
+        assert codecs.backslashreplace_errors(e) == ('\\x61\\x62\\x63', 3)
+        e = UnicodeEncodeError('utf-8', 'abc', 0, 1, 'r')
+        e.start, e.end = -5, 2
+        assert codecs.xmlcharrefreplace_errors(e) == ('&#97;&#98;', 2)
+        e.start, e.end = 0, 5
+        assert codecs.namereplace_errors(e) == (
+            '\\N{LATIN SMALL LETTER A}\\N{LATIN SMALL LETTER B}'
+            '\\N{LATIN SMALL LETTER C}', 3)
+        e.start, e.end = 2, 1
+        assert codecs.ignore_errors(e) == ('', 1)
+        e.start, e.end = 0, 2**62
+        assert codecs.backslashreplace_errors(e) == ('\\x61\\x62\\x63', 3)
+        assert codecs.replace_errors(e) == ('???', 3)
+        e = UnicodeEncodeError('utf-8', '\udcff', 0, 1, 'r')
+        e.end = 10
+        assert codecs.lookup_error('surrogateescape')(e) == (b'\xff', 1)
+        assert codecs.lookup_error('surrogatepass')(e) == (b'\xed\xb3\xbf', 1)
+        e = UnicodeDecodeError('utf-8', b'\xed\xb3\xbf', 0, 1, 'r')
+        e.start = -10
+        assert codecs.lookup_error('surrogatepass')(e) == ('\udcff', 3)
+
     def test_decode_ignore(self):
         assert b'\xff'.decode('utf-7', 'ignore') == ''
 
