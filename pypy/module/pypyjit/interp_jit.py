@@ -12,6 +12,7 @@ from rpython.rlib.jit import current_trace_length, unroll_parameters,\
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.executioncontext import TICK_COUNTER_STEP
 from pypy.interpreter.pycode import CO_GENERATOR, CO_COROUTINE, PyCode
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
@@ -81,6 +82,19 @@ class __extend__(PyFrame):
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
+        if not we_are_jitted():
+            # Called from outside jitted code, e.g. a C extension calling
+            # into Python.  The jit_merge_point below may jump straight into
+            # a compiled trace of this function, and compiled traces only
+            # tick on loop back-edges (jump_absolute).  For a loop-free
+            # function the ticker would never move, so a C loop polling it
+            # would never release the GIL.  Tick once here, before entering
+            # the trace, like CPython's eval-breaker check on function entry.
+            # (Jitted callers skip this: call_assembler enters at the merge
+            # point, and their own loops tick.)
+            actionflag = ec.space.actionflag
+            if actionflag.decrement_ticker(TICK_COUNTER_STEP) < 0:
+                actionflag.action_dispatcher(ec, self)
         is_being_profiled = self.get_is_being_profiled()
         try:
             while True:
