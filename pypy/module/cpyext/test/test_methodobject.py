@@ -243,6 +243,21 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              return Py_NewRef(args);
              '''
              ),
+            ('call_varargs', 'METH_VARARGS',
+             '''
+             PyObject *f = PyTuple_GetItem(args, 0);
+             PyObject *rest = PyTuple_GetSlice(args, 1, PyTuple_Size(args));
+             PyObject *res;
+             if (!(PyCFunction_GET_FLAGS(f) & METH_VARARGS) ||
+                 PyCFunction_GET_FLAGS(f) & METH_KEYWORDS) {
+                 Py_DECREF(rest);
+                 Py_RETURN_NONE;
+             }
+             res = PyCFunction_GET_FUNCTION(f)(PyCFunction_GET_SELF(f), rest);
+             Py_DECREF(rest);
+             return res;
+             '''
+             ),
             ])
         METH_O = 0x0008
         # an extension function: this is the case that already works
@@ -254,6 +269,11 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         # that matters is just that these return at all.
         assert mod.get_flags(getattr) & ~0x0fff == 0
         assert mod.has_function(getattr) is True
+        # and the function pointer is callable the way a METH_VARARGS
+        # PyCFunction is
+        if mod.get_flags(getattr) & 0x0001:
+            assert mod.call_varargs(getattr, 1, 'real') == 1
+            assert mod.call_varargs(len, [1, 2, 3]) == 3
 
     def test_function_as_method(self):
         # Unlike user functions, builtins don't become methods
