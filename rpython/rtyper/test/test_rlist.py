@@ -6,6 +6,7 @@ import py
 from rpython.rtyper.debug import ll_assert
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.llinterp import LLException, LLAssertFailure
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
 from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from rpython.rtyper.rint import signed_repr
@@ -1890,3 +1891,21 @@ class TestRlist(BaseRtypingTest):
         # the sizes grow like this
         # 4, 8, 16, 32, 64, 128, 256, 144
         assert res == 8
+
+
+def test_resize_hint_really_no_overflow(monkeypatch):
+    # the size passed to malloc() must fit in a Signed: overallocating
+    # must not overflow, as signed overflow is undefined behavior in C
+    LIST = lltype.GcStruct('LIST', ('length', lltype.Signed),
+                           ('items', lltype.Ptr(lltype.GcArray(lltype.Signed))))
+    sizes = []
+    def fake_malloc(T, n):
+        sizes.append(n)
+        raise MemoryError
+    monkeypatch.setattr(ll_rlist, 'malloc', fake_malloc)
+    l = lltype.malloc(LIST)
+    l.length = 0
+    for newsize in [sys.maxsize, sys.maxsize - 1, sys.maxsize // 9 * 8]:
+        with py.test.raises(MemoryError):
+            ll_rlist._ll_list_resize_hint_really(l, newsize, True)
+    assert sizes and all(0 <= n <= sys.maxsize for n in sizes)
