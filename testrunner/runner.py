@@ -191,6 +191,7 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
     args = interp + test_driver
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
+             '--continue-on-collection-errors',
              #'--junitxml=%s.junit' % logfname,
              test]
 
@@ -295,10 +296,16 @@ def worker(num, n, run_param, testdirs, result_queue):
         result_queue.put(('done', test, failure, logdata, output))
 
 invoke_in_thread = thread.start_new_thread
+# let the first worker's Popen fill the host's cffi type cache alone:
+# concurrent first use races on pypy <= 8.0 (fixed by babac47d6a)
+WARMUP_DELAY = 10
 
 def start_workers(n, run_param, testdirs):
     result_queue = Queue.Queue()
-    for i in range(n):
+    invoke_in_thread(worker, (0, n, run_param, testdirs, result_queue))
+    if n > 1:
+        time.sleep(WARMUP_DELAY)
+    for i in range(1, n):
         invoke_in_thread(worker, (i, n, run_param, testdirs,
                                   result_queue))
     return result_queue
