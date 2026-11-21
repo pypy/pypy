@@ -1,3 +1,5 @@
+import sys
+
 from rpython.rlib import rgc, jit, types
 from rpython.rtyper.debug import ll_assert
 from rpython.rlib.signature import signature
@@ -221,13 +223,16 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
         else:
             some = 6
         some += newsize >> 3
-        new_allocated = newsize + some
+        if newsize <= sys.maxsize - some:
+            new_allocated = newsize + some
+        else:
+            new_allocated = newsize
     else:
         new_allocated = newsize
     # new_allocated is a bit more than newsize, enough to ensure an amortized
-    # linear complexity for e.g. repeated usage of l.append().  In case
-    # it overflows sys.maxsize, it is guaranteed negative, and the following
-    # malloc() will fail.
+    # linear complexity for e.g. repeated usage of l.append().  It must not
+    # overflow: signed overflow is undefined behavior in C, and C compilers
+    # may assume that it doesn't happen.
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
     before_len = l.length
