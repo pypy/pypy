@@ -2,11 +2,12 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rgc  # Force registration of gc.collect
 from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.rarithmetic import widen
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.buffer import BufferView
 from pypy.module.cpyext.api import (
     cpython_api, Py_buffer, Py_ssize_t, Py_ssize_tP, CONST_STRING, CONST_STRINGP,
-    cts, generic_cpy_call,
+    cts, generic_cpy_call, CANNOT_FAIL,
     PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES, PyBUF_SIMPLE)
 from pypy.module.cpyext.typeobjectdefs import releasebufferproc
 from pypy.module.cpyext.pyobject import PyObject, incref, decref, as_pyobj
@@ -46,7 +47,8 @@ class CPyBuffer(BufferView):
     def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
                  strides=None, ndim=1, itemsize=1, readonly=True,
                  needs_decref=False,
-                 releasebufferproc=rffi.cast(releasebufferproc, 0)):
+                 releasebufferproc=rffi.cast(releasebufferproc, 0),
+                 c_view=lltype.nullptr(Py_buffer)):
         self.space = space
         self.ptr = ptr
         self.size = size
@@ -77,6 +79,9 @@ class CPyBuffer(BufferView):
         self.readonly = readonly
         self.needs_decref = needs_decref
         self.releasebufferproc = releasebufferproc
+        # the view filled by the exporter's bf_getbuffer, raw-malloced and
+        # owned by self, handed back unchanged to its bf_releasebuffer
+        self.c_view = c_view
 
     def needs_release(self):
         # releasebuffer() below decrefs the exporter and calls its
@@ -87,30 +92,18 @@ class CPyBuffer(BufferView):
     def releasebuffer(self):
         if self.pyobj:
             if self.needs_decref:
-                if self.releasebufferproc:
+                if self.releasebufferproc and self.c_view:
                     func_target = rffi.cast(releasebufferproc, self.releasebufferproc)
-                    size = rffi.sizeof(cts.gettype('Py_buffer'))
-                    pybuf = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw', zero=True)
-                    pybuf = cts.cast('Py_buffer*', pybuf)
-                    pybuf.c_buf = self.ptr
-                    pybuf.c_len = self.size
-                    pybuf.c_ndim = cts.cast('int', self.ndim)
-                    pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
-                    pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
-                    pybuf.c_obj = self.pyobj
-                    for i in range(self.ndim):
-                        pybuf.c_shape[i] = self.shape[i]
-                        pybuf.c_strides[i] = self.strides[i]
-                    fmt = rffi.str2charp(self.format if self.format else "B")
                     try:
-                        pybuf.c_format = fmt
-                        generic_cpy_call(self.space, func_target, self.pyobj, pybuf)
+                        generic_cpy_call(self.space, func_target, self.pyobj,
+                                         self.c_view)
                     finally:
-                        lltype.free(fmt, flavor='raw')
-                        lltype.free(pybuf, flavor='raw')
                         decref(self.space, self.pyobj)
                 else:
                     decref(self.space, self.pyobj)
+            if self.c_view:
+                lltype.free(self.c_view, flavor='raw')
+                self.c_view = lltype.nullptr(Py_buffer)
             self.pyobj = lltype.nullptr(PyObject.TO)
             self.w_obj = None
         else:
@@ -205,10 +198,66 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
                 generic_cpy_call(space, pb.c_bf_releasebuffer,
                                  obj, view)
         finally:
+            free_shape_strides(view)
             decref(space, view.c_obj)
     return 0
 
 DEFAULT_FMT = rffi.str2charp("B")
+
+class FormatCache(object):
+    def __init__(self):
+        self.formats = {}
+
+format_cache = FormatCache()
+
+def get_format_charp(fmt):
+    """Return an immortal char* for fmt. Like the static format strings of
+    CPython's exporters, it need not be freed when the view is released"""
+    p = format_cache.formats.get(fmt, lltype.nullptr(rffi.CCHARP.TO))
+    if not p:
+        p = rffi.str2charp(fmt, track_allocation=False)
+        format_cache.formats[fmt] = p
+    return p
+
+class InternalStorage(object):
+    def __init__(self):
+        # addresses of the blocks that PyPy stored in view.internal
+        self.blocks = {}
+
+internal_storage = InternalStorage()
+
+def alloc_shape_strides(view, ndim):
+    """Point view.shape and view.strides at a new block of 2*ndim entries
+    and keep it in view.internal: the caller allocated view, with no room
+    for them, and PyBuffer_Release frees the block"""
+    block = lltype.malloc(Py_ssize_tP.TO, 2 * ndim, flavor='raw')
+    internal_storage.blocks[rffi.cast(lltype.Signed, block)] = True
+    view.c_internal = rffi.cast(rffi.VOIDP, block)
+    view.c_shape = block
+    view.c_strides = rffi.ptradd(block, ndim)
+
+def free_shape_strides(view):
+    p = view.c_internal
+    if not p:
+        return
+    key = rffi.cast(lltype.Signed, p)
+    if key in internal_storage.blocks:
+        del internal_storage.blocks[key]
+        view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
+        lltype.free(rffi.cast(Py_ssize_tP, p), flavor='raw')
+
+@cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
+def _PyBuffer_FreeInternal(space, view):
+    """Called by PyBuffer_Release: free the block of a view whose shape and
+    strides PyPy allocated. view.internal of other exporters is left alone"""
+    free_shape_strides(view)
+
+@specialize.arg(1)
+def view_field_ptr(view, name):
+    """Address of the Py_ssize_t field name of view, the storage CPython
+    uses for the shape and strides of simple one-dimensional buffers"""
+    return rffi.cast(Py_ssize_tP, rffi.ptradd(rffi.cast(rffi.CCHARP, view),
+                                              rffi.offsetof(Py_buffer, name)))
 
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
               rffi.INT_real, rffi.INT_real], rffi.INT, error=-1, abi3=True)
@@ -239,12 +288,10 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
         view.c_format = DEFAULT_FMT
     view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
     if (flags & PyBUF_ND) == PyBUF_ND:
-        view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
-        view.c_shape[0] = view.c_len
+        view.c_shape = view_field_ptr(view, 'c_len')
     view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
     if (flags & PyBUF_STRIDES) == PyBUF_STRIDES:
-        view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
-        view.c_strides[0] = view.c_itemsize
+        view.c_strides = view_field_ptr(view, 'c_itemsize')
     view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
     view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
 

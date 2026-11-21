@@ -54,8 +54,8 @@ typedef int(*ssizessizeobjargproc)(PyObject *, Py_ssize_t, Py_ssize_t, PyObject 
 typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
 
 
-/* Py3k buffer interface, adapted for PyPy */
-/* Changing this constant changes the ABI */
+/* Py3k buffer interface. The layout must match CPython's: it is part of
+   the stable ABI, and abi3 extensions allocate Py_buffer themselves */
 #define PyBUF_MAX_NDIM 64
 typedef struct bufferinfo {
     void *buf;
@@ -69,14 +69,7 @@ typedef struct bufferinfo {
     Py_ssize_t *shape;
     Py_ssize_t *strides;
     Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
-    void *internal; /* always NULL for app-level objects */
-    /* PyPy extensions */
-    int flags;
-    Py_ssize_t _strides[PyBUF_MAX_NDIM];
-    Py_ssize_t _shape[PyBUF_MAX_NDIM];
-    /* static store for shape and strides of
-       mono-dimensional buffers. */
-    /* Py_ssize_t smalltable[2]; */
+    void *internal; /* for app-level exporters: shape and strides storage */
 } Py_buffer;
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
