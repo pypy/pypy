@@ -191,6 +191,7 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
     args = interp + test_driver
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
+             '--continue-on-collection-errors',
              #'--junitxml=%s.junit' % logfname,
              test]
 

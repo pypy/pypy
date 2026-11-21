@@ -119,6 +119,7 @@ class TestExecuteTest(object):
                     'driver', 'darg',
                     '-p', 'resultlog',
                     '--resultlog=LOGFILE',
+                    '--continue-on-collection-errors',
                     #'--junitxml=LOGFILE.junit',
 
                     'test_one']
@@ -138,6 +139,7 @@ class TestExecuteTest(object):
                     'driver', 'darg',
                     '-p', 'resultlog',
                     '--resultlog=LOGFILE',
+                    '--continue-on-collection-errors',
                     #'--junitxml=LOGFILE.junit',
                     'test_one']
         assert self.called[0] == expected
@@ -254,7 +256,7 @@ class RunnerTests(object):
         assert '\n' in log
         log_lines = log.splitlines()
 
-        assert ". test_example.py::test_one" in log_lines
+        assert ". test_normal/test_example.py::test_one" in log_lines
         nfailures = 0
         noutcomes = 0
         for line in log_lines:
