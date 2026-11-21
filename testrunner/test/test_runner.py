@@ -191,6 +191,8 @@ class RunnerTests(object):
 
     def setup_class(cls):
         cls.real_invoke_in_thread = (runner.invoke_in_thread,)
+        cls.real_warmup_delay = runner.WARMUP_DELAY
+        runner.WARMUP_DELAY = 0
         if not cls.with_thread:
             runner.invoke_in_thread = lambda func, args: func(*args)
 
@@ -226,6 +228,7 @@ class RunnerTests(object):
 
     def teardown_class(cls):
         runner.invoke_in_thread = cls.real_invoke_in_thread[0]
+        runner.WARMUP_DELAY = cls.real_warmup_delay
 
     def test_one_dir(self):
         test_driver = [pytest_script]
