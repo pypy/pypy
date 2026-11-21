@@ -339,6 +339,19 @@ class UsingFrameworkTest(object):
     def test_framework_malloc_failure(self):
         py.test.raises(MemoryError, self.run, 'framework_malloc_failure')
 
+    def define_framework_resizelist_hint_failure(cls):
+        from rpython.rlib.objectmodel import resizelist_hint
+        def f():
+            a = [1]
+            resizelist_hint(a, sys.maxsize)
+            a.append(2)
+            return len(a) + a[0]
+        return f
+
+    def test_framework_resizelist_hint_failure(self):
+        with py.test.raises(MemoryError):
+            self.run('framework_resizelist_hint_failure')
+
     def define_framework_array_of_void(cls):
         def f():
             a = [None] * 43

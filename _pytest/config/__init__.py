@@ -814,6 +814,8 @@ class Config(object):
         self._checkversion()
         self._consider_importhook(args)
         self.pluginmanager.consider_preparse(args)
+        # hypothesis' plugin needs pytest >= 4.3
+        self.pluginmanager.set_blocked("hypothesispytest")
         if not os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD"):
             # Don't autoload from setuptools entry point. Only explicitly specified
             # plugins are going to be loaded.

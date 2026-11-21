@@ -577,26 +577,41 @@ static INLINE void mutex1_unlock(mutex1_t *mutex) {
     ASSERT_STATUS(PyMUTEX_UNLOCK(mutex));
 }
 
-typedef NRMUTEX mutex2_t; 
+/* Condition variables cannot wait less than 1ms, so the GIL mutex uses an
+   auto-reset event plus a high-resolution timer to poll at the same 0.1ms
+   rate as pthread_cond_timedwait.  Only the stealer waits on it. */
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+
+typedef struct {
+    SRWLOCK cs;
+    HANDLE event;
+    HANDLE timer;     /* NULL before Windows 10 1803 */
+    int locked;
+} mutex2_t;
 
 static INLINE void mutex2_init_locked(mutex2_t *mutex) {
     mutex->locked = 1;
-    ASSERT_STATUS(PyCOND_INIT(&mutex->cv));
     ASSERT_STATUS(PyMUTEX_INIT(&mutex->cs));
+    mutex->event = CreateEventW(NULL, FALSE, FALSE, NULL);
+    if (mutex->event == NULL)
+        gil_fatal("CreateEventW", 0);
+    mutex->timer = CreateWaitableTimerExW(NULL, NULL,
+                                          CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+                                          TIMER_ALL_ACCESS);
 }
 
 static INLINE void mutex2_unlock(mutex2_t *mutex) {
     ASSERT_STATUS(PyMUTEX_LOCK(&mutex->cs));
     mutex->locked = 0;
     ASSERT_STATUS(PyMUTEX_UNLOCK(&mutex->cs));
-    PyCOND_SIGNAL(&mutex->cv);
+    if (!SetEvent(mutex->event))
+        gil_fatal("SetEvent", 0);
 }
 static INLINE void mutex2_signal(mutex2_t *mutex) {
-    /* Signal without changing locked state.  Used to wake a stealer that
-       is sleeping in SleepConditionVariableSRW so it can re-check rpy_fastgil.
-       Safe to call without holding mutex->cs; a missed wakeup is benign
-       because the stealer's SleepConditionVariableSRW has a fallback timeout. */
-    PyCOND_SIGNAL(&mutex->cv);
+    /* wake the stealer without changing 'locked'; a stray wakeup is benign */
+    SetEvent(mutex->event);
 }
 
 static INLINE void mutex2_loop_start(mutex2_t *mutex) {
@@ -608,16 +623,32 @@ static INLINE void mutex2_loop_stop(mutex2_t *mutex) {
 
 static INLINE int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 {
+    /* called with mutex->cs held; delay in seconds */
     if (mutex->locked) {
-        /* delay in seconds */
-        DWORD ms = (DWORD)(delay * 1000.0 + 0.999);
-        int error_from_timedwait = SleepConditionVariableSRW(&mutex->cv, &mutex->cs, ms, 0);
-        if (error_from_timedwait == 0) {
-            DWORD err = GetLastError();
-            if (err != ERROR_TIMEOUT) {
-                ASSERT_STATUS(error_from_timedwait);
-            }
+        DWORD res;
+        PyMUTEX_UNLOCK(&mutex->cs);
+        if (mutex->timer != NULL) {
+            LARGE_INTEGER due;
+            HANDLE handles[2];
+            due.QuadPart = -(LONGLONG)(delay * 1e7);   /* relative, 100ns */
+            if (due.QuadPart == 0)
+                due.QuadPart = -1;
+            if (!SetWaitableTimerEx(mutex->timer, &due, 0, NULL, NULL,
+                                    NULL, 0))
+                gil_fatal("SetWaitableTimerEx", 0);
+            handles[0] = mutex->event;
+            handles[1] = mutex->timer;
+            res = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+            if (res != WAIT_OBJECT_0 && res != WAIT_OBJECT_0 + 1)
+                gil_fatal("WaitForMultipleObjects", res);
         }
+        else {
+            DWORD ms = (DWORD)(delay * 1000.0 + 0.999);
+            res = WaitForSingleObject(mutex->event, ms);
+            if (res != WAIT_OBJECT_0 && res != WAIT_TIMEOUT)
+                gil_fatal("WaitForSingleObject", res);
+        }
+        PyMUTEX_LOCK(&mutex->cs);
     }
     int result = !mutex->locked;
     mutex->locked = 1;
