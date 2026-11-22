@@ -201,7 +201,15 @@ class AppTestThread(AppTestCpythonExtensionBase):
             ev.set()
         t = threading.Thread(target=setter)
         t.start()
-        n = module.poll_until_set(ev, 5)
+        # Untranslated, the loop runs fewer bytecodes in 5s than the
+        # default check interval, so it would never yield the GIL at all.
+        import sys
+        old_interval = sys.getswitchinterval()
+        sys.setswitchinterval(1e-5)
+        try:
+            n = module.poll_until_set(ev, 5)
+        finally:
+            sys.setswitchinterval(old_interval)
         t.join(10)
         assert n > 0, (
             "C poll loop never saw the event: ran %d iterations over 5s "
