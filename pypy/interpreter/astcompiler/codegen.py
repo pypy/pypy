@@ -347,10 +347,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if preserve_tos:
                 self.push_frame_block(F_POP_VALUE, None)
             # emit the finally block, restoring the line number when done
-            finallyblock = fblock.datum
-            assert isinstance(finallyblock, ast.Try)
-            assert finallyblock.finalbody
-            self._visit_body(finallyblock.finalbody)
+            tr = fblock.datum
+            if isinstance(tr, ast.Try):
+                finalbody = tr.finalbody
+            else:
+                assert isinstance(tr, ast.TryStar)
+                finalbody = tr.finalbody
+            assert finalbody
+            self._visit_body(finalbody)
             if preserve_tos:
                 self.pop_frame_block(F_POP_VALUE, None)
             self.no_position_info() # make the unwind be artificial
