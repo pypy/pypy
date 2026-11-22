@@ -950,6 +950,7 @@ class BufferedReaderMixin(object):
                 if have > 0:
                     self.output_slice(space, rwbuffer,
                         0, self.buffer[self.pos:self.read_end])
+                    self.pos += have
                     written = have
 
                 while written < length:

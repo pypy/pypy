@@ -1075,6 +1075,21 @@ class AppTestBufferedRandom:
                 assert f.readline(None) == b"another line"
                 raises(TypeError, f.readline, 5.3)
 
+    def test_readinto_past_buffer(self):
+        import _io as io
+        data = bytes(range(256)) * 4
+        for meth in 'readinto', 'readinto1':
+            with io.BytesIO(data) as raw:
+                with io.BufferedRandom(raw, buffer_size=100) as f:
+                    assert f.read(4) == data[:4]
+                    b = bytearray(500)
+                    assert getattr(f, meth)(b) == 500
+                    assert b == data[4:504]
+                    assert f.tell() == 504
+                    f.write(b'xx')
+                    f.flush()
+                    assert raw.getvalue()[504:506] == b'xx'
+
 
 class AppTestMaxBuffer:
 
