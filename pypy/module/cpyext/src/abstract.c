@@ -79,9 +79,7 @@ int PyObject_AsReadBuffer(PyObject *obj,
 
     *buffer = view.buf;
     *buffer_len = view.len;
-    if (pb->bf_releasebuffer != NULL)
-        (*pb->bf_releasebuffer)(obj, &view);
-    Py_XDECREF(view.obj);
+    PyBuffer_Release(&view);
     return 0;
 }
 
@@ -107,9 +105,7 @@ int PyObject_AsWriteBuffer(PyObject *obj,
 
     *buffer = view.buf;
     *buffer_len = view.len;
-    if (pb->bf_releasebuffer != NULL)
-        (*pb->bf_releasebuffer)(obj, &view);
-    Py_XDECREF(view.obj);
+    PyBuffer_Release(&view);
     return 0;
 }
 
@@ -299,6 +295,8 @@ PyBuffer_Release(Py_buffer *view)
     pb = Py_TYPE(obj)->tp_as_buffer;
     if (pb && pb->bf_releasebuffer)
         pb->bf_releasebuffer(obj, view);
+    if (view->internal != NULL)
+        _PyBuffer_FreeInternal(view);
     view->obj = NULL;
     Py_DECREF(obj);
 }

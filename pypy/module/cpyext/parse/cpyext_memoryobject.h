@@ -3,11 +3,12 @@
    use the functions instead! */
 
 
-/* this is wrong, PyMemoryViewObject should use PyObject_VAR_HEAD, and use
-   ob_data[1] to hold the shapes, strides, and offsets for the view. Then
-   we should use specialized allocators (that break the cpyext model) to
-   allocate ob_data = malloc(sizeof(Py_ssize_t) * view.ndims * 3) */
+/* The memoryview is the exporter of view, so it owns the storage that
+   view.shape and view.strides point to, like CPython's ob_array */
 typedef struct {
     PyObject_HEAD
     Py_buffer view;
+    int flags;
+    Py_ssize_t _shape[PyBUF_MAX_NDIM];
+    Py_ssize_t _strides[PyBUF_MAX_NDIM];
 } PyMemoryViewObject;

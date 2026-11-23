@@ -124,6 +124,9 @@ class OSThreadLocals:
         ec = self.get_ec()
         return ec is not None and ec._signals_enabled
 
+    def is_main_thread(self):
+        return rthread.get_ident() == self._mainthreadident
+
     def enable_signals(self, space):
         ec = self.get_ec()
         assert ec is not None

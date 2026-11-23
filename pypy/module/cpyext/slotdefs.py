@@ -6,7 +6,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     slot_function, generic_cpy_call, PyObject, Py_ssize_t,
-    Py_buffer, Py_bufferP, PyTypeObjectPtr, cts, CANNOT_FAIL)
+    Py_buffer, Py_bufferP, PyTypeObjectPtr, cts, CANNOT_FAIL,
+    CFunctionResultError)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, ternaryfunc, binaryfunc, releasebufferproc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -20,7 +21,9 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
 from pypy.module.cpyext.buffer import CBuffer, CPyBuffer, fq
 from pypy.module.cpyext.methodobject import (W_PyCWrapperObject, tuple_from_args_w,
-                                             w_kwargs_from_args, get_vectorcall_func)
+                                             w_kwargs_from_args, get_vectorcall_func,
+                                             w_fastcall_args_from_args, VectorcallFunc)
+VECTORCALL_ARGS = VectorcallFunc.TO.ARGS[1]
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
@@ -234,26 +237,34 @@ class wrap_call(W_PyCWrapperObject):
         # A type's tp_call and its actual (possibly per-instance) vectorcall
         # function can be two different C functions - e.g. a per-instance
         # vectorcallfunc set after the fact via a raw memory write at
-        # tp_vectorcall_offset, without tp_call ever changing. Only when a
-        # non-NULL vectorcall function is confirmed present do we delegate
-        # to PyVectorcall_Call (which will find that same pointer and use
-        # it) - PyVectorcall_Call itself raises instead of falling back to
-        # tp_call when tp_vectorcall_offset is set but the per-instance
-        # pointer happens to still be NULL, so that check can't be skipped.
+        # tp_vectorcall_offset, without tp_call ever changing. Prefer a
+        # non-NULL vectorcall function and pass it kwnames directly, as
+        # CPython does, rather than a kwargs dict to unpack again.
         py_self = as_pyobj(space, w_self)
         vectorcall_func = get_vectorcall_func(py_self)
+        if vectorcall_func:
+            py_args, len_args, w_kwnames = w_fastcall_args_from_args(
+                space, __args__)
+            try:
+                ret = generic_cpy_call(space, vectorcall_func, py_self,
+                                       rffi.cast(VECTORCALL_ARGS, py_args.c_ob_item),
+                                       rffi.cast(rffi.SIZE_T, len_args),
+                                       w_kwnames)
+            except CFunctionResultError as e:
+                e.set_callable(space, w_self)
+                raise
+            finally:
+                decref(space, py_args)
+            keepalive_until_here(w_self)
+            keepalive_until_here(w_kwnames)
+            return ret
         keepalive_until_here(w_self)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
         try:
-            if vectorcall_func:
-                state = space.fromcache(State)
-                ret = generic_cpy_call(space, state.C.PyVectorcall_Call,
-                                        w_self, py_args, w_kwargs)
-            else:
-                func = self.get_func_to_call()
-                func_target = rffi.cast(ternaryfunc, func)
-                ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
+            func = self.get_func_to_call()
+            func_target = rffi.cast(ternaryfunc, func)
+            ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
         finally:
             decref(space, py_args)
         return ret
@@ -411,39 +422,50 @@ class wrap_getbuffer(W_PyCWrapperObject):
         rbp = rffi.cast(releasebufferproc, 0)
         if py_type.c_tp_as_buffer:
             rbp = py_type.c_tp_as_buffer.c_bf_releasebuffer
-        with lltype.scoped_alloc(Py_buffer) as pybuf:
-            _flags = 0
-            if len(__args__.arguments_w) > 0:
-                _flags = space.int_w(__args__.arguments_w[0])
-            flags = rffi.cast(rffi.INT_real,_flags)
+        # bf_releasebuffer must get the same view back: the exporter may
+        # have stored its shape, strides or own data in it
+        pybuf = lltype.malloc(Py_buffer, flavor='raw', zero=True)
+        _flags = 0
+        if len(__args__.arguments_w) > 0:
+            _flags = space.int_w(__args__.arguments_w[0])
+        flags = rffi.cast(rffi.INT_real,_flags)
+        ok = False
+        try:
             size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
             if widen(size) < 0:
                 space.fromcache(State).check_and_raise_exception(always=True)
-            ptr = pybuf.c_buf
-            size = pybuf.c_len
-            ndim = widen(pybuf.c_ndim)
-            shape = None
-            if pybuf.c_shape:
-                shape = [pybuf.c_shape[i]   for i in range(ndim)]
-            strides = None
-            if pybuf.c_strides:
-                strides = [pybuf.c_strides[i] for i in range(ndim)]
-            if pybuf.c_format:
-                format = rffi.charp2str(pybuf.c_format)
-            else:
-                format = 'B'
-            # the CPython docs mandates that you do an incref whenever you call
-            # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
-            # leak we release the buffer:
-            # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
-            buf = CPyBuffer(space, ptr, size, w_self, format=format,
-                                ndim=ndim, shape=shape, strides=strides,
-                                itemsize=pybuf.c_itemsize,
-                                readonly=widen(pybuf.c_readonly),
-                                needs_decref=True,
-                                releasebufferproc = rbp)
-            fq.register_finalizer(buf)
-            return buf.wrap(space)
+            ok = True
+        finally:
+            if not ok:
+                lltype.free(pybuf, flavor='raw')
+        ptr = pybuf.c_buf
+        size = pybuf.c_len
+        ndim = widen(pybuf.c_ndim)
+        shape = None
+        if pybuf.c_shape:
+            shape = [pybuf.c_shape[i]   for i in range(ndim)]
+        strides = None
+        if pybuf.c_strides:
+            strides = [pybuf.c_strides[i] for i in range(ndim)]
+        if pybuf.c_format:
+            format = rffi.charp2str(pybuf.c_format)
+        else:
+            format = 'B'
+        # the CPython docs mandates that you do an incref whenever you call
+        # bf_getbuffer; so, we pass needs_decref=True to ensure that we don't
+        # leak we release the buffer:
+        # https://docs.python.org/3.5/c-api/typeobj.html#c.PyBufferProcs.bf_getbuffer
+        buf = CPyBuffer(space, ptr, size, w_self, format=format,
+                            ndim=ndim, shape=shape, strides=strides,
+                            itemsize=pybuf.c_itemsize,
+                            readonly=widen(pybuf.c_readonly),
+                            needs_decref=True,
+                            releasebufferproc = rbp,
+                            c_view=pybuf if rbp else lltype.nullptr(Py_buffer))
+        if not rbp:
+            lltype.free(pybuf, flavor='raw')
+        fq.register_finalizer(buf)
+        return buf.wrap(space)
 
 
 class wrap_releasebuffer(W_PyCWrapperObject):

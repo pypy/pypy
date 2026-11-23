@@ -90,10 +90,9 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
         const_s_ptr = rffi.cast(rffi.CONST_VOIDP, s_ptr)
         rffi.c_memcpy(py_str.c_ob_sval, const_s_ptr, len_s)
     py_str.c_ob_sval[len_s] = '\0'
-    # if py_obj has a tp_hash, this will try to call it, but the objects are
-    # not fully linked yet
-    #py_str.c_ob_shash = space.hash_w(w_obj)
-    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
+    # not computed yet, as in CPython: hashing eagerly costs a pass over the
+    # whole string for every bytes object passed to C
+    py_str.c_ob_shash = -1
 
 def bytes_realize(space, py_obj):
     """
@@ -106,9 +105,7 @@ def bytes_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(W_BytesObject, w_type)
     w_obj.__init__(s)
-    # if py_obj has a tp_hash, this will try to call it but the object is
-    # not realized yet
-    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
+    py_str.c_ob_shash = -1
     track_reference(space, py_obj, w_obj)
     return w_obj
 
@@ -126,16 +123,19 @@ def PyBytes_FromStringAndSize(space, char_p, length):
     if length < 0:
         raise oefmt(space.w_SystemError,
             "Negative size passed to PyBytes_FromStringAndSize")
-    if char_p:
-        s = rffi.charpsize2str(char_p, length)
-        return make_ref(space, space.newbytes(s))
-    elif length == 0:
+    if length == 0:
         return make_ref(space, space.newbytes(""))
     elif length > PY_SSIZE_T_MAX - 64:
         # would overflow the PyBytesObject allocation size
         raise oefmt(space.w_MemoryError, "")
-    else:
-        return rffi.cast(PyObject, new_empty_str(space, length))
+    py_str = new_empty_str(space, length)
+    if char_p:
+        # copy once into ob_sval: going through a W_BytesObject would copy
+        # again in bytes_attach and hash the whole string
+        rffi.c_memcpy(py_str.c_ob_sval, rffi.cast(rffi.CONST_VOIDP, char_p),
+                      length)
+        py_str.c_ob_sval[length] = '\0'
+    return rffi.cast(PyObject, py_str)
 
 @cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyBytes_FromString(space, char_p):

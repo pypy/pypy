@@ -12,7 +12,8 @@ from pypy.interpreter.error import oefmt
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
-from pypy.module.cpyext.buffer import CPyBuffer, fq
+from pypy.module.cpyext.buffer import (
+    CPyBuffer, fq, get_format_charp, alloc_shape_strides, view_field_ptr)
 
 cts.parse_header(parse_dir / 'cpyext_memoryobject.h')
 PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
@@ -20,9 +21,9 @@ PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers(
     "MemoryView", export=False)
 
-FORMAT_ALLOCATED = 0x04
-# set when view.c_obj holds an owned reference that memory_dealloc must give
-# back. Normally it is borrowed: the buffer view keeps the exporter alive
+# set in PyMemoryViewObject.flags when view.c_obj holds an owned reference
+# that memory_dealloc must give back. Normally it is borrowed: the buffer
+# view keeps the exporter alive
 OBJ_OWNED = 0x08
 
 @bootstrap_function
@@ -48,14 +49,14 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
         raise oefmt(space.w_RuntimeError,
                     "cannot create PyMemoryViewObject with ndim (%d) > %d",
                     ndim, PyBUF_MAX_NDIM)
-    fill_Py_buffer(space, w_obj.view, view)
+    py_obj.c_flags = rffi.cast(rffi.INT_real, 0)
+    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
+    _fill_Py_buffer(space, w_obj.view, view,
+                    rffi.cast(Py_ssize_tP, py_obj.c__shape),
+                    rffi.cast(Py_ssize_tP, py_obj.c__strides))
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
         # issue 5546: this is the object exporting the buffer, like CPython.
-        # It must not be w_obj itself: py_obj is already tracked as the
-        # PyObject of w_obj, so that would be a reference from py_obj to
-        # itself, and its refcount could never drop to zero again.
-        # issue 5546: like CPython, this is the object exporting the buffer.
         # It must not be w_obj itself: py_obj is already tracked as the
         # PyObject of w_obj, so that would be a reference from py_obj to
         # itself, and its refcount could never drop to zero again.
@@ -75,8 +76,7 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
         # w_s is ours only, so unlike above the reference must be owned
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
-        flags = widen(view.c_flags) | OBJ_OWNED
-        view.c_flags = rffi.cast(rffi.INT_real, flags)
+        py_obj.c_flags = rffi.cast(rffi.INT_real, OBJ_OWNED)
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_s),
                                              track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
@@ -114,44 +114,52 @@ def memory_realize(space, obj):
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = mem_obj.c_view
-    flags = widen(view.c_flags)
+    flags = widen(mem_obj.c_flags)
     if view.c_obj and flags & OBJ_OWNED == OBJ_OWNED:
         decref(space, view.c_obj)
     view.c_obj = rffi.cast(PyObject, 0)
-    if flags & FORMAT_ALLOCATED == FORMAT_ALLOCATED:
-        lltype.free(view.c_format, flavor='raw')
     _dealloc(space, py_obj)
 
 def fill_Py_buffer(space, buf, view):
-    # c_buf, c_obj have been filled in
+    """Fill view, allocated by the consumer, for an app-level exporter.
+    c_buf and c_obj have been filled in"""
+    ndim = buf.getndim()
+    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
+    if (ndim == 1 and buf.getitemsize() == 1 and
+            buf.getstrides()[0] == 1):
+        # like PyBuffer_FillInfo, nothing to allocate
+        shape = view_field_ptr(view, 'c_len')
+        strides = view_field_ptr(view, 'c_itemsize')
+    elif ndim > 0:
+        alloc_shape_strides(view, ndim)
+        shape = view.c_shape
+        strides = view.c_strides
+    else:
+        shape = lltype.nullptr(Py_ssize_tP.TO)
+        strides = lltype.nullptr(Py_ssize_tP.TO)
+    _fill_Py_buffer(space, buf, view, shape, strides)
+    return 0
+
+def _fill_Py_buffer(space, buf, view, shape, strides):
+    """shape and strides have room for ndim entries, they may be the
+    view's own c_len and c_itemsize fields when that is all they hold"""
     ndim = buf.getndim()
     view.c_len = buf.getlength()
     view.c_itemsize = buf.getitemsize()
     rffi.setintfield(view, 'c_ndim', ndim)
-    fmt = buf.getformat()
-    n = len(fmt)
-    view.c_format = lltype.malloc(rffi.CCHARP.TO, n + 1, flavor='raw',
-                                  add_memory_pressure=True)
-    flags = widen(view.c_flags)
-    flags |= FORMAT_ALLOCATED
-    view.c_flags = rffi.cast(rffi.INT_real, flags)
-    for i in range(n):
-        view.c_format[i] = fmt[i]
-    view.c_format[n] = '\x00'
+    view.c_format = get_format_charp(buf.getformat())
     if ndim > 0:
-        view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
-        view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
-        shape = buf.getshape()
-        strides = buf.getstrides()
+        view.c_shape = shape
+        view.c_strides = strides
+        buf_shape = buf.getshape()
+        buf_strides = buf.getstrides()
         for i in range(ndim):
-            view.c_shape[i] = shape[i]
-            view.c_strides[i] = strides[i]
+            view.c_shape[i] = buf_shape[i]
+            view.c_strides[i] = buf_strides[i]
     else:
         view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
         view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
     view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
-    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
-    return 0
 
 def _IsFortranContiguous(view):
     ndim = widen(view.c_ndim)
@@ -253,16 +261,17 @@ def PyMemoryView_FromBuffer(space, view):
     mview.c_readonly = view.c_readonly
     mview.c_ndim = view.c_ndim
     mview.c_format = view.c_format
-    # copy into the inline arrays, like CPython: the caller's shape and
+    py_mem.c_flags = rffi.cast(rffi.INT_real, 0)
+    # copy into the memoryview's arrays, like CPython: the caller's shape and
     # strides need not outlive the call
     if view.c_strides:
-        mview.c_strides = rffi.cast(Py_ssize_tP, py_mem.c_view.c__strides)
+        mview.c_strides = rffi.cast(Py_ssize_tP, py_mem.c__strides)
         for i in range(ndim):
             mview.c_strides[i] = view.c_strides[i]
     else:
         mview.c_strides = lltype.nullptr(Py_ssize_tP.TO)
     if view.c_shape:
-        mview.c_shape = rffi.cast(Py_ssize_tP, py_mem.c_view.c__shape)
+        mview.c_shape = rffi.cast(Py_ssize_tP, py_mem.c__shape)
         for i in range(ndim):
             mview.c_shape[i] = view.c_shape[i]
     else:

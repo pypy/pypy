@@ -266,18 +266,57 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
 
     def test_buffer_protocol_capi(self):
         foo = self.import_extension('foo', [
-            ("get_len", "METH_VARARGS",
+            ("get_info", "METH_VARARGS",
              """
-                Py_buffer view;
-                PyObject* obj = PyTuple_GetItem(args, 0);
-                long ret, vlen;
-                memset(&view, 0, sizeof(Py_buffer));
-                ret = PyObject_GetBuffer(obj, &view, PyBUF_FULL_RO);
-                if (ret != 0)
+                /* Py_buffer is in the stable ABI: abi3 extensions allocate
+                   CPython's size, so no getbuffer may write past it */
+                PyObject *obj, *shape, *strides;
+                int flags = PyBUF_FULL_RO, i;
+                struct {
+                    Py_buffer view;
+                    unsigned char guard[2048];
+                } s;
+                Py_buffer copy;
+                if (!PyArg_ParseTuple(args, "O|i", &obj, &flags))
                     return NULL;
-                vlen = view.len / view.itemsize;
-                PyBuffer_Release(&view);
-                return PyLong_FromLong(vlen);
+                if (sizeof(Py_buffer) != 7 * sizeof(void *) +
+                        2 * sizeof(Py_ssize_t) + 2 * sizeof(int)) {
+                    PyErr_SetString(PyExc_AssertionError,
+                                    "Py_buffer layout differs from CPython");
+                    return NULL;
+                }
+                memset(s.guard, 0xAB, sizeof(s.guard));
+                if (PyObject_GetBuffer(obj, &s.view, flags) != 0)
+                    return NULL;
+                for (i = 0; i < (int)sizeof(s.guard); i++) {
+                    if (s.guard[i] != 0xAB) {
+                        PyBuffer_Release(&s.view);
+                        PyErr_Format(PyExc_AssertionError,
+                                     "write past Py_buffer at offset %d", i);
+                        return NULL;
+                    }
+                }
+                /* views may be copied, and the copy released */
+                copy = s.view;
+                shape = Py_NewRef(Py_None);
+                strides = Py_NewRef(Py_None);
+                if (copy.shape) {
+                    Py_SETREF(shape, PyTuple_New(copy.ndim));
+                    for (i = 0; i < copy.ndim; i++)
+                        PyTuple_SET_ITEM(shape, i,
+                                         PyLong_FromSsize_t(copy.shape[i]));
+                }
+                if (copy.strides) {
+                    Py_SETREF(strides, PyTuple_New(copy.ndim));
+                    for (i = 0; i < copy.ndim; i++)
+                        PyTuple_SET_ITEM(strides, i,
+                                         PyLong_FromSsize_t(copy.strides[i]));
+                }
+                obj = Py_BuildValue("nnisNN", copy.len, copy.itemsize,
+                                    copy.ndim, copy.format ? copy.format : "",
+                                    shape, strides);
+                PyBuffer_Release(&copy);
+                return obj;
              """),
             ("test_buffer", "METH_VARARGS",
              """
@@ -359,10 +398,16 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
             ])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
-        ten = foo.get_len(arr)
-        assert ten == 10
-        ten = foo.get_len(b'1234567890')
-        assert ten == 10
+        assert foo.get_info(arr) == (40, 4, 1, 'i', (10,), (4,))
+        assert foo.get_info(b'1234567890') == (10, 1, 1, 'B', (10,), (1,))
+        assert foo.get_info(b'abc', 0) == (3, 1, 1, '', None, None)
+        assert foo.get_info(bytearray(4)) == (4, 1, 1, 'B', (4,), (1,))
+        import array
+        a = array.array('i', [1, 2, 3])
+        assert foo.get_info(a) == (3 * a.itemsize, a.itemsize, 1, 'i',
+                                   (3,), (a.itemsize,))
+        m = memoryview(bytearray(24)).cast('B', (2, 3, 4))
+        assert foo.get_info(m) == (24, 1, 3, 'B', (2, 3, 4), (12, 4, 1))
         ten = foo.test_buffer(arr)
         assert ten == 10
         foo.test_contiguous(arr)

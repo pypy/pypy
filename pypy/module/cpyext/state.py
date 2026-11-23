@@ -122,6 +122,9 @@ class State:
             else:
                 pyobj_dealloc_action = PyObjDeallocAction(space)
                 self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
+                space.actionflag.register_periodic_action(
+                    PyObjDeallocMainThreadAction(space, pyobj_dealloc_action),
+                    use_bytecode_counter=False)
 
     def build_api(self):
         """NOT_RPYTHON
@@ -242,9 +245,44 @@ def _rawrefcount_perform(space):
 
 class PyObjDeallocAction(executioncontext.AsyncAction):
     """An action that invokes _Py_Dealloc() on the dying PyObjects.
+
+    Deallocators run in the main thread when possible: running them in
+    whichever thread happens to trigger the GC can deadlock C code that
+    is not reentrant from its own helper threads (e.g. pyzmq's gc thread).
+    Other threads only run them after MAX_DEFERRED deferrals, so the
+    objects are not kept alive forever if the main thread is blocked.
     """
+    MAX_DEFERRED = 100
+
+    def __init__(self, space):
+        executioncontext.AsyncAction.__init__(self, space)
+        self.pending = False
+        self.deferred = 0
+
     def perform(self, executioncontext, frame):
+        if not self.space.threadlocals.is_main_thread():
+            self.deferred += 1
+            if self.deferred <= self.MAX_DEFERRED:
+                self.pending = True
+                return
+        self.run()
+
+    def run(self):
+        self.pending = False
+        self.deferred = 0
         _rawrefcount_perform(self.space)
+
+class PyObjDeallocMainThreadAction(executioncontext.PeriodicAsyncAction):
+    """Runs the deallocators deferred by other threads, once the main
+    thread reaches the periodic check."""
+    def __init__(self, space, dealloc_action):
+        executioncontext.PeriodicAsyncAction.__init__(self, space)
+        self.dealloc_action = dealloc_action
+
+    def perform(self, executioncontext, frame):
+        if (self.dealloc_action.pending and
+                self.space.threadlocals.is_main_thread()):
+            self.dealloc_action.run()
 
 class BoehmPyObjDeallocAction(executioncontext.PeriodicAsyncAction):
     # This variant is used with Boehm, which doesn't have the explicit

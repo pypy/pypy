@@ -28,6 +28,9 @@ class ThreadLocals:
     def signals_enabled(self):
         return True
 
+    def is_main_thread(self):
+        return True
+
     def enable_signals(self, space):
         pass
 
