@@ -35,11 +35,6 @@ class StringTraits(object):
         assert path is not None
         if isinstance(path, str):
             return path
-        elif isinstance(path, unicode):
-            # This never happens in PyPy's Python interpreter!
-            # Only in raw RPython code that uses unicode strings.
-            # We implement python2 behavior: silently convert to ascii.
-            return path.encode('ascii')
         else:
             return path.as_bytes()
 
@@ -80,11 +75,6 @@ class Utf8Traits(object):
         assert path is not None
         if isinstance(path, str):
             return path
-        elif isinstance(path, unicode):
-            # This never happens in PyPy's Python interpreter!
-            # Only in raw RPython code that uses unicode strings.
-            # We implement python3 behavior: silently convert to utf8.
-            return path.encode('utf8')
         else:
             return path.as_bytes()
 
@@ -102,8 +92,6 @@ class Utf8Traits(object):
         assert path is not None
         if isinstance(path, str):
             res = path
-        elif isinstance(path, unicode):
-            res = path.encode('utf-8')
         else:
             res = path.as_bytes()
         assert res is not None

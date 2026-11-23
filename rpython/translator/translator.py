@@ -25,18 +25,15 @@ def _annotate_blocks_with_source(graph):
     SpaceOp offsets (set during flow graph construction) are used to map
     back to source line numbers.  Block objects are stable at this point.
     """
-    from rpython.tool.error import offset2lineno
-    if not getattr(graph, 'func', None):
-        return
-    func = graph.func
-    pycode = getattr(func, '__code__', None)
-    if pycode is None:
+    func = getattr(graph, 'func', None)
+    linetable = getattr(graph, 'linetable', None)
+    if func is None or linetable is None:
         return
     for block in graph.iterblocks():
         if block.operations and block.operations[0].offset >= 0:
             try:
-                block.source_line = offset2lineno(pycode,
-                                                  block.operations[0].offset)
+                block.source_line = linetable.offset2lineno(
+                    block.operations[0].offset)
                 block.source_func = func
             except Exception:
                 pass

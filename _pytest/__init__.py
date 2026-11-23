@@ -1,6 +1,9 @@
 __all__ = ["__version__"]
 
 import os as _os, sys as _sys
+if _sys.version_info[0] >= 3:
+    # keep the vendored py2 'typing' backport from shadowing the stdlib one
+    import typing
 _v = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'vendored_packages')
 if _os.path.isdir(_v) and _v not in _sys.path:
     _sys.path.insert(0, _v)

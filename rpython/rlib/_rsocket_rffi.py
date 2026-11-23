@@ -1599,12 +1599,6 @@ if WIN32:
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
 
-    def socket_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
-
-    def gai_strerror_unicode(errno):
-        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
-
     def socket_strerror_utf8(errno):
         return rwin32.FormatErrorW(errno)
 
@@ -1621,12 +1615,6 @@ else:
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.constcharp2str(gai_strerror(errno))
-
-    def socket_strerror_unicode(errno):
-        return socket_strerror_str(errno).decode('latin-1')
-
-    def gai_strerror_unicode(errno):
-        return gai_strerror_str(errno).decode('latin-1')
 
     def socket_strerror_utf8(errno):
         msg = socket_strerror_str(errno)

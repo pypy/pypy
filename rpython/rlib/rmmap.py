@@ -16,6 +16,7 @@ from rpython.rlib.rarithmetic import intmask
 
 import sys
 import os
+import errno
 import platform
 import stat
 from rpython.tool.twothree import xrange
@@ -1011,7 +1012,12 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = rffi.cast(HANDLE, rwin32.get_osfhandle(fileno))
+            try:
+                fh = rffi.cast(HANDLE, rwin32.get_osfhandle(fileno))
+            except WindowsError:
+                # like CPython, an fd the CRT does not know about is
+                # reported as EBADF and not as a windows error
+                raise OSError(errno.EBADF, "Bad file descriptor")
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)

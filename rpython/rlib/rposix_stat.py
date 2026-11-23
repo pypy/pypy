@@ -851,6 +851,14 @@ if _WIN32:
             errcode = rwin32.GetLastError_saved()
             rwin32.CloseHandle(hFile)
             if res == 0:
+                if errcode in (traits.ERROR_INVALID_PARAMETER,
+                               traits.ERROR_INVALID_FUNCTION,
+                               traits.ERROR_NOT_SUPPORTED):
+                    # a volume or a physical disk, e.g. \\.\C: or
+                    # \\.\PhysicalDrive0, which are block devices
+                    S_IFBLK = 0x6000
+                    return make_stat_result((S_IFBLK,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
                 raise WindowsError(errcode,
                                    "GetFileInformationByHandle failed")
         # without a handle, fileInfo was filled in from the parent directory
@@ -928,4 +936,4 @@ if _WIN32:
         attr = widen(filedata.c_dwFileAttributes)
         if attr & traits.FILE_ATTRIBUTE_REPARSE_POINT:
             return filedata.c_dwReserved0
-        return 0
+        return rffi.cast(rwin32.DWORD, 0)

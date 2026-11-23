@@ -363,11 +363,11 @@ class CStandaloneBuilder(CBuilder):
             exe_name = targetdir.join(short)
 
         rules = [
-            ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
-            ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
-            ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
-            ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
-            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            ('debug', '', '$(MAKE) CFLAGS="$(CFLAGS) $(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
+            ('debug_exc', '', '$(MAKE) CFLAGS="$(CFLAGS) $(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
+            ('debug_mem', '', '$(MAKE) CFLAGS="$(CFLAGS) $(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
+            ('llsafer', '', '$(MAKE) CFLAGS="$(CFLAGS) -O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="$(CFLAGS) $(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
         ]
 
@@ -479,13 +479,13 @@ class CStandaloneBuilder(CBuilder):
             mk.rule(*rule)
 
         if self.translator.platform.name == 'msvc':
-            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -Od -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(CFLAGS) $(DEBUGFLAGS) -Od -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             wildcards = '..\*.obj ..\*.pdb ..\*.lib ..\*.dll ..\*.manifest ..\*.exp *.pch'
             cmd =  r'del /s %s $(DEFAULT_TARGET) $(TARGET) $(ASMFILES)' % wildcards
             mk.rule('clean', '',  cmd + ' *.gc?? ..\module_cache\*.gc??')
             mk.rule('clean_noprof', '', cmd)
         else:
-            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(CFLAGS) $(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(ASMFILES) $(PRECOMPILEDHEADERS) *.gc?? ../module_cache/*.gc??')
             mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(ASMFILES)')
 
@@ -493,12 +493,14 @@ class CStandaloneBuilder(CBuilder):
             raise AssertionError("asmgcc not supported any more")
         else:
             if self.translator.platform.name == 'msvc':
-                mk.definition('DEBUGFLAGS', '-MD -Zi')
+                mk.definition('DEBUGFLAGS', '-MD -Od -Zi')
             else:
                 if self.config.translation.shared:
-                    mk.definition('DEBUGFLAGS', '-O1 -g -fPIC')
+                    mk.definition('DEBUGFLAGS',
+                                  '-O1 -g -fno-omit-frame-pointer -fPIC')
                 else:
-                    mk.definition('DEBUGFLAGS', '-O1 -g')
+                    mk.definition('DEBUGFLAGS',
+                                  '-O1 -g -fno-omit-frame-pointer')
         if self.translator.platform.name == 'msvc':
             mk.rule('debug_target', '$(DEFAULT_TARGET) $(WTARGET)', 'rem')
         else:

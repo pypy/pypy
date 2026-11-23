@@ -1,7 +1,7 @@
 from rpython.flowspace.model import *
 from rpython.rlib.unroll import SpecTag
 from rpython.flowspace.flowcontext import FlowContext
-from rpython.flowspace.bytecode import HostCode
+from rpython.flowspace.hostdecoder import decode_code
 from rpython.flowspace.pygraph import PyGraph
 from rpython.tool.twothree import get_function
 
@@ -11,7 +11,7 @@ class TestFrameState:
             func = get_function(func)
         except AttributeError:
             pass
-        code = HostCode._from_code(func.__code__)
+        code = decode_code(func.__code__)
         graph = PyGraph(func, code)
         ctx = FlowContext(graph, code)
         # hack the frame

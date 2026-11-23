@@ -60,7 +60,7 @@ def hex_to_signed_int(hx):
 # Testing simple assembler instructions
 class TestAssemble(object):
     def setup_class(cls):
-        if cpu not in ["ppc", "ppc64", "ppc-64"]:
+        if cpu != detect_cpu.MODEL_PPC_64:
             py.test.skip("can't test all of ppcgen on non-PPC!")
         #py.test.xfail("assemble does not return a function any longer, fix tests")
 

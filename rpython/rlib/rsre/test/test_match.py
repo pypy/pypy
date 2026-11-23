@@ -277,6 +277,14 @@ class TestMatch:
         m = match(r, "{{a}}{{b}}")
         assert m.group(1) == "a"
 
+    def test_empty_minuntil(self):
+        r = get_code(r"(?:a?)*?c")
+        assert not match(r, "a")
+        m = match(r, "aac")
+        assert m.match_end == P(3)
+        r = get_code(r"(?:a?){2,}?c")
+        assert not match(r, "a")
+
     def test_fullmatch_1(self):
         r = get_code(r"ab*c")
         assert not fullmatch(r, "abbbcdef")

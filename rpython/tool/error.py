@@ -7,7 +7,6 @@ import sys
 import py
 
 from rpython.flowspace.model import Variable
-from rpython.rlib import jit
 from rpython.tool.twothree import get_function
 
 
@@ -23,12 +22,13 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False,
             return ['<return block>']
     try:
         source = graph.source
+        linetable = graph.linetable
     except AttributeError:
         return ['no source!']
     else:
         graph_lines = source.split("\n")
         if offset is not None:
-            linestart = offset2lineno(graph.func.__code__, offset)
+            linestart = linetable.offset2lineno(offset)
             linerange = (linestart, linestart)
             here = None
         else:
@@ -36,7 +36,8 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False,
                 return []
 
             def toline(operindex):
-                return offset2lineno(graph.func.__code__, block.operations[operindex].offset)
+                return linetable.offset2lineno(
+                    block.operations[operindex].offset)
             if operindex is None:
                 linerange = (toline(0), toline(-1))
                 if not long:
@@ -155,18 +156,3 @@ def debug(drv, use_pdb=True):
     if use_pdb:
         pdb_plus_show = PdbPlusShow(t)
         pdb_plus_show.start(tb)
-
-
-@jit.elidable
-def offset2lineno(c, stopat):
-    # even position in lnotab denote byte increments, odd line increments.
-    # see dis.findlinestarts in the python std. library for more details
-    tab = bytearray(c.co_lnotab)
-    line = c.co_firstlineno
-    addr = 0
-    for i in range(0, len(tab), 2):
-        addr = addr + tab[i]
-        if addr > stopat:
-            break
-        line = line + tab[i+1]
-    return line

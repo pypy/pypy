@@ -119,6 +119,7 @@ class TestExecuteTest(object):
                     'driver', 'darg',
                     '-p', 'resultlog',
                     '--resultlog=LOGFILE',
+                    '--continue-on-collection-errors',
                     #'--junitxml=LOGFILE.junit',
 
                     'test_one']
@@ -138,6 +139,7 @@ class TestExecuteTest(object):
                     'driver', 'darg',
                     '-p', 'resultlog',
                     '--resultlog=LOGFILE',
+                    '--continue-on-collection-errors',
                     #'--junitxml=LOGFILE.junit',
                     'test_one']
         assert self.called[0] == expected
@@ -191,6 +193,8 @@ class RunnerTests(object):
 
     def setup_class(cls):
         cls.real_invoke_in_thread = (runner.invoke_in_thread,)
+        cls.real_warmup_delay = runner.WARMUP_DELAY
+        runner.WARMUP_DELAY = 0
         if not cls.with_thread:
             runner.invoke_in_thread = lambda func, args: func(*args)
 
@@ -226,6 +230,7 @@ class RunnerTests(object):
 
     def teardown_class(cls):
         runner.invoke_in_thread = cls.real_invoke_in_thread[0]
+        runner.WARMUP_DELAY = cls.real_warmup_delay
 
     def test_one_dir(self):
         test_driver = [pytest_script]
@@ -251,7 +256,7 @@ class RunnerTests(object):
         assert '\n' in log
         log_lines = log.splitlines()
 
-        assert ". test_example.py::test_one" in log_lines
+        assert ". test_normal/test_example.py::test_one" in log_lines
         nfailures = 0
         noutcomes = 0
         for line in log_lines:

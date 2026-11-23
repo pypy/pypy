@@ -3,7 +3,6 @@ import inspect, linecache
 from rpython.flowspace.model import *
 from rpython.tool.udir import udir
 from py.process import cmdexec
-from rpython.tool.error import offset2lineno
 
 class DotGen:
 
@@ -94,6 +93,7 @@ class FlowGraphDotGen(DotGen):
         name = name.replace('.', '_') + '_'
         self.blocks = {id(None): '(None)'}
         self.func = None
+        self.linetable = None
         self.prefix = name
         self.enter_subgraph(name)
         tagcolor = TAG_TO_COLORS.get(node.tag, DEFAULT_TAG_COLOR)
@@ -122,6 +122,7 @@ class FlowGraphDotGen(DotGen):
             data += "\\l".join(source.split('\n'))
         if hasattr(funcgraph, 'func'):
             self.func = funcgraph.func
+            self.linetable = getattr(funcgraph, 'linetable', None)
         self.emit_node(name, label=data, shape="box", fillcolor=tagcolor, style="filled")
         if hasattr(funcgraph, 'startblock'):
             self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
@@ -168,13 +169,13 @@ class FlowGraphDotGen(DotGen):
         else:
             data = "%s\\n" % (name,)
         data += "inputargs: %s\\n\\n" % (iargs,)
-        if self.VERBOSE and block.operations and self.func:
+        if self.VERBOSE and block.operations and self.func and self.linetable:
             maxoffs = max([op.offset for op in block.operations])
             if maxoffs >= 0:
                 minoffs = min([op.offset for op in block.operations
                                if op.offset >= 0])
-                minlineno = offset2lineno(self.func.__code__, minoffs)
-                maxlineno = offset2lineno(self.func.__code__, maxoffs)
+                minlineno = self.linetable.offset2lineno(minoffs)
+                maxlineno = self.linetable.offset2lineno(maxoffs)
                 filename = inspect.getsourcefile(self.func)
                 source = "\l".join([linecache.getline(filename, line).rstrip()
                                     for line in range(minlineno, maxlineno+1)])
