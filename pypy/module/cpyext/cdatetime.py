@@ -196,37 +196,37 @@ def _get_datetimeAPI(space):
 
 @specialize.ll()
 def _set_date_fields(space, data, w_obj):
-    year = space.int_w(space.getattr(w_obj, space.newtext('year')))
+    year = space.int_w(space.getattr(w_obj, space.newtext('_year')))
     data[0] = rffi.cast(rffi.UCHAR, year >> 8)
     data[1] = rffi.cast(rffi.UCHAR, year & 0xff)
-    month = space.int_w(space.getattr(w_obj, space.newtext('month')))
+    month = space.int_w(space.getattr(w_obj, space.newtext('_month')))
     data[2] = rffi.cast(rffi.UCHAR, month)
-    day = space.int_w(space.getattr(w_obj, space.newtext('day')))
+    day = space.int_w(space.getattr(w_obj, space.newtext('_day')))
     data[3] = rffi.cast(rffi.UCHAR, day)
 
 @specialize.ll()
 def _set_time_fields(space, data, i, w_obj):
-    hour = space.int_w(space.getattr(w_obj, space.newtext('hour')))
+    hour = space.int_w(space.getattr(w_obj, space.newtext('_hour')))
     data[i] = rffi.cast(rffi.UCHAR, hour)
-    minute = space.int_w(space.getattr(w_obj, space.newtext('minute')))
+    minute = space.int_w(space.getattr(w_obj, space.newtext('_minute')))
     data[i + 1] = rffi.cast(rffi.UCHAR, minute)
-    second = space.int_w(space.getattr(w_obj, space.newtext('second')))
+    second = space.int_w(space.getattr(w_obj, space.newtext('_second')))
     data[i + 2] = rffi.cast(rffi.UCHAR, second)
-    usec = space.int_w(space.getattr(w_obj, space.newtext('microsecond')))
+    usec = space.int_w(space.getattr(w_obj, space.newtext('_microsecond')))
     data[i + 3] = rffi.cast(rffi.UCHAR, usec >> 16)
     data[i + 4] = rffi.cast(rffi.UCHAR, (usec >> 8) & 0xff)
     data[i + 5] = rffi.cast(rffi.UCHAR, usec & 0xff)
 
 @specialize.ll()
 def _set_tzinfo_and_fold(space, py_datetime, w_obj):
-    w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
+    w_tzinfo = space.getattr(w_obj, space.newtext('_tzinfo'))
     if space.is_none(w_tzinfo):
         py_datetime.c_hastzinfo = cts.cast('unsigned char', 0)
         py_datetime.c_tzinfo = lltype.nullptr(PyObject.TO)
     else:
         py_datetime.c_hastzinfo = cts.cast('unsigned char', 1)
         py_datetime.c_tzinfo = make_ref(space, w_tzinfo)
-    fold = space.int_w(space.getattr(w_obj, space.newtext('fold')))
+    fold = space.int_w(space.getattr(w_obj, space.newtext('_fold')))
     py_datetime.c_fold = cts.cast('unsigned char', fold)
 
 def date_attach(space, py_obj, w_obj, w_userdata=None):
