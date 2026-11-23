@@ -14,6 +14,7 @@ os.environ['PYTEST_PLUGINS'] = ''
 popen = subprocess.Popen(
     ["pypy/goal/pypy-c", "pypy/test_all.py",
      "--resultlog=pypyjit_new.log",
+     "--junitxml=pypyjit_new.junit.xml",
      "pypy/module/pypyjit/test_pypy_c",
      ] + sys.argv[1:],
     cwd=rootdir)
