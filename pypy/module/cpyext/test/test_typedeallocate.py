@@ -157,6 +157,77 @@ class AppTestDealloc(AppTestCpythonExtensionBase):
         new_list = module.global_list[:]
         assert len(new_list) == len(old_list) + 1, "%s %s" %(old_list, new_list)
 
+    def test_dealloc_not_in_lock_holding_thread(self):
+        # pyzmq's gc thread holds a C mutex while it runs Python code, and
+        # tp_dealloc of its frames takes the same mutex. Deallocators that
+        # run in whichever thread triggers the GC self-deadlock there. The
+        # lock wait in dealloc_foo times out instead of hanging the test.
+        if not self.runappdirect:
+            skip("untranslated, deallocs only run in debug_collect()")
+        module = self.import_extension('foo', [
+            ("new", "METH_NOARGS",
+             """
+                return PyObject_New(PyObject, &Foo_Type);
+             """),
+            ("hold", "METH_NOARGS",
+             """
+                PyThread_acquire_lock(lock, 1);
+                Py_RETURN_NONE;
+             """),
+            ("release", "METH_NOARGS",
+             """
+                PyThread_release_lock(lock);
+                Py_RETURN_NONE;
+             """),
+            ("counts", "METH_NOARGS",
+             """
+                return Py_BuildValue("ii", deallocs, timeouts);
+             """)], prologue="""
+            #include "pythread.h"
+            static PyThread_type_lock lock;
+            static int deallocs = 0, timeouts = 0;
+            static void dealloc_foo(PyObject *foo) {
+                if (PyThread_acquire_lock_timed(lock, 2000000, 0)
+                        == PY_LOCK_ACQUIRED)
+                    PyThread_release_lock(lock);
+                else
+                    timeouts++;
+                deallocs++;
+                PyObject_Del(foo);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            """, more_init="""
+                lock = PyThread_allocate_lock();
+                Foo_Type.tp_basicsize = sizeof(PyObject);
+                Foo_Type.tp_dealloc = &dealloc_foo;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            """)
+        import threading
+
+        def worker():
+            module.hold()
+            try:
+                for i in range(10):
+                    module.new()
+                    # enough allocation for minor collections to find the
+                    # dead object, without calling gc.collect() here
+                    [[j] for j in range(100000)]
+            finally:
+                module.release()
+
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join()
+        for i in range(10):
+            if module.counts()[0] >= 10:
+                break
+            self.debug_collect()
+        assert module.counts() == (10, 0)
+
     # messes with leak detection, leave at the end of the tests
     def test_tp_new_in_subclass(self):
         import datetime
