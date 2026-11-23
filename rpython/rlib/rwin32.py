@@ -415,7 +415,7 @@ if WIN32:
             res = _GetModuleFileNameW(module, buf, size)
             if not res:
                 return ''
-            return rffi.wcharpsize2utf8(buf, res)
+            return rffi.wcharpsize2utf8(buf, intmask(res))
         finally:
             lltype.free(buf, flavor='raw')
 
