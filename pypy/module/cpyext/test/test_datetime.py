@@ -522,6 +522,23 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                                       PyDateTime_DELTA_GET_SECONDS(args),
                                       PyDateTime_DELTA_GET_MICROSECONDS(args));
              """),
+            ("second_via_attr", "METH_O",
+             """ /* like nanobind's limited-API datetime unpacking */
+                 long v;
+                 PyObject *w = PyObject_GetAttrString(args, "second");
+                 if (w == NULL)
+                     goto fail;
+                 v = PyLong_AsLong(w);
+                 Py_DECREF(w);
+                 if (v == -1 && PyErr_Occurred())
+                     goto fail;
+                 return PyLong_FromLong(v);
+             fail:
+                 PyErr_Clear();
+                 PyErr_SetString(PyExc_TypeError,
+                                 "incompatible function arguments");
+                 return NULL;
+             """),
         ], prologue='#include "datetime.h"\n')
         from datetime import date, datetime, time, timedelta, timezone
 
@@ -558,6 +575,34 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert module.get_time(MyTime(23, 15, 40, 123456)) == (
             23, 15, 40, 123456, 0, None)
         assert module.get_delta(MyDelta(10, 20, 30)) == (10, 20, 30)
+
+        # properties that shadow the fields don't change what the macros
+        # see, and converting the object to C doesn't call them: a bad value
+        # is only an error for C code that does the attribute access itself
+        class FakeTime(time):
+            @property
+            def second(self):
+                return "hi"
+
+        class FakeDateTime(datetime):
+            @property
+            def second(self):
+                return "hi"
+
+            @property
+            def tzinfo(self):
+                return "hi"
+
+        fake_time = FakeTime(23, 15, 40, 123456)
+        fake_datetime = FakeDateTime(2010, 6, 3, 23, 15, 40, 123456)
+        assert module.get_time(fake_time) == (23, 15, 40, 123456, 0, None)
+        assert module.get_datetime(fake_datetime) == (
+            2010, 6, 3, 23, 15, 40, 123456, 0, None)
+        for fake in (fake_time, fake_datetime):
+            with raises(TypeError) as excinfo:
+                module.second_via_attr(fake)
+            assert str(excinfo.value) == "incompatible function arguments"
+        assert module.second_via_attr(MyTime(23, 15, 40)) == 40
 
     def test_tzinfo(self):
         module = self.import_extension('foo', [
