@@ -496,7 +496,7 @@ testmap = [
     RegrTest('test_xpickle.py'),
     RegrTest('test_xrange.py', core=True),
     RegrTest('test_zipfile.py'),
-    RegrTest('test_zipfile64.py'),
+    RegrTest('test_zipfile64.py', skip="requires the extralargefile resource"),
     RegrTest('test_zipimport.py', usemodules='zlib zipimport'),
     RegrTest('test_zipimport_support.py', usemodules='zlib zipimport'),
     RegrTest('test_zlib.py', usemodules='zlib'),

@@ -61,6 +61,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'arm': 'arm',
         'arm_32': 'arm',
         'aarch64': 'aarch64',
+        'powerpc64le': 'powerpc:common64',
         'ppc' : 'powerpc:common64',
         'ppc-64' : 'powerpc:common64',
         'riscv64': 'riscv:rv64',
@@ -68,6 +69,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     }
     machine_endianness = {
         # default value: 'little'
+        'powerpc64le': sys.byteorder,  # i.e. same as the running machine...
         'ppc' : sys.byteorder,     # i.e. same as the running machine...
         'ppc-64' : sys.byteorder,     # i.e. same as the running machine...
         's390x' : sys.byteorder,     # i.e. same as the running machine...

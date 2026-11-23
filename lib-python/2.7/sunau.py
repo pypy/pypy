@@ -152,10 +152,18 @@ def _write_u32(file, x):
 class Au_read:
 
     def __init__(self, f):
+        self._i_opened_the_file = None
         if type(f) == type(''):
             import __builtin__
             f = __builtin__.open(f, 'rb')
-        self.initfp(f)
+            self._i_opened_the_file = f
+        # else, assume it is an open file object already
+        try:
+            self.initfp(f)
+        except:
+            if self._i_opened_the_file:
+                f.close()
+            raise
 
     def __del__(self):
         if self._file:
@@ -286,14 +294,25 @@ class Au_read:
 
     def close(self):
         self._file = None
+        file = self._i_opened_the_file
+        if file:
+            self._i_opened_the_file = None
+            file.close()
 
 class Au_write:
 
     def __init__(self, f):
+        self._i_opened_the_file = None
         if type(f) == type(''):
             import __builtin__
             f = __builtin__.open(f, 'wb')
-        self.initfp(f)
+            self._i_opened_the_file = f
+        try:
+            self.initfp(f)
+        except:
+            if self._i_opened_the_file:
+                f.close()
+            raise
 
     def __del__(self):
         if self._file:
@@ -415,6 +434,10 @@ class Au_write:
                 self._file.flush()
             finally:
                 self._file = None
+                file = self._i_opened_the_file
+                if file:
+                    self._i_opened_the_file = None
+                    file.close()
 
     #
     # private methods

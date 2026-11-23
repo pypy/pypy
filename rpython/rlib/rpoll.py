@@ -28,8 +28,6 @@ class PollError(Exception):
         self.errno = errno
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
-    def get_msg_unicode(self):
-        return _c.socket_strerror_unicode(self.errno)
     def get_msg_utf8(self):
         return _c.socket_strerror_utf8(self.errno)
 
@@ -38,8 +36,6 @@ class SelectError(Exception):
         self.errno = errno
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
-    def get_msg_unicode(self):
-        return _c.socket_strerror_unicode(self.errno)
     def get_msg_utf8(self):
         return _c.socket_strerror_utf8(self.errno)
 

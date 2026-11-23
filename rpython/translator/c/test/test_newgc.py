@@ -339,6 +339,19 @@ class UsingFrameworkTest(object):
     def test_framework_malloc_failure(self):
         py.test.raises(MemoryError, self.run, 'framework_malloc_failure')
 
+    def define_framework_resizelist_hint_failure(cls):
+        from rpython.rlib.objectmodel import resizelist_hint
+        def f():
+            a = [1]
+            resizelist_hint(a, sys.maxsize)
+            a.append(2)
+            return len(a) + a[0]
+        return f
+
+    def test_framework_resizelist_hint_failure(self):
+        with py.test.raises(MemoryError):
+            self.run('framework_resizelist_hint_failure')
+
     def define_framework_array_of_void(cls):
         def f():
             a = [None] * 43
@@ -1851,37 +1864,60 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         class X(object):
             def __del__(self):
                 counter.val += 1
-        def f(should_disable):
+        def f(n):
+            # n <= 0: run with the gc enabled, allocating until x1 is freed,
+            # and return the number of MB it took (-1 if it was never freed).
+            # n > 0: run with the gc disabled, allocating n MB.  Return the
+            # number of objects freed while disabled, plus 10x the number
+            # freed after re-enabling the gc: the latter is a positive
+            # control, x1 must still be there and must still be garbage.
             x1 = X()
             rgc.collect() # make x1 old
             assert not rgc.can_move(x1)
             x1 = None
             #
-            if should_disable:
+            if n > 0:
                 gc.disable()
                 assert not gc.isenabled()
-            # try to trigger a major collection
-            N = 1300 # this should be enough, increase if not
+            # allocate (and keep alive) memory until a major collection
+            # happens.  How much that takes depends on the nursery size, so
+            # don't hardcode it: the enabled run measures it for us.
+            if n > 0:
+                limit = n
+            else:
+                limit = 2000   # just a safety belt against allocating forever
             lst = []
-            for i in range(N):
+            i = 0
+            while i < limit:
+                i += 1
                 lst.append(chr(i%256) * (1024*1024))
-                #print i, counter.val
+                if n <= 0 and counter.val:
+                    break
+            #
+            deleted_while_disabled = counter.val
             #
             gc.enable()
             assert gc.isenabled()
-            return counter.val
+            if n <= 0:
+                if counter.val:
+                    return i
+                return -1
+            # x1 is still garbage, so re-enabling the gc must free it now
+            rgc.collect()
+            return deleted_while_disabled + 10 * counter.val
         return f
 
     def test_enable_disable(self):
-        # first, run with normal gc. If the assert fails it means that in the
-        # loop we don't allocate enough mem to trigger a major collection. Try
-        # to increase N
-        deleted = self.run("enable_disable", 0)
-        assert deleted == 1, 'This should not fail, try to increment N'
+        # first, run with normal gc, to see how much we have to allocate to
+        # trigger a major collection
+        mb = self.run("enable_disable", 0)
+        assert mb > 0, 'x1 was never freed, even with the gc enabled'
         #
-        # now, run with gc.disable: this should NOT free x1
-        deleted = self.run("enable_disable", 1)
-        assert deleted == 0
+        # now allocate twice as much with gc.disable(): this should NOT free
+        # x1, but x1 must still be freed once the gc is enabled again
+        res = self.run("enable_disable", 2 * mb)
+        assert res == 10, 'freed %d while disabled, %d after enabling' % (
+            res % 10, res // 10)
 
     def define_collect_step(self):
         class Counter(object):

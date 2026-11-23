@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import ast
 import errno
-import imp
 import itertools
 import marshal
 import os
@@ -24,9 +23,38 @@ from _pytest.compat import spec_from_file_location
 from _pytest.pathlib import fnmatch_ex
 from _pytest.pathlib import PurePath
 
+try:
+    import importlib.util as _importlib_util
+    _MAGIC_NUMBER = _importlib_util.MAGIC_NUMBER
+    def _source_from_cache(fn):
+        return _importlib_util.source_from_cache(fn)
+except ImportError:
+    import imp as _imp
+    _MAGIC_NUMBER = _imp.get_magic()
+    def _source_from_cache(fn):
+        return fn[:-1]
+
+_PY_SOURCE = 1
+_PY_COMPILED = 2
+_PKG_DIRECTORY = 5
+
+def _find_module(name, path=None):
+    search = path if path is not None else sys.path
+    for d in search:
+        pkg = os.path.join(d, name)
+        if os.path.isdir(pkg) and os.path.isfile(os.path.join(pkg, '__init__.py')):
+            return None, pkg, ('', '', _PKG_DIRECTORY)
+        src = os.path.join(d, name + '.py')
+        if os.path.isfile(src):
+            return None, src, ('.py', 'r', _PY_SOURCE)
+        pyc = os.path.join(d, name + '.pyc')
+        if os.path.isfile(pyc):
+            return None, pyc, ('.pyc', 'rb', _PY_COMPILED)
+    raise ImportError("No module named %r" % name)
+
 # pytest caches rewritten pycs in __pycache__.
-if hasattr(imp, "get_tag"):
-    PYTEST_TAG = imp.get_tag() + "-PYTEST"
+if hasattr(sys, "implementation") and hasattr(sys.implementation, "cache_tag"):
+    PYTEST_TAG = sys.implementation.cache_tag + "-PYTEST"
 else:
     if hasattr(sys, "pypy_version_info"):
         impl = "pypy"
@@ -75,7 +103,7 @@ class AssertionRewritingHook(object):
 
     def _imp_find_module(self, name, path=None):
         """Indirection so we can mock calls to find_module originated from the hook during testing"""
-        return imp.find_module(name, path)
+        return _find_module(name, path)
 
     def find_module(self, name, path=None):
         if self._writing_pyc:
@@ -101,17 +129,14 @@ class AssertionRewritingHook(object):
             if fd is not None:
                 fd.close()
             tp = desc[2]
-            if tp == imp.PY_COMPILED:
-                if hasattr(imp, "source_from_cache"):
-                    try:
-                        fn = imp.source_from_cache(fn)
-                    except ValueError:
-                        # Python 3 doesn't like orphaned but still-importable
-                        # .pyc files.
-                        fn = fn[:-1]
-                else:
+            if tp == _PY_COMPILED:
+                try:
+                    fn = _source_from_cache(fn)
+                except (NotImplementedError, ValueError):
+                    # Python 3 doesn't like orphaned but still-importable
+                    # .pyc files.
                     fn = fn[:-1]
-            elif tp != imp.PY_SOURCE:
+            elif tp != _PY_SOURCE:
                 # Don't know what this is.
                 return None
         else:
@@ -283,7 +308,7 @@ class AssertionRewritingHook(object):
             # I wish I could just call imp.load_compiled here, but __file__ has to
             # be set properly. In Python 3.2+, this all would be handled correctly
             # by load_compiled.
-            mod = sys.modules[name] = imp.new_module(name)
+            mod = sys.modules[name] = types.ModuleType(name)
         try:
             mod.__file__ = co.co_filename
             # Normally, this attribute is 3.2+.
@@ -306,7 +331,7 @@ class AssertionRewritingHook(object):
         if fd is not None:
             fd.close()
         tp = desc[2]
-        return tp == imp.PKG_DIRECTORY
+        return tp == _PKG_DIRECTORY
 
     @classmethod
     def _register_with_pkg_resources(cls):
@@ -341,7 +366,7 @@ def _write_pyc(state, co, source_stat, pyc):
     # the comment in load_module above.)
     try:
         with atomicwrites.atomic_write(pyc, mode="wb", overwrite=True) as fp:
-            fp.write(imp.get_magic())
+            fp.write(_MAGIC_NUMBER)
             mtime = int(source_stat.mtime)
             size = source_stat.size & 0xFFFFFFFF
             fp.write(struct.pack("<ll", mtime, size))
@@ -438,7 +463,7 @@ def _read_pyc(source, pyc, trace=lambda x: None):
         # Check for invalid or out of date pyc file.
         if (
             len(data) != 12
-            or data[:4] != imp.get_magic()
+            or data[:4] != _MAGIC_NUMBER
             or struct.unpack("<ll", data[4:]) != (mtime, size)
         ):
             trace("_read_pyc(%s): invalid or out of date pyc" % source)
@@ -657,10 +682,6 @@ class AssertionRewriter(ast.NodeVisitor):
             return
         # Insert some special imports at the top of the module but after any
         # docstrings and __future__ imports.
-        aliases = [
-            ast.alias(py.builtin.builtins.__name__, "@py_builtins"),
-            ast.alias("_pytest.assertion.rewrite", "@pytest_ar"),
-        ]
         doc = getattr(mod, "docstring", None)
         expect_docstring = doc is None
         if doc is not None and self.is_rewrite_disabled(doc):
@@ -687,6 +708,26 @@ class AssertionRewriter(ast.NodeVisitor):
             pos += 1
         else:
             lineno = item.lineno
+        if sys.version_info >= (3, 10):
+            aliases = [
+                ast.alias(
+                    py.builtin.builtins.__name__,
+                    "@py_builtins",
+                    lineno=lineno,
+                    col_offset=0,
+                ),
+                ast.alias(
+                    "_pytest.assertion.rewrite",
+                    "@pytest_ar",
+                    lineno=lineno,
+                    col_offset=0,
+                ),
+            ]
+        else:
+            aliases = [
+                ast.alias(py.builtin.builtins.__name__, "@py_builtins"),
+                ast.alias("_pytest.assertion.rewrite", "@pytest_ar"),
+            ]
         imports = [
             ast.Import([alias], lineno=lineno, col_offset=0) for alias in aliases
         ]

@@ -75,7 +75,9 @@ else:
     # must only be called with utf-8, codepoints!
     def opendir(path, lgt):
         if lgt == 0:
-            path = '.'
+            # like CPython, scandir('') is an error and not the cwd
+            raise WindowsError(win32traits.ERROR_FILE_NOT_FOUND,
+                               "FindFirstFileW failed")
         if path[-1] not in ('\\', '/', ':'):
             mask = path + '\\*.*'
             lgt += 4
@@ -133,3 +135,18 @@ else:
 
     def get_inode(filedata):
         return None
+
+    def get_stat_result(filedata):
+        """The lstat() of the entry, built from what the directory listing
+        already returned: no file is opened, and the answer stays valid
+        after the entry is removed.  st_ino, st_dev and st_nlink are 0,
+        exactly as in CPython
+        """
+        with lltype.scoped_alloc(win32traits.BY_HANDLE_FILE_INFORMATION,
+                                 zero=True) as info:
+            with lltype.scoped_alloc(win32traits.FILE_ATTRIBUTE_TAG_INFO,
+                                     zero=True) as tagInfo:
+                tagInfo.c_ReparseTag = rposix_stat.win32_find_data_to_file_info(
+                    win32traits, filedata, info)
+                return rposix_stat.win32_by_handle_info_to_stat(
+                    win32traits, info, tagInfo.c_ReparseTag)

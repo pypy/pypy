@@ -48,6 +48,14 @@ class Platform(object):
 
     extra_libs = ()
 
+    # Flags that make the C compiler *reject* a reference to an API which the
+    # headers say was introduced after the deployment target we build for.
+    # Used only when probing for the presence of a function
+    # (rffi_platform.Has), never for the real build.  Empty on platforms where
+    # "it compiles and links" already implies "it is callable at run time";
+    # see darwin.py for a platform where it does not.
+    availability_error_flags = ()
+
     def __init__(self, cc):
         if self.__class__ is Platform:
             raise TypeError("You should not instantiate Platform class directly")

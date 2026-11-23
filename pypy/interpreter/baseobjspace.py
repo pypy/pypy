@@ -1886,15 +1886,6 @@ class ObjSpace(object):
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
-    def unicode0_w(self, w_obj):
-        "Like unicode_w, but rejects strings with NUL bytes."
-        result = w_obj.utf8_w(self).decode('utf8')
-        if u'\x00' in result:
-            raise oefmt(self.w_TypeError,
-                        "argument must be a unicode string without NUL "
-                        "characters")
-        return rstring.assert_str0(result)
-
     def convert_arg_to_w_unicode(self, w_obj, strict=None):
         # XXX why convert_to_w_unicode does something slightly different?
         from pypy.objspace.std.unicodeobject import W_UnicodeObject

@@ -41,8 +41,8 @@ STDLIB_VER = "2.7"
 
 POSIX_EXE = 'pypy'
 
-from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
-        MissingDependenciesError, cffi_build_scripts)
+from lib_pypy.pypy_tools.build_cffi_imports import (MissingDependenciesError,
+        cffi_build_scripts)
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
@@ -63,6 +63,68 @@ def fix_permissions(dirname):
     if ARCH != 'win32':
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
+
+
+# Mach-O and universal-binary magic numbers, in both byte orders
+MACHO_MAGIC = (b'\xfe\xed\xfa\xce', b'\xce\xfa\xed\xfe',   # 32 bit
+               b'\xfe\xed\xfa\xcf', b'\xcf\xfa\xed\xfe',   # 64 bit
+               b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca')   # universal
+
+
+def find_macho_files(dirname):
+    """Yield the path of every Mach-O file under 'dirname'."""
+    for dirpath, dirnames, filenames in os.walk(dirname):
+        for fname in filenames:
+            path = os.path.join(dirpath, fname)
+            if os.path.islink(path):
+                continue
+            try:
+                with open(path, 'rb') as fid:
+                    magic = fid.read(4)
+            except IOError:
+                continue
+            if magic in MACHO_MAGIC:
+                yield path
+
+
+def codesign_macho_files(dirname):
+    """Re-sign the Mach-O files under 'dirname' whose signature is invalid.
+
+    smartstrip() and make_portable()'s install_name_tool calls rewrite the
+    binaries in place, which invalidates the ad-hoc signature that the linker
+    put there.  On arm64 macOS that is fatal and completely silent: AMFI
+    SIGKILLs any process which maps a file whose signature does not verify, so
+    for instance 'import _tkinter' used to die with no output at all and exit
+    code 137.  Signing them ad-hoc again ('-s -') makes them loadable.
+    """
+    def verify(path):
+        return subprocess.call(['codesign', '--verify', '--strict', path],
+                               stdout=devnull, stderr=devnull) == 0
+
+    devnull = open(os.devnull, 'wb')
+    try:
+        invalid = [path for path in find_macho_files(dirname)
+                        if not verify(path)]
+        if not invalid:
+            return
+        print('* Re-signing %d Mach-O file(s) with an invalid signature' %
+              (len(invalid),))
+        failed = []
+        for path in invalid:
+            print('Re-signing %s' % (path,))
+            os.chmod(path, 0o755)
+            if subprocess.call(['codesign', '-f', '-s', '-', path]) != 0:
+                failed.append(path)
+            elif not verify(path):
+                # a signature that does not verify is as bad as none at all
+                failed.append(path)
+        if failed:
+            raise RuntimeError(
+                'Could not produce a valid code signature for %s. Packaging '
+                'them would ship a binary that AMFI kills on import.'
+                % (', '.join(failed),))
+    finally:
+        devnull.close()
 
 
 def get_python_ver(pypy_c, quiet=False):
@@ -108,20 +170,18 @@ def create_package(basedir, options, _fake=False):
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
-    if not options.no_cffi:
-        failures = create_cffi_import_libraries(
-            str(pypy_c), options, str(basedir),
-            embed_dependencies=options.embed_dependencies,
-            rebuild=options.rebuild_extensions,
-        )
-
-        for key, module in failures:
-            print("""!!!!!!!!!!\nBuilding {0} bindings failed.
-                You can either install development headers package,
-                add the --without-{0} option to skip packaging this
-                binary CFFI extension, or say --without-cffi.""".format(key),
-                file=sys.stderr)
-        if len(failures) > 0:
+    only = [key for key, module in cffi_build_scripts
+            if module is not None and not getattr(options, 'no_' + key, False)]
+    if not options.no_cffi and only:
+        argv = [str(basedir.join('lib_pypy', 'pypy_tools',
+                                 'build_cffi_imports.py')),
+                '--only', ','.join(only),
+               ]
+        if options.embed_dependencies:
+            argv.append('--embed-dependencies')
+        if options.rebuild_extensions:
+            argv.append('--rebuild')
+        if subprocess.call([str(pypy_c)] + argv, cwd=str(basedir)) != 0:
             return 1, None
 
     if ARCH == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
@@ -279,7 +339,7 @@ def create_package(basedir, options, _fake=False):
             shutil.copy(str(source), str(archive))
         else:
             open(str(archive), 'wb').close()
-        os.chmod(str(archive), 0755)
+        os.chmod(str(archive), 0o755)
     if not _fake and not ARCH == 'win32':
         # create a link to pypy, python
         old_dir = os.getcwd()
@@ -315,6 +375,11 @@ def create_package(basedir, options, _fake=False):
                     os.mkdir('lib')
                 make_portable()
                 os.chdir(str(builddir))
+
+            # smartstrip() and make_portable() modified the binaries in
+            # place, so any ad-hoc signature they had is now stale
+            if ARCH == 'darwin':
+                codesign_macho_files(str(pypydir))
         if USE_ZIPFILE_MODULE:
             import zipfile
             archive = str(builddir.join(name + '.zip'))

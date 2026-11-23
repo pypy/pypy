@@ -317,8 +317,12 @@ def FILE_TIME_to_time_t_nsec(filetime):
     frac_part = ft - (int_part * 10000000)
     return (int_part, intmask(frac_part) * 100)
 
-def time_t_to_FILE_TIME(time, filetime):
-    ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)
+def time_t_to_FILE_TIME(sec, nsec, filetime):
+    """Fill in 'filetime' from a (seconds, nanoseconds) pair.  Integers all
+    the way, like CPython: near the epoch a double holds only about 2 us, so
+    a float cannot carry the 100 ns a FILETIME stores
+    """
+    ft = rffi.r_longlong(sec) * 10000000 + hns_between_epochs + nsec // 100
     filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
     filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits
 

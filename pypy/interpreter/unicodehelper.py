@@ -563,10 +563,17 @@ def wcharpsize2utf8(space, wcharp, size):
     Raises app-level ValueError if any wchar value is outside the valid
     codepoint range.
     """
-    try:
-        return rffi.wcharpsize2utf8(wcharp, size)
-    except rutf8.OutOfRange as e:
-        raise wrap_unicode_out_of_range_error(space, e)
+    if size < 1:
+        return ''
+    if _WIN32:
+        import pypy.interpreter.unicodehelper_win32 as win32
+        # wcharp is actually utf16
+        return win32._unibuf_to_utf8(wcharp, size)
+    else:
+        try:
+            return rffi.wcharpsize2utf8(wcharp, size)
+        except rutf8.OutOfRange as e:
+            raise wrap_unicode_out_of_range_error(space, e)
 
 def wrap_unicode_out_of_range_error(space, e):
     raise oefmt(space.w_ValueError,

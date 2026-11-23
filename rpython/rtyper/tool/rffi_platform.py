@@ -147,12 +147,28 @@ class ConfigResult:
         return self.result[entry]
 
 
+def eci_with_strict_availability(eci):
+    """Return 'eci' with the platform's availability_error_flags added, so that
+    referencing an API newer than the deployment target fails to compile
+    instead of turning into a weak import that is NULL at run time.
+    """
+    flags = eci.platform.availability_error_flags
+    if not flags:
+        return eci
+    # compile_extra is emitted after the platform's own cflags, so these flags
+    # override a blanket suppression there (as darwin.py has).
+    return eci.merge(ExternalCompilationInfo(compile_extra=flags,
+                                             platform=eci._platform))
+
+
 class _CWriter(object):
     """ A simple class which aggregates config parts
     """
-    def __init__(self, eci):
+    def __init__(self, eci, strict_availability=False):
         self.path = uniquefilepath()
         self.f = self.path.open("w")
+        if strict_availability:
+            eci = eci_with_strict_availability(eci)
         self.eci = eci
 
     def write_header(self):
@@ -219,7 +235,7 @@ def configure(CConfig, ignore_errors=False):
     for key in dir(CConfig):
         value = getattr(CConfig, key)
         if isinstance(value, CConfigSingleEntry):
-            writer = _CWriter(eci)
+            writer = _CWriter(eci, value.strict_availability)
             writer.write_header()
             res[key] = value.question(writer.ask_gcc)
 
@@ -538,9 +554,15 @@ class CConfigSingleEntry(object):
     """ An abstract class of type which requires
     gcc succeeding/failing instead of only asking
     """
-    pass
+    # True for entries that ask "can I call this at run time?", where an API
+    # newer than the deployment target must answer no.  False for entries that
+    # merely check that a given eci builds at all, which should keep using the
+    # same flags as the real build.
+    strict_availability = False
 
 class Has(CConfigSingleEntry):
+    strict_availability = True
+
     def __init__(self, name):
         self.name = name
 

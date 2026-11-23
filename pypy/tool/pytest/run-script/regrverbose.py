@@ -3,6 +3,10 @@ import sys
 import unittest
 from test import test_support
 test_support.verbose = 1
+# regrtest's ALL_RESOURCES, less xpickle, whose tests spawn a python2.7 per
+# dumps() call, and extralargefile, which writes tens of GB.
+test_support.use_resources = ['audio', 'curses', 'largefile', 'network',
+    'bsddb', 'decimal', 'cpu', 'subprocess', 'urlfetch', 'gui']
 sys.argv[:] = sys.argv[1:]
 
 modname = sys.argv[0]

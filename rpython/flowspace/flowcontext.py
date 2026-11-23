@@ -1,7 +1,6 @@
 """Implements the core parts of flow graph creation.
 """
 from __future__ import print_function
-import sys
 import collections
 import types
 
@@ -187,105 +186,15 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
-_unary_ops = [
-    ('UNARY_POSITIVE', op.pos),
-    ('UNARY_NEGATIVE', op.neg),
-    ('UNARY_CONVERT', op.repr),
-    ('UNARY_INVERT', op.invert),
-]
-
-def unaryoperation(OPCODE, operation):
-    def UNARY_OP(self, *ignored):
-        w_1 = self.popvalue()
-        w_result = operation(w_1).eval(self)
-        self.pushvalue(w_result)
-    UNARY_OP.__name__ = OPCODE
-    return UNARY_OP
-
-_binary_ops = [
-    ('BINARY_MULTIPLY', op.mul),
-    ('BINARY_TRUE_DIVIDE', op.truediv),
-    ('BINARY_FLOOR_DIVIDE', op.floordiv),
-    ('BINARY_DIVIDE', op.div),
-    ('BINARY_MODULO', op.mod),
-    ('BINARY_ADD', op.add),
-    ('BINARY_SUBTRACT', op.sub),
-    ('BINARY_SUBSCR', op.getitem),
-    ('BINARY_LSHIFT', op.lshift),
-    ('BINARY_RSHIFT', op.rshift),
-    ('BINARY_AND', op.and_),
-    ('BINARY_XOR', op.xor),
-    ('BINARY_OR', op.or_),
-    ('INPLACE_MULTIPLY', op.inplace_mul),
-    ('INPLACE_TRUE_DIVIDE', op.inplace_truediv),
-    ('INPLACE_FLOOR_DIVIDE', op.inplace_floordiv),
-    ('INPLACE_DIVIDE', op.inplace_div),
-    ('INPLACE_MODULO', op.inplace_mod),
-    ('INPLACE_ADD', op.inplace_add),
-    ('INPLACE_SUBTRACT', op.inplace_sub),
-    ('INPLACE_LSHIFT', op.inplace_lshift),
-    ('INPLACE_RSHIFT', op.inplace_rshift),
-    ('INPLACE_AND', op.inplace_and),
-    ('INPLACE_XOR', op.inplace_xor),
-    ('INPLACE_OR', op.inplace_or),
-]
-
-def binaryoperation(OPCODE, operation):
-    """NOT_RPYTHON"""
-    def BINARY_OP(self, _):
-        w_2 = self.popvalue()
-        w_1 = self.popvalue()
-        w_result = operation(w_1, w_2).eval(self)
-        self.pushvalue(w_result)
-    BINARY_OP.__name__ = OPCODE
-    return BINARY_OP
-
-_unsupported_ops = [
-    ('BINARY_POWER', "a ** b"),
-    ('BUILD_CLASS', 'defining classes inside functions'),
-    ('EXEC_STMT', 'exec statement'),
-    ('STOP_CODE', '???'),
-    ('STORE_NAME', 'modifying globals'),
-    ('INPLACE_POWER', 'a **= b'),
-    ('LOAD_LOCALS', 'locals()'),
-    ('IMPORT_STAR', 'import *'),
-    ('MISSING_OPCODE', '???'),
-    ('DELETE_GLOBAL', 'modifying globals'),
-    ('DELETE_NAME', 'modifying globals'),
-    ('DELETE_ATTR', 'deleting attributes'),
-]
-
-def unsupportedoperation(OPCODE, msg):
-    def UNSUPPORTED(self, *ignored):
-        raise FlowingError("%s is not RPython" % (msg,))
-    UNSUPPORTED.__name__ = OPCODE
-    return UNSUPPORTED
-
-compare_method = [
-    "cmp_lt",   # "<"
-    "cmp_le",   # "<="
-    "cmp_eq",   # "=="
-    "cmp_ne",   # "!="
-    "cmp_gt",   # ">"
-    "cmp_ge",   # ">="
-    "cmp_in",
-    "cmp_not_in",
-    "cmp_is",
-    "cmp_is_not",
-    "cmp_exc_match",
-    ]
-
-
 class FlowContext(object):
     def __init__(self, graph, code):
         self.graph = graph
         func = graph.func
-        self.pycode = code
+        self.code = code
         self.w_globals = Constant(func.__globals__)
         self.blockstack = []
 
         self.init_closure(func.__closure__)
-        self.f_lineno = code.co_firstlineno
         self.last_offset = 0
 
         self.init_locals_stack(code)
@@ -297,21 +206,21 @@ class FlowContext(object):
             self.closure = []
         else:
             self.closure = list(closure)
-        assert len(self.closure) == len(self.pycode.co_freevars)
+        assert len(self.closure) == len(self.code.freevars)
 
     def init_locals_stack(self, code):
         """
         Initialize the locals and the stack.
 
-        The locals are ordered according to self.pycode.signature.
+        The locals are ordered according to self.code.signature.
         """
-        self.nlocals = code.co_nlocals
+        self.nlocals = code.nlocals
         # locals_w is immutable in the sense that every write should make a new
         # list first. this means FlowContext.getstate does not have to make a
         # copy of locals_w. This is a good trade-off, because changes to
         # locals_w (in STORE_FAST and DELETE_FAST) are much less common that
         # calls to getstate, which happens after every bytecode
-        self.locals_w = [None] * code.co_nlocals
+        self.locals_w = [None] * code.nlocals
         self.stack = []
 
     @property
@@ -343,9 +252,9 @@ class FlowContext(object):
     def dropvaluesuntil(self, finaldepth):
         del self.stack[finaldepth:]
 
-    def getstate(self, next_offset):
+    def getstate(self, next_pos):
         return FrameState(self.locals_w, self.stack[:],
-                self.last_exception, self.blockstack[:], next_offset)
+                self.last_exception, self.blockstack[:], next_pos)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
@@ -406,12 +315,12 @@ class FlowContext(object):
 
     def record_block(self, block):
         self.setstate(block.framestate)
-        next_offset = block.framestate.next_offset
+        next_pos = block.framestate.next_pos
         self.recorder = block.make_recorder()
         try:
             while True:
-                next_offset = self.handle_bytecode(next_offset)
-                self.recorder.final_state = self.getstate(next_offset)
+                next_pos = self.handle_instr(next_pos)
+                self.recorder.final_state = self.getstate(next_pos)
         except StopFlowing:
             pass
         except FlowingError as exc:
@@ -422,10 +331,10 @@ class FlowContext(object):
         self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
-        next_offset = currentstate.next_offset
+        next_pos = currentstate.next_pos
         # can 'currentstate' be merged with one of the blocks that
-        # already exist for this bytecode position?
-        candidates = self.joinpoints.setdefault(next_offset, [])
+        # already exist for this position?
+        candidates = self.joinpoints.setdefault(next_pos, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
             if newstate is not None:
@@ -441,7 +350,7 @@ class FlowContext(object):
             return
 
         newblock = SpamBlock(newstate)
-        varnames = self.pycode.co_varnames
+        varnames = self.code.varnames
         for name, w_value in zip(varnames, newstate.locals_w):
             if isinstance(w_value, Variable):
                 w_value.rename(name)
@@ -485,14 +394,14 @@ class FlowContext(object):
                     stack_items_w[i] = w_new
                     break
 
-    def handle_bytecode(self, next_offset):
-        self.last_offset = next_offset
-        next_offset, methodname, oparg = self.pycode.read(next_offset)
+    def handle_instr(self, pos):
+        instr = self.code.instrs[pos]
+        self.last_offset = instr.offset
         try:
-            offset = getattr(self, methodname)(oparg)
-            return offset if offset is not None else next_offset
+            next_pos = instr.eval(self)
         except FlowSignal as signal:
             return self.unroll(signal)
+        return next_pos if next_pos is not None else pos + 1
 
     def unroll(self, signal):
         while self.blockstack:
@@ -502,39 +411,17 @@ class FlowContext(object):
             block.cleanupstack(self)
         return signal.nomoreblocks(self)
 
-    def getlocalvarname(self, index):
-        return self.pycode.co_varnames[index]
-
-    def getconstant_w(self, index):
-        return const(self.pycode.consts[index])
-
-    def getname_u(self, index):
-        return self.pycode.names[index]
-
-    def getname_w(self, index):
-        return Constant(self.pycode.names[index])
-
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = const(func)
         return self.do_op(op.simple_call(w_func, *args_w))
 
-    def BAD_OPCODE(self, _):
-        raise FlowingError("This operation is not RPython")
-
-    def BREAK_LOOP(self, oparg):
-        raise Break
-
-    def CONTINUE_LOOP(self, startofloop):
-        raise Continue(startofloop)
-
     def not_(self, w_obj):
         w_bool = op.bool(w_obj).eval(self)
         return const(not self.guessbool(w_bool))
 
-    def UNARY_NOT(self, _):
-        w_obj = self.popvalue()
-        self.pushvalue(self.not_(w_obj))
+    def compare(self, kind, w_1, w_2):
+        return getattr(self, 'cmp_' + kind)(w_1, w_2)
 
     def cmp_lt(self, w_1, w_2):
         return op.lt(w_1, w_2).eval(self)
@@ -591,12 +478,6 @@ class FlowContext(object):
     def cmp_exc_match(self, w_1, w_2):
         return const(self.exception_match(w_1, w_2))
 
-    def COMPARE_OP(self, testnum):
-        w_2 = self.popvalue()
-        w_1 = self.popvalue()
-        w_result = getattr(self, compare_method[testnum])(w_1, w_2)
-        self.pushvalue(w_result)
-
     def exc_from_raise(self, w_arg1, w_arg2):
         """
         Create a wrapped exception from the arguments of a raise statement.
@@ -635,40 +516,12 @@ class FlowContext(object):
         w_type = op.type(w_value).eval(self)
         return FSException(w_type, w_value)
 
-    def RAISE_VARARGS(self, nbargs):
-        if nbargs == 0:
-            if self.last_exception is not None:
-                w_exc = self.last_exception
-            else:
-                w_exc = const(TypeError(
-                    "raise: no active exception to re-raise"))
-            raise Raise(w_exc)
-
-        if nbargs >= 3:
-            self.popvalue()
-        if nbargs >= 2:
-            w_value = self.popvalue()
-            w_type = self.popvalue()
-            operror = self.exc_from_raise(w_type, w_value)
-        else:
-            w_type = self.popvalue()
-            operror = self.exc_from_raise(w_type, w_None)
-        raise Raise(operror)
-
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
         except ImportError as e:
             raise Raise(const(e))
         return const(mod)
-
-    def IMPORT_NAME(self, nameindex):
-        modulename = self.getname_u(nameindex)
-        glob = self.w_globals.value
-        fromlist = self.popvalue().value
-        level = self.popvalue().value
-        w_obj = self.import_name(modulename, glob, None, fromlist, level)
-        self.pushvalue(w_obj)
 
     def import_from(self, w_module, w_name):
         assert isinstance(w_module, Constant)
@@ -678,169 +531,6 @@ class FlowContext(object):
         except FlowingError:
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
-
-    def IMPORT_FROM(self, nameindex):
-        w_name = self.getname_w(nameindex)
-        w_module = self.peekvalue()
-        self.pushvalue(self.import_from(w_module, w_name))
-
-    def RETURN_VALUE(self, oparg):
-        w_returnvalue = self.popvalue()
-        raise Return(w_returnvalue)
-
-    def END_FINALLY(self, oparg):
-        # unlike CPython, there are two statically distinct cases: the
-        # END_FINALLY might be closing an 'except' block or a 'finally'
-        # block.  In the first case, the stack contains three items:
-        #   [exception type we are now handling]
-        #   [exception value we are now handling]
-        #   [Raise]
-        # In the case of a finally: block, the stack contains only one
-        # item (unlike CPython which can have 1, 2 or 3 items):
-        #   [subclass of FlowSignal]
-        w_top = self.popvalue()
-        if w_top == w_None:
-            # finally: block with no unroller active
-            return
-        elif isinstance(w_top, FlowSignal):
-            # case of a finally: block
-            raise w_top
-        else:
-            # case of an except: block.  We popped the exception type
-            self.popvalue()        #     Now we pop the exception value
-            signal = self.popvalue()
-            raise signal
-
-    def POP_BLOCK(self, oparg):
-        block = self.blockstack.pop()
-        block.cleanupstack(self)  # the block knows how to clean up the value stack
-
-    def JUMP_ABSOLUTE(self, jumpto):
-        return jumpto
-
-    def YIELD_VALUE(self, _):
-        assert self.pycode.is_generator
-        w_result = self.popvalue()
-        op.yield_(w_result).eval(self)
-        # XXX yield expressions not supported. This will blow up if the value
-        # isn't popped straightaway.
-        self.pushvalue(None)
-
-    PRINT_EXPR = BAD_OPCODE
-    PRINT_ITEM_TO = BAD_OPCODE
-    PRINT_NEWLINE_TO = BAD_OPCODE
-
-    def PRINT_ITEM(self, oparg):
-        w_item = self.popvalue()
-        w_s = op.str(w_item).eval(self)
-        self.appcall(rpython_print_item, w_s)
-
-    def PRINT_NEWLINE(self, oparg):
-        self.appcall(rpython_print_newline)
-
-    def JUMP_FORWARD(self, target):
-        return target
-
-    def JUMP_IF_FALSE(self, target):
-        # Python <= 2.6 only
-        w_cond = self.peekvalue()
-        if not self.guessbool(op.bool(w_cond).eval(self)):
-            return target
-
-    def JUMP_IF_TRUE(self, target):
-        # Python <= 2.6 only
-        w_cond = self.peekvalue()
-        if self.guessbool(op.bool(w_cond).eval(self)):
-            return target
-
-    def POP_JUMP_IF_FALSE(self, target):
-        w_value = self.popvalue()
-        if not self.guessbool(op.bool(w_value).eval(self)):
-            return target
-
-    def POP_JUMP_IF_TRUE(self, target):
-        w_value = self.popvalue()
-        if self.guessbool(op.bool(w_value).eval(self)):
-            return target
-
-    def JUMP_IF_FALSE_OR_POP(self, target):
-        w_value = self.peekvalue()
-        if not self.guessbool(op.bool(w_value).eval(self)):
-            return target
-        self.popvalue()
-
-    def JUMP_IF_TRUE_OR_POP(self, target):
-        w_value = self.peekvalue()
-        if self.guessbool(op.bool(w_value).eval(self)):
-            return target
-            return target
-        self.popvalue()
-
-    def JUMP_IF_NOT_DEBUG(self, target):
-        pass
-
-    def GET_ITER(self, oparg):
-        w_iterable = self.popvalue()
-        w_iterator = op.iter(w_iterable).eval(self)
-        self.pushvalue(w_iterator)
-
-    def FOR_ITER(self, target):
-        w_iterator = self.peekvalue()
-        self.blockstack.append(IterBlock(self, target))
-        w_nextitem = op.next(w_iterator).eval(self)
-        self.blockstack.pop()
-        self.pushvalue(w_nextitem)
-
-    def SETUP_LOOP(self, target):
-        block = LoopBlock(self, target)
-        self.blockstack.append(block)
-
-    def SETUP_EXCEPT(self, target):
-        block = ExceptBlock(self, target)
-        self.blockstack.append(block)
-
-    def SETUP_FINALLY(self, target):
-        block = FinallyBlock(self, target)
-        self.blockstack.append(block)
-
-    def SETUP_WITH(self, target):
-        # A simpler version than the 'real' 2.7 one:
-        # directly call manager.__enter__(), don't use special lookup functions
-        # which don't make sense on the RPython type system.
-        w_manager = self.peekvalue()
-        w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
-        self.settopvalue(w_exit)
-        w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
-        w_result = op.simple_call(w_enter).eval(self)
-        block = WithBlock(self, target)
-        self.blockstack.append(block)
-        self.pushvalue(w_result)
-
-    def WITH_CLEANUP(self, oparg):
-        # Note: RPython context managers receive None in lieu of tracebacks
-        # and cannot suppress the exception.
-        unroller = self.popvalue()
-        w_exitfunc = self.popvalue()
-        self.pushvalue(unroller)
-
-        if isinstance(unroller, Raise):
-            w_exc = unroller.w_exc
-            # The annotator won't allow to merge exception types with None.
-            # Replace it with the exception value...
-            op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
-                           ).eval(self)
-        else:
-            op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
-
-    def LOAD_FAST(self, varindex):
-        w_value = self.locals_w[varindex]
-        if w_value is None:
-            raise FlowingError("Local variable referenced before assignment")
-        self.pushvalue(w_value)
-
-    def LOAD_CONST(self, constindex):
-        w_const = self.getconstant_w(constindex)
-        self.pushvalue(w_const)
 
     def find_global(self, w_globals, varname):
         try:
@@ -853,110 +543,7 @@ class FlowContext(object):
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
-    def LOAD_GLOBAL(self, nameindex):
-        w_result = self.find_global(self.w_globals, self.getname_u(nameindex))
-        self.pushvalue(w_result)
-    LOAD_NAME = LOAD_GLOBAL
-
-    def LOAD_ATTR(self, nameindex):
-        "obj.attributename"
-        w_obj = self.popvalue()
-        w_attributename = self.getname_w(nameindex)
-        w_value = op.getattr(w_obj, w_attributename).eval(self)
-        self.pushvalue(w_value)
-    LOOKUP_METHOD = LOAD_ATTR
-
-    def LOAD_DEREF(self, varindex):
-        cell = self.closure[varindex]
-        try:
-            content = cell.cell_contents
-        except ValueError:
-            name = self.pycode.co_freevars[varindex]
-            raise FlowingError("Undefined closure variable '%s'" % name)
-        self.pushvalue(const(content))
-
-    def STORE_FAST(self, varindex):
-        w_newvalue = self.popvalue()
-        assert w_newvalue is not None
-        self.locals_w = self.locals_w[:]
-        self.locals_w[varindex] = w_newvalue
-        if isinstance(w_newvalue, Variable):
-            w_newvalue.rename(self.getlocalvarname(varindex))
-
-    def STORE_GLOBAL(self, nameindex):
-        varname = self.getname_u(nameindex)
-        raise FlowingError(
-            "Attempting to modify global variable  %r." % (varname))
-
-    def POP_TOP(self, oparg):
-        self.popvalue()
-
-    def ROT_TWO(self, oparg):
-        w_1 = self.popvalue()
-        w_2 = self.popvalue()
-        self.pushvalue(w_1)
-        self.pushvalue(w_2)
-
-    def ROT_THREE(self, oparg):
-        w_1 = self.popvalue()
-        w_2 = self.popvalue()
-        w_3 = self.popvalue()
-        self.pushvalue(w_1)
-        self.pushvalue(w_3)
-        self.pushvalue(w_2)
-
-    def ROT_FOUR(self, oparg):
-        w_1 = self.popvalue()
-        w_2 = self.popvalue()
-        w_3 = self.popvalue()
-        w_4 = self.popvalue()
-        self.pushvalue(w_1)
-        self.pushvalue(w_4)
-        self.pushvalue(w_3)
-        self.pushvalue(w_2)
-
-    def DUP_TOP(self, oparg):
-        w_1 = self.peekvalue()
-        self.pushvalue(w_1)
-
-    def DUP_TOPX(self, itemcount):
-        delta = itemcount - 1
-        while True:
-            itemcount -= 1
-            if itemcount < 0:
-                break
-            w_value = self.peekvalue(delta)
-            self.pushvalue(w_value)
-
-    for OPCODE, op in _unary_ops:
-        locals()[OPCODE] = unaryoperation(OPCODE, op)
-
-    for OPCODE, op in _binary_ops:
-        locals()[OPCODE] = binaryoperation(OPCODE, op)
-
-    for OPCODE, op in _unsupported_ops:
-        locals()[OPCODE] = unsupportedoperation(OPCODE, op)
-
-    def BUILD_LIST_FROM_ARG(self, _):
-        # This opcode was added with pypy-1.8.  Here is a simpler
-        # version, enough for annotation.
-        last_val = self.popvalue()
-        self.pushvalue(op.newlist().eval(self))
-        self.pushvalue(last_val)
-
-    def call_function(self, oparg, w_star=None, w_starstar=None):
-        if w_starstar is not None:
-            raise FlowingError("Dict-unpacking is not RPython")
-        n_arguments = oparg & 0xff
-        n_keywords = (oparg >> 8) & 0xff
-        keywords = {}
-        for _ in range(n_keywords):
-            w_value = self.popvalue()
-            w_key = self.popvalue()
-            key = w_key.value
-            keywords[key] = w_value
-        arguments = self.popvalues(n_arguments)
-        w_function = self.popvalue()
+    def call_function(self, w_function, arguments, keywords, w_star=None):
         try:
             # py3-style print function
             if w_function.value == print:
@@ -970,7 +557,7 @@ class FlowContext(object):
             hlop = op.call_args(w_function, Constant(shape), *args_w)
         else:
             hlop = op.simple_call(w_function, *args.as_list())
-        self.pushvalue(hlop.eval(self))
+        return hlop.eval(self)
 
     def handle_print_function(self, arguments, keywords, w_star):
         if w_star:
@@ -993,24 +580,7 @@ class FlowContext(object):
             self.appcall(rpython_print_end, keywords["end"])
         else:
             self.appcall(rpython_print_newline)
-        self.pushvalue(Constant(None))
-
-    def CALL_FUNCTION(self, oparg):
-        self.call_function(oparg)
-    CALL_METHOD = CALL_FUNCTION
-
-    def CALL_FUNCTION_VAR(self, oparg):
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs)
-
-    def CALL_FUNCTION_KW(self, oparg):
-        w_varkw = self.popvalue()
-        self.call_function(oparg, None, w_varkw)
-
-    def CALL_FUNCTION_VAR_KW(self, oparg):
-        w_varkw = self.popvalue()
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs, w_varkw)
+        return Constant(None)
 
     def newfunction(self, w_code, defaults_w):
         if not all(isinstance(value, Constant) for value in defaults_w):
@@ -1022,19 +592,6 @@ class FlowContext(object):
         fn = types.FunctionType(code, globals, code.co_name, defaults)
         return Constant(fn)
 
-    def MAKE_FUNCTION(self, numdefaults):
-        w_codeobj = self.popvalue()
-        defaults = self.popvalues(numdefaults)
-        fn = self.newfunction(w_codeobj, defaults)
-        self.pushvalue(fn)
-
-    def STORE_ATTR(self, nameindex):
-        "obj.attributename = newvalue"
-        w_attributename = self.getname_w(nameindex)
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        op.setattr(w_obj, w_attributename, w_newvalue).eval(self)
-
     def unpack_sequence(self, w_iterable, expected_length):
         w_len = op.len(w_iterable).eval(self)
         w_correct = op.eq(w_len, const(expected_length)).eval(self)
@@ -1043,160 +600,6 @@ class FlowContext(object):
             raise Raise(w_exc)
         return [op.getitem(w_iterable, const(i)).eval(self)
                 for i in range(expected_length)]
-
-    def UNPACK_SEQUENCE(self, itemcount):
-        w_iterable = self.popvalue()
-        items = self.unpack_sequence(w_iterable, itemcount)
-        for w_item in reversed(items):
-            self.pushvalue(w_item)
-
-    def slice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_result = op.getslice(w_obj, w_start, w_end).eval(self)
-        self.pushvalue(w_result)
-
-    def SLICE_0(self, oparg):
-        self.slice(w_None, w_None)
-
-    def SLICE_1(self, oparg):
-        w_start = self.popvalue()
-        self.slice(w_start, w_None)
-
-    def SLICE_2(self, oparg):
-        w_end = self.popvalue()
-        self.slice(w_None, w_end)
-
-    def SLICE_3(self, oparg):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.slice(w_start, w_end)
-
-    def storeslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        op.setslice(w_obj, w_start, w_end, w_newvalue).eval(self)
-
-    def STORE_SLICE_0(self, oparg):
-        self.storeslice(w_None, w_None)
-
-    def STORE_SLICE_1(self, oparg):
-        w_start = self.popvalue()
-        self.storeslice(w_start, w_None)
-
-    def STORE_SLICE_2(self, oparg):
-        w_end = self.popvalue()
-        self.storeslice(w_None, w_end)
-
-    def STORE_SLICE_3(self, oparg):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.storeslice(w_start, w_end)
-
-    def deleteslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        op.delslice(w_obj, w_start, w_end).eval(self)
-
-    def DELETE_SLICE_0(self, oparg):
-        self.deleteslice(w_None, w_None)
-
-    def DELETE_SLICE_1(self, oparg):
-        w_start = self.popvalue()
-        self.deleteslice(w_start, w_None)
-
-    def DELETE_SLICE_2(self, oparg):
-        w_end = self.popvalue()
-        self.deleteslice(w_None, w_end)
-
-    def DELETE_SLICE_3(self, oparg):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.deleteslice(w_start, w_end)
-
-    def LIST_APPEND(self, oparg):
-        w_value = self.popvalue()
-        if sys.version_info < (2, 7):
-            w_list = self.popvalue()
-        else:
-            w_list = self.peekvalue(oparg - 1)
-        w_append_meth = op.getattr(w_list, const('append')).eval(self)
-        op.simple_call(w_append_meth, w_value).eval(self)
-
-    def DELETE_FAST(self, varindex):
-        if self.locals_w[varindex] is None:
-            varname = self.getlocalvarname(varindex)
-            message = "local variable '%s' referenced before assignment"
-            raise UnboundLocalError(message, varname)
-        self.locals_w = self.locals_w[:]
-        self.locals_w[varindex] = None
-
-    def STORE_MAP(self, oparg):
-        w_key = self.popvalue()
-        w_value = self.popvalue()
-        w_dict = self.peekvalue()
-        op.setitem(w_dict, w_key, w_value).eval(self)
-
-    def STORE_SUBSCR(self, oparg):
-        "obj[subscr] = newvalue"
-        w_subscr = self.popvalue()
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        op.setitem(w_obj, w_subscr, w_newvalue).eval(self)
-
-    def BUILD_SLICE(self, numargs):
-        if numargs == 3:
-            w_step = self.popvalue()
-        elif numargs == 2:
-            w_step = w_None
-        else:
-            raise BytecodeCorruption
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        w_slice = op.newslice(w_start, w_end, w_step).eval(self)
-        self.pushvalue(w_slice)
-
-    def DELETE_SUBSCR(self, oparg):
-        "del obj[subscr]"
-        w_subscr = self.popvalue()
-        w_obj = self.popvalue()
-        op.delitem(w_obj, w_subscr).eval(self)
-
-    def BUILD_TUPLE(self, itemcount):
-        items = self.popvalues(itemcount)
-        w_tuple = op.newtuple(*items).eval(self)
-        self.pushvalue(w_tuple)
-
-    def BUILD_LIST(self, itemcount):
-        items = self.popvalues(itemcount)
-        w_list = op.newlist(*items).eval(self)
-        self.pushvalue(w_list)
-
-    def BUILD_MAP(self, itemcount):
-        w_dict = op.newdict().eval(self)
-        self.pushvalue(w_dict)
-
-    def NOP(self, *args):
-        pass
-
-    # XXX Unimplemented 2.7 opcodes ----------------
-
-    # Set literals, set comprehensions
-
-    def BUILD_SET(self, oparg):
-        raise NotImplementedError("BUILD_SET")
-
-    def SET_ADD(self, oparg):
-        raise NotImplementedError("SET_ADD")
-
-    # Dict comprehensions
-
-    def MAP_ADD(self, oparg):
-        raise NotImplementedError("MAP_ADD")
-
-    # Closures
-
-    STORE_DEREF = BAD_OPCODE
-    LOAD_CLOSURE = BAD_OPCODE
-    MAKE_CLOSURE = BAD_OPCODE
 
 ### Frame blocks ###
 
@@ -1299,7 +702,7 @@ Break.singleton = Break()
 
 class Continue(FlowSignal):
     """Signals a 'continue' statement.
-    Argument is the bytecode position of the beginning of the loop."""
+    Argument is the position of the beginning of the loop."""
 
     def __init__(self, jump_to):
         self.jump_to = jump_to

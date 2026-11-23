@@ -315,6 +315,32 @@ def test_has_0006():
     """missing include"""
     assert not rffi_platform.has("pow", "", libraries=["m"])
 
+def test_has_uses_availability_error_flags():
+    """Has() must be probed with the platform's availability_error_flags, so
+    that a function the SDK declares as newer than the deployment target is
+    reported as absent rather than turning into a NULL weak import.
+    """
+    eci = ExternalCompilationInfo()
+    strict = rffi_platform.eci_with_strict_availability(eci)
+    if sys.platform == 'darwin':
+        assert platform.availability_error_flags
+    for flag in platform.availability_error_flags:
+        assert flag in strict.compile_extra
+    assert strict.platform == eci.platform
+
+def test_has_0007():
+    """a function introduced after the deployment target is not available"""
+    if sys.platform != 'darwin':
+        py.test.skip('availability annotations are a darwin thing')
+    # Declared __API_AVAILABLE(macos(27.0)) in the macOS 27 SDK, and absent
+    # from older SDKs; either way it must not be reported as available while
+    # DARWIN_VERSION_MIN is below 27.0.
+    assert not rffi_platform.has("pipe2", "#include <unistd.h>")
+    assert not rffi_platform.has("dup3", "#include <unistd.h>")
+    # a sanity check that the stricter flags do not reject everything
+    assert rffi_platform.has("pipe", "#include <unistd.h>")
+    assert rffi_platform.has("dup2", "#include <unistd.h>")
+
 
 def test_verify_eci():
     eci = ExternalCompilationInfo()

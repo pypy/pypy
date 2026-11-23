@@ -1394,9 +1394,6 @@ class SocketError(Exception):
     def get_msg(self):
         return ''
 
-    def get_msg_unicode(self):
-        return self.get_msg().decode('latin-1')
-
     def get_msg_utf8(self):
         msg = self.get_msg()
         return msg, len(msg)
@@ -1419,9 +1416,6 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-    def get_msg_unicode(self):
-        return _c.socket_strerror_unicode(self.errno)
-
     def get_msg_utf8(self):
         return _c.socket_strerror_utf8(self.errno)
 
@@ -1434,9 +1428,6 @@ class GAIError(SocketErrorWithErrno):
 
     def get_msg(self):
         return _c.gai_strerror_str(self.errno)
-
-    def get_msg_unicode(self):
-        return _c.gai_strerror_unicode(self.errno)
 
     def get_msg_utf8(self):
         return _c.gai_strerror_utf8(self.errno)
