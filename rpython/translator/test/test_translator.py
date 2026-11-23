@@ -95,7 +95,7 @@ def test_annotate_blocks_skips_empty_blocks():
 
 def test_annotate_blocks_skips_negative_offset():
     # A block whose first operation has a negative offset (synthetic op) must
-    # not be annotated, because offset2lineno cannot map it to a source line.
+    # not be annotated, because it has no source line.
     def f(x):
         return x + 1
 
