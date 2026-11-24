@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import pytest
-from StringIO import StringIO
+from rpython.tool.twothree import StringIO
 from hypothesis import given, strategies, example
 
 from rpython.rlib.unicodedata.codegen import CodeWriter, get_char_list_offset

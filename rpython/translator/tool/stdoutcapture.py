@@ -42,8 +42,8 @@ class Capture:
     def done(self):
         "End capture and return the captured text (stdoutfile, stderrfile)."
         if self.dummy:
-            import cStringIO
-            return cStringIO.StringIO(), cStringIO.StringIO()
+            from rpython.tool.twothree import StringIO
+            return StringIO(), StringIO()
         else:
             os.dup2(self.localoutfd, 1)
             os.dup2(self.localerrfd, 2)

@@ -36,7 +36,7 @@ def test_thread_error():
         py.test.fail("Did not raise")
 
 def test_tlref_untranslated():
-    import thread
+    from rpython.tool.twothree import thread
     class FooBar(object):
         pass
     t = ThreadLocalReference(FooBar)
@@ -54,7 +54,7 @@ def test_tlref_untranslated():
     assert results == [True] * 15
 
 def test_get_ident():
-    import thread
+    from rpython.tool.twothree import thread
     assert get_ident() == thread.get_ident()
 
 

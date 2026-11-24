@@ -140,9 +140,10 @@ def test_bug():
     assert f.getvalue() == '0123'
 
 def test_stress():
-    import cStringIO, random
+    import random
+    from rpython.tool.twothree import StringIO
     f = RStringIO()
-    expected = cStringIO.StringIO()
+    expected = StringIO()
     for i in range(2000):
         r = random.random()
         if r < 0.15:
