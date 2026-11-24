@@ -1,4 +1,7 @@
+import sys
 from pytest import raises, skip
+
+IS_PYPY = "__pypy__" in sys.builtin_module_names
 
 
 def test_bom_with_future():
@@ -52,6 +55,31 @@ def test_zeros_not_mixed_in_lambdas():
     assert x is not y
     assert x != y
 
+def test_dont_share_lambdas():
+    if not IS_PYPY:
+        skip("pypy-only optimization")
+    # the two lambdas's codes aren't shared (CPython does that but it's
+    # completely pointless: it only applies to identical lambdas that are
+    # defined on the same line)
+    code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
+    consts = code.co_consts
+    x, y, z = consts
+    assert isinstance(x, type(code)) and isinstance(y, type(code))
+    assert x is not y
+    assert x == y
+
+def test_dict_and_set_literal_order():
+    x = 1
+    l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
+    l2 = list({1, 3, 2, 4})
+    l3 = list({x:'a', 3:'b', 2:'c', 4:'d'})
+    l4 = list({x, 3, 2, 4})
+    if not IS_PYPY:
+        # the full test relies on the host Python providing ordered dicts
+        assert set(l1) == set(l2) == set(l3) == set(l4) == {1, 3, 2, 4}
+    else:
+        assert l1 == l2 == l3 == l4 == [1, 3, 2, 4]
+
 def test_freevars_order():
     # co_cellvars and co_freevars are guaranteed to appear in
     # alphabetical order.  See CPython Issue #15368 (which does
@@ -95,11 +123,67 @@ def test_remove_ending():
     output = s.getvalue()
     assert output.count('LOAD_CONST') == 1
 
+def test_none_constant():
+    import opcode
+    co = compile("def f(): return None", "<test>", "exec").co_consts[0]
+    if IS_PYPY:  # This is a pypy optimization
+        assert "None" not in co.co_names
+    co = co.co_code
+    op = ord(co[0]) + (ord(co[1]) << 8)
+    assert op == opcode.opmap["LOAD_CONST"]
+
 def test_tuple_constants():
     ns = {}
     exec "x = (1, 0); y = (1L, 0L)" in ns
     assert isinstance(ns["x"][0], int)
     assert isinstance(ns["y"][0], long)
+
+def test_division_folding():
+    def code(source):
+        return compile(source, "<test>", "exec")
+    co = code("x = 10//4")
+    if not IS_PYPY:
+        assert 2 in co.co_consts
+    else:
+        # PyPy is more precise
+        assert len(co.co_consts) == 2
+        assert co.co_consts[0] == 2
+    co = code("x = 10/4")
+    assert len(co.co_consts) == 3
+    assert co.co_consts[:2] == (10, 4)
+    co = code("from __future__ import division\nx = 10/4")
+    if not IS_PYPY:
+        assert 2.5 in co.co_consts
+    else:
+        assert co.co_consts[2] == 2.5
+
+def test_tuple_folding():
+    co = compile("x = (1, 2, 3)", "<test>", "exec")
+    if IS_PYPY:
+        # PyPy is more precise
+        assert co.co_consts == ((1, 2, 3), None)
+    else:
+        assert (1, 2, 3) in co.co_consts
+        assert None in co.co_consts
+    co = compile("x = ()", "<test>", "exec")
+    assert set(co.co_consts) == set(((), None))
+
+def test_unary_folding():
+    def check_const(co, value):
+        assert value in co.co_consts
+        if IS_PYPY:
+            # This is a pypy optimization
+            assert co.co_consts[0] == value
+    co = compile("x = -(3)", "<test>", "exec")
+    check_const(co, -3)
+    co = compile("x = ~3", "<test>", "exec")
+    check_const(co, ~3)
+    co = compile("x = +(-3)", "<test>", "exec")
+    check_const(co, -3)
+    co = compile("x = not None", "<test>", "exec")
+    if IS_PYPY:
+        # CPython does not have this optimization
+        assert co.co_consts == (True, None)
 
 def test_folding_of_binops_on_constants():
     def disassemble(func):
