@@ -885,6 +885,15 @@ class TestNonInteractive:
         data = self.run('-c "print(6**5)"')
         assert '7776' in data
 
+    def test_option_O_updates_builtins_debug(self):
+        # the compiler folds the __debug__ *name*, but C extensions read the
+        # builtins entry instead, so -O has to update that too
+        code = '-c "import builtins; print(builtins.__dict__[\'__debug__\'])"'
+        data = self.run(code)
+        assert 'True' in data
+        data = self.run('-O ' + code)
+        assert 'False' in data
+
     def test_option_c_unencodable(self):
         data, status = self.run_with_status_code(b"""-c 'print(b"\xff")'""",
                                                  env={'LC_ALL': 'C'})
