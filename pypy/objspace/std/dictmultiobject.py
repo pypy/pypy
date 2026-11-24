@@ -1773,7 +1773,15 @@ class SetLikeDictView(object):
     descr_or, descr_ror = _as_set_op('or', 'update')
     descr_xor, descr_rxor = _as_set_op('xor', 'symmetric_difference_update')
 
+def _check_dict_view_subtype(space, w_type, typedef):
+    # The dict views have no tp_new on CPython, so instantiating one directly
+    # is an error there.  We need them instantiable because
+    # _collections.OrderedDict subclasses them at app-level, see app_odict.
+    if space.is_w(w_type, space.gettypeobject(typedef)):
+        raise oefmt(space.w_TypeError, "cannot create '%N' instances", w_type)
+
 def new_dict_items(space, w_type, w_dict):
+    _check_dict_view_subtype(space, w_type, W_DictViewItemsObject.typedef)
     w_dict = space.interp_w(W_DictMultiObject, w_dict)
     w_obj = space.allocate_instance(W_DictViewItemsObject, w_type)
     W_DictViewObject.__init__(w_obj, space, w_dict)
@@ -1803,6 +1811,7 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
 
 
 def new_dict_keys(space, w_type, w_dict):
+    _check_dict_view_subtype(space, w_type, W_DictViewKeysObject.typedef)
     w_dict = space.interp_w(W_DictMultiObject, w_dict)
     w_obj = space.allocate_instance(W_DictViewKeysObject, w_type)
     W_DictViewObject.__init__(w_obj, space, w_dict)
@@ -1819,6 +1828,7 @@ class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
         return self.w_dict.descr_contains(space, w_key)
 
 def new_dict_values(space, w_type, w_dict):
+    _check_dict_view_subtype(space, w_type, W_DictViewValuesObject.typedef)
     w_dict = space.interp_w(W_DictMultiObject, w_dict)
     w_obj = space.allocate_instance(W_DictViewValuesObject, w_type)
     W_DictViewObject.__init__(w_obj, space, w_dict)

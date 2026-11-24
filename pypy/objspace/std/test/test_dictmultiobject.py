@@ -963,6 +963,25 @@ class AppTestDictViews:
         assert len(d.items()) == 2
         assert len(d.values()) == 2
 
+    def test_dictview_not_instantiable(self):
+        # the view types have no tp_new on CPython
+        d = {1: 2}
+        for name in ('keys', 'values', 'items'):
+            tp = type(getattr(d, name)())
+            excinfo = raises(TypeError, tp, d)
+            assert str(excinfo.value) == (
+                "cannot create 'dict_%s' instances" % name)
+            raises(TypeError, tp)
+
+    def test_dictview_subclass_is_instantiable(self):
+        # _collections.OrderedDict relies on this, see app_odict
+        d = {1: 2}
+        for name in ('keys', 'values', 'items'):
+            tp = type(getattr(d, name)())
+            subclass = type('my_' + name, (tp,), {})
+            view = subclass(d)
+            assert list(view) == list(getattr(d, name)())
+
     def test_dict_keys(self):
         d = {1: 10, "a": "ABC"}
         keys = d.keys()
