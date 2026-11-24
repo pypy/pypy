@@ -38,6 +38,70 @@ def test_win64():
     cts = parse_source(decl)
     assert cts.definitions == {'Py_ssize_t': rffi.SIGNED}
 
+def test_limited_api():
+    decl = """
+    typedef ssize_t Py_ssize_t;
+    typedef struct _typeobject PyTypeObject;
+    #ifndef Py_LIMITED_API
+    struct _typeobject {
+        Py_ssize_t tp_basicsize;
+    };
+    #endif
+    #ifdef Py_LIMITED_API
+    typedef long Py_ssize_t;
+    #endif
+    """
+    cts = parse_source(decl)
+    assert cts.definitions['Py_ssize_t'] == rffi.SSIZE_T
+    assert cts.gettype('struct _typeobject').c_tp_basicsize == rffi.SSIZE_T
+
+def test_limited_api_else():
+    decl = """
+    #ifndef Py_LIMITED_API
+    typedef ssize_t Py_ssize_t;
+    #else
+    typedef char Py_ssize_t;
+    #endif
+    #ifdef Py_LIMITED_API
+    typedef char Py_hash_t;
+    #else
+    typedef ssize_t Py_hash_t;
+    #endif
+    """
+    cts = parse_source(decl)
+    assert cts.definitions['Py_ssize_t'] == rffi.SSIZE_T
+    assert cts.definitions['Py_hash_t'] == rffi.SSIZE_T
+
+def test_limited_api_nested_win64():
+    decl = """
+    #ifndef Py_LIMITED_API
+    #ifdef _WIN64
+    typedef long long Py_ssize_t;
+    #else
+    typedef long Py_ssize_t;
+    #endif
+    #endif
+    """
+    cts = parse_source(decl)
+    assert cts.definitions == {'Py_ssize_t': rffi.SIGNED}
+
+def test_limited_api_hides_macro():
+    decl = """
+    typedef ssize_t Py_ssize_t;
+    #ifdef Py_LIMITED_API
+    #define PyObject_HEAD  Py_ssize_t not_this_one;
+    #endif
+    #ifndef Py_LIMITED_API
+    #define PyObject_HEAD  Py_ssize_t ob_refcnt;
+    #endif
+    typedef struct {
+        PyObject_HEAD
+        double ob_fval;
+    } PyFloatObject;
+    """
+    cts = parse_source(decl)
+    assert cts.definitions['PyFloatObject'].c_ob_refcnt == rffi.SSIZE_T
+
 def test_macro():
     decl = """
     typedef ssize_t Py_ssize_t;

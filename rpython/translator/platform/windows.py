@@ -399,15 +399,31 @@ class MsvcPlatform(Platform):
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
+        # only a shared build has a dll for the forwarders to point into
+        mapping_dll = config.translation.win_mapping_dll if (
+            config and shared) else None
+        if mapping_dll and not os.path.exists(mapping_dll):
+            # whoever was to generate it did not (e.g. a build without
+            # cpyext); the mapping dll is optional
+            mapping_dll = None
+        if mapping_dll:
+            mapping_src = py.path.local(mapping_dll)
+            mapping_target = mapping_src.new(ext=self.so_ext).basename
+            mapping_dep = ' ' + mapping_target
+        else:
+            mapping_dep = ''
+
         if shared and self.make == 'jom.exe':
             # Add `.SYNC` for jom.exe and get it to create
             # main.c, wmain.c in a separate step before trying to compile them
             rules = [('all',
-                      'main.c wmain.c .SYNC $(DEFAULT_TARGET) .SYNC $(WTARGET)',
+                      'main.c wmain.c .SYNC $(DEFAULT_TARGET) .SYNC $(WTARGET)'
+                      + mapping_dep,
                       []),
                     ]
         else:
-            rules = [('all', '$(DEFAULT_TARGET) $(WTARGET)', []),]
+            rules = [('all',
+                      '$(DEFAULT_TARGET) $(WTARGET)' + mapping_dep, []),]
         rules += [
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
@@ -470,6 +486,20 @@ class MsvcPlatform(Platform):
             rules.append(('icon.res', 'icon.rc', 'rc icon.rc'))
         if manifest:
             shutil.copyfile(manifest, str(path.join('pypy.manifest')))
+        if mapping_dll:
+            # build it from a copy in the target directory, like the other
+            # generated sources, so the rule needs no absolute path
+            mapping_copy = path.join(mapping_src.basename)
+            if str(mapping_copy) != str(mapping_src):
+                shutil.copyfile(mapping_dll, str(mapping_copy))
+            mapping_csource = mapping_src.basename
+            mapping_obj = mapping_src.new(ext='obj').basename
+            rules.append((mapping_target, mapping_csource,
+                          ['$(CC) /nologo $(CFLAGS) /Fo%s /c %s' % (
+                              mapping_obj, mapping_csource),
+                           '$(CC_LINK) /nologo /DLL %s /IMPLIB:%s /out:$@' % (
+                               mapping_obj,
+                               mapping_src.new(ext='lib').basename)]))
 
 
         for args in definitions:
