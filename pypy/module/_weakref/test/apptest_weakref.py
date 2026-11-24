@@ -1,4 +1,6 @@
 # spaceconfig = {"usemodules" : ["_weakref"]}
+import pytest
+import sys
 
 def test_simple():
     import _weakref, gc
@@ -298,6 +300,33 @@ def test_buggy_case():
     if gone:
         a1 = w()
         assert a1 is None
+
+@pytest.mark.skipif('(untranslated)' in sys.version,
+                    reason="id() is not stable in __del__ before translation")
+def test_del_and_callback_and_id():
+    import gc, weakref
+    seen_del = []
+    class A(object):
+        def __del__(self):
+            seen_del.append(id(self))
+            seen_del.append(w1() is None)
+            seen_del.append(w2() is None)
+    seen_callback = []
+    def callback(r):
+        seen_callback.append(r is w2)
+        seen_callback.append(w1() is None)
+        seen_callback.append(w2() is None)
+    a = A()
+    w1 = weakref.ref(a)
+    w2 = weakref.ref(a, callback)
+    aid = id(a)
+    del a
+    for i in range(5):
+        gc.collect()
+    if seen_del:
+        assert seen_del == [aid, True, True]
+    if seen_callback:
+        assert seen_callback == [True, True, True]
 
 def test_type_weakrefable():
     import _weakref, gc
