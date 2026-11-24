@@ -1097,3 +1097,41 @@ def test_bad_args():
     raises(TypeError, type, 'A', (), UserDict.UserDict())
     raises(ValueError, type, 'A\x00B', (), {})
     raises(TypeError, type, u'A', (), {})
+
+def test_reset_logic():
+    class X(object):
+        pass
+
+    class Y(X):
+        pass
+
+    y = Y()
+    y.x = 3
+    assert y.x == 3
+
+    def ga(self, name):
+        return 'GA'
+
+    X.__getattribute__ = ga
+
+    assert y.x == 'GA'
+
+    class M(type):
+        pass
+
+    class X(object):
+        __metaclass__ = M
+
+    class Y(X):
+        pass
+
+    y = Y()
+    y.x = 3
+    assert y.x == 3
+
+    def ga2(self, name):
+        return 'GA2'
+
+    X.__getattribute__ = ga2
+
+    assert y.x == 'GA2'
