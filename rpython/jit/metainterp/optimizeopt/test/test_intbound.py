@@ -1314,6 +1314,21 @@ def test_widen_tnum():
     b.widen_update()
     assert b._are_knownbits_implied()
 
+@given(ints, ints, ints, ints)
+@example(0, 4, 5, 6)    # only the upper endpoint changes
+@example(4, 4, 5, -1)   # only the known bits change
+@example(3, 4, 5, -2)   # both endpoints and known bits change
+@example(4, 4, 5, 1)    # already shrunk
+def test_shrink_changed(a, x, b, mask):
+    lower, x, upper = sorted([a, x, b])
+    mask = r_uint(mask)
+    bound = IntBound(lower, upper, r_uint(x) & ~mask, mask, do_shrinking=False)
+    before = copy(bound)
+    changed = bound.shrink()
+    assert changed == (not bound_eq(before, bound))
+    assert bound.shrink() is False
+
+
 def test_shrink_bounds_by_knownbits():
     # positive case
     b1 = knownbits(0b101000,

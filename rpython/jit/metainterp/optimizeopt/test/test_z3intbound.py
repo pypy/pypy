@@ -1361,6 +1361,108 @@ def test_prove_shrink_bounds_by_knownbits_correctness_max_case2():
         conclusion=z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
+def z3_shrink_endpoints(bound):
+    # Encode the Python branches in the two threshold searches. A contained
+    # concrete word rules out their InvalidLoop exits.
+    minimum = bound._get_minimum_signed_by_knownbits()
+    lower = bound.lower
+    working, cl2set, set2cl = bound._helper_min_max_prepare(lower)
+    lower = z3.If(minimum >= lower, minimum,
+                  z3.If(working == lower, lower,
+                        z3.If(z3.UGT(cl2set, set2cl),
+                              bound._helper_min_case1(working, cl2set),
+                              bound._helper_min_case2(working, set2cl))))
+
+    maximum = bound._get_maximum_signed_by_knownbits()
+    upper = bound.upper
+    working, cl2set, set2cl = bound._helper_min_max_prepare(upper)
+    upper = z3.If(maximum <= upper, maximum,
+                  z3.If(working == upper, upper,
+                        z3.If(z3.ULT(cl2set, set2cl),
+                              bound._helper_max_case1(working, set2cl),
+                              bound._helper_max_case2(working, cl2set))))
+    return lower, upper
+
+
+def test_prove_shrink_endpoints_logic():
+    bound = make_z3_intbounds_instance('bound')
+    lower, upper = z3_shrink_endpoints(bound)
+    x = bound.concrete_variable
+    # Both endpoints are feasible and bracket every feasible x.
+    bound.prove_implies(conclusion=z3.And(
+        bound.z3_formula(lower), lower <= x,
+        bound.z3_formula(upper), x <= upper))
+
+
+def test_prove_shrink_rejects_exactly_empty_intersections_logic():
+    bound = make_z3_intbounds_instance('bound')
+    lower, upper = z3_shrink_endpoints(bound)
+    endpoints = Z3IntBound(lower, upper, bound.tvalue, bound.tmask)
+    _, _, valid = endpoints._tnum_improve_knownbits_by_bounds()
+    # InvalidLoop guards in the threshold searches and the two shrink steps.
+    rejected = z3.Or(bound._get_maximum_signed_by_knownbits() < bound.lower,
+                     bound._get_minimum_signed_by_knownbits() > bound.upper,
+                     lower > upper, z3.Not(valid))
+
+    # Any contained word rules out rejection.
+    bound.prove_implies(conclusion=z3.Not(rejected))
+    # Conversely, an accepted search supplies a witness. Do not assume
+    # a contained word here: that would exclude every empty intersection.
+    prove_implies(z3_tvalue_tmask_are_valid(bound.tvalue, bound.tmask),
+                  z3.Not(rejected), conclusion=bound.z3_formula(lower))
+
+
+def test_prove_shrink_one_pass_is_stable_logic():
+    bound = make_z3_intbounds_instance('bound')
+    lower1, upper1 = z3_shrink_endpoints(bound)
+    endpoints1 = Z3IntBound(lower1, upper1, bound.tvalue, bound.tmask)
+    value1, mask1, valid1 = endpoints1._tnum_improve_knownbits_by_bounds()
+
+    first = Z3IntBound(lower1, upper1, value1, mask1)
+    lower2, upper2 = z3_shrink_endpoints(first)
+    endpoints2 = Z3IntBound(lower2, upper2, value1, mask1)
+    value2, mask2, valid2 = endpoints2._tnum_improve_knownbits_by_bounds()
+
+    bound.prove_implies(conclusion=z3.And(
+        valid1, valid2, lower2 == lower1, upper2 == upper1,
+        value2 == value1, mask2 == mask1))
+
+
+def test_prove_shrink_zero_mask_is_constant_logic():
+    bound = make_z3_intbounds_instance('bound')
+    lower, upper = z3_shrink_endpoints(bound)
+    endpoints = Z3IntBound(lower, upper, bound.tvalue, bound.tmask)
+    value, mask, valid = endpoints._tnum_improve_knownbits_by_bounds()
+
+    bound.prove_implies(
+        bound.tmask == 0,
+        conclusion=z3.And(valid, mask == 0, value == bound.tvalue,
+                          lower == value, upper == value))
+    # Shrinking can also resolve the last unknown bit.
+    bound.prove_implies(
+        mask == 0, conclusion=z3.And(valid, lower == value, upper == value))
+
+
+def test_prove_shrink_unknown_bit_has_both_values_logic():
+    bound = make_z3_intbounds_instance('bound')
+    lower, upper = z3_shrink_endpoints(bound)
+    endpoints = Z3IntBound(lower, upper, bound.tvalue, bound.tmask)
+    value, mask, valid = endpoints._tnum_improve_knownbits_by_bounds()
+    result = Z3IntBound(lower, upper, value, mask)
+    bit = BitVec('bit')
+    # If the endpoints agree on an unknown bit, it lies below their
+    # highest difference. Setting it in lower or clearing it in upper
+    # stays inside the signed interval. Otherwise use the endpoints.
+    zero = z3.If(lower & bit == 0, lower, upper & ~bit)
+    one = z3.If(upper & bit != 0, upper, lower | bit)
+    # Select one bit that is still unknown in the result.
+    bound.prove_implies(
+        bit != 0, (bit & (bit - 1)) == 0, (mask & bit) != 0,
+        conclusion=z3.And(valid, bound.z3_formula(zero), bound.z3_formula(one),
+                          result.z3_formula(zero), result.z3_formula(one),
+                          zero & bit == 0, one & bit != 0))
+
+
 # ____________________________________________________________
 
 def z3_lshift_overflow(a, b):
