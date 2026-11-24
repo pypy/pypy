@@ -225,6 +225,40 @@ def test_finally():
         with_finally(l, ZeroDivisionError())
     assert l == [4]
 
+def test_finally_unwind():
+    l = []
+    for i in (1, 2):
+        try:
+            l.append(('try', i))
+            break
+        except* ValueError:
+            pass
+        finally:
+            l.append(('finally', i))
+    assert l == [('try', 1), ('finally', 1)]
+
+    l = []
+    for i in (1, 2):
+        try:
+            l.append(('try', i))
+            continue
+        except* ValueError:
+            pass
+        finally:
+            l.append(('finally', i))
+    assert l == [('try', 1), ('finally', 1), ('try', 2), ('finally', 2)]
+
+    def f(l):
+        try:
+            return 42
+        except* ValueError:
+            pass
+        finally:
+            l.append('finally')
+    l = []
+    assert f(l) == 42
+    assert l == ['finally']
+
 def test_invalid_catching_class():
     for cls, eg in [(int, False), (ExceptionGroup, True), (BaseExceptionGroup, True), ((ValueError, ExceptionGroup), True), ((int, ), False)]:
         with raises(TypeError) as info:
