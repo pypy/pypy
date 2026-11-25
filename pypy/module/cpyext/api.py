@@ -1160,6 +1160,18 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
+def _normalized(space, e):
+    if not space.is_w(space.type(e.get_w_value(space)), e.w_type):
+        try:
+            e.normalize_exception(space)
+        except OperationError as e2:
+            e = e2
+    return e
+
+def _recursion_error(space):
+    return OperationError(space.w_RecursionError,
+                          space.newtext("maximum recursion depth exceeded"))
+
 def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto):
     from rpython.rlib import rgil
     # see "Handling of the GIL" above
@@ -1237,6 +1249,8 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
         retval = fatal_value
+        overflowed = False
+        outer_operr = None
         boxed_args = ()
         tb = None
         state = space.fromcache(State)
@@ -1272,12 +1286,20 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 # still show the CPython<3.12 unnormalized shape.  Skip the
                 # (non-trivial: it dispatches through __subclasscheck__ and
                 # can re-touch the traceback) work if already normalized.
-                if not space.is_w(space.type(e.get_w_value(space)), e.w_type):
-                    try:
-                        e.normalize_exception(space)
-                    except OperationError as e2:
-                        e = e2
-                state.set_exception(e)
+                state.set_exception(_normalized(space, e))
+            except rstackovf.StackOverflow as e:
+                failed = True
+                if not we_are_translated() and 'recursion' not in str(e):
+                    # untranslated, this catches every RuntimeError
+                    tb = sys.exc_info()[2]
+                    import traceback
+                    traceback.print_exc()
+                    operr = OperationError(space.w_SystemError,
+                                           space.newtext(repr(e)))
+                    state.set_exception(operr)
+                else:
+                    overflowed = True
+                    state.set_exception(_recursion_error(space))
             except BaseException as e:
                 failed = True
                 if not we_are_translated():
@@ -1289,18 +1311,15 @@ def make_wrapper_second_level(space, argtypesw, restype,
                     message = str(e)
                 state.set_exception(OperationError(space.w_SystemError,
                                                    space.newtext(message)))
-            except rstackovf.StackOverflow as e:
-                rstackovf.check_stack_overflow()
-                failed = True
-                state.set_exception(OperationError(space.w_RuntimeError,
-                         space.newtext("maximum recursion depth exceeded")))
             else:
                 failed = False
 
             if failed:
-                if error_value is CANNOT_FAIL:
+                if error_value is not CANNOT_FAIL:
+                    retval = error_value
+                elif not overflowed:
                     raise not_supposed_to_fail(pname)
-                retval = error_value
+                # else: leave the RecursionError set and return fatal_value
 
             elif is_PyObject(restype):
                 if is_pyobj(result):
@@ -1318,11 +1337,29 @@ def make_wrapper_second_level(space, argtypesw, restype,
             elif restype is not lltype.Void:
                 retval = rffi.cast(restype, result)
 
+        except OperationError as e:
+            # e.g. a RecursionError from from_ref() or make_ref()
+            outer_operr = e
+        except rstackovf.StackOverflow as e:
+            # e.g. in from_ref(), make_ref() or normalize_exception()
+            if not we_are_translated() and 'recursion' not in str(e):
+                unexpected_exception(pname, e, tb)
+                _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
+                state.check_and_raise_exception(always=True)
+                return fatal_value
+            outer_operr = _recursion_error(space)
         except Exception as e:
             unexpected_exception(pname, e, tb)
             _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
             state.check_and_raise_exception(always=True)
             return fatal_value
+
+        if outer_operr is not None:
+            state.set_exception(outer_operr)
+            if error_value is CANNOT_FAIL:
+                retval = fatal_value
+            else:
+                retval = error_value
 
         assert lltype.typeOf(retval) == restype
 

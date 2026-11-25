@@ -30,6 +30,16 @@ def PyPy_Crash1(space):
 def PyPy_Crash2(space):
     1/0
 
+@api.cpython_api([], api.PyObject)
+def PyPy_Crash3(space):
+    from rpython.rlib.rstackovf import _StackOverflow
+    raise _StackOverflow("maximum recursion depth exceeded")
+
+@api.cpython_api([], lltype.Signed, error=api.CANNOT_FAIL)
+def PyPy_Crash4(space):
+    from rpython.rlib.rstackovf import _StackOverflow
+    raise _StackOverflow("maximum recursion depth exceeded")
+
 @api.cpython_api([api.PyObject], api.PyObject, result_is_ll=True)
 def PyPy_Noop(space, pyobj):
     return pyobj
@@ -856,6 +866,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
         PyAPI_FUNC(Py_ssize_t) PyPy_Crash2(void);
+        PyAPI_FUNC(PyObject*) PyPy_Crash3(void);
+        PyAPI_FUNC(Py_ssize_t) PyPy_Crash4(void);
         PyAPI_FUNC(PyObject*) PyPy_Noop(PyObject*);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
@@ -879,6 +891,17 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             Py_ssize_t a = PyPy_Crash2();
             return PyFloat_FromDouble((double)a);
+        }
+        static PyObject* foo_crash5(PyObject* self, PyObject *args)
+        {
+            return PyPy_Crash3();
+        }
+        static PyObject* foo_crash6(PyObject* self, PyObject *args)
+        {
+            Py_ssize_t a = PyPy_Crash4();
+            if (PyErr_Occurred())
+                return NULL;
+            return PyLong_FromSsize_t(a);
         }
         static PyObject* foo_noop(PyObject* self, PyObject* args)
         {
@@ -908,6 +931,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             { "crash2", foo_crash2, METH_NOARGS },
             { "crash3", foo_crash3, METH_NOARGS },
             { "crash4", foo_crash4, METH_NOARGS },
+            { "crash5", foo_crash5, METH_NOARGS },
+            { "crash6", foo_crash6, METH_NOARGS },
             { "clear",  foo_clear,  METH_O },
             { "set",    foo_set,    METH_O },
             { "noop",   foo_noop,   METH_O },
@@ -964,6 +989,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
         # Clear the exception and return a value, all is OK
         assert module.clear(1) == 1
+
+        # issue 5810: a StackOverflow inside a C-API call is a RecursionError
+        raises(RecursionError, module.crash5)
+        # a CANNOT_FAIL function sets RecursionError instead of aborting
+        raises(RecursionError, module.crash6)
 
     def test_new_exception(self):
         mod = self.import_extension('foo', [
