@@ -206,13 +206,6 @@ class FrameBlockInfo(object):
         self.block = block
         self.end = end
         self.datum = datum # an ast node needed for specific kinds of blocks
-        # For F_WITH/F_ASYNC_WITH: the block at which body-proper ends when
-        # the body unwinds via break/continue/return.  unwind_fblock sets
-        # this the first time it fires so that handle_withitem's body
-        # exception-table entry ends before the inline unwind code (which
-        # must not be covered by this with's cleanup, else __exit__ would
-        # run twice when it raises during call_exit_with_nones).
-        self.body_segment_end = None
 
     def __repr__(self):
         # for debugging
@@ -364,23 +357,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if preserve_tos:
                 self.emit_op(ops.ROT_THREE)  # [..., prev_exc, exc, tos] -> [..., tos, prev_exc, exc]
             self.emit_op(ops.POP_TOP)        # pop exc
+            self.emit_op(_POP_BLOCK)         # end the outer_cleanup scope of the finally body
             self.emit_op(ops.POP_EXCEPT)     # pop prev_exc, restore sys.exc_info
 
         elif kind == F_WITH or kind == F_ASYNC_WITH:
             node = fblock.datum
             assert isinstance(node, ast.withitem)
-            # Switch to a new block before call_exit_with_nones so that the
-            # with-body scope (opened by _SETUP_WITH) ends here.
-            # POP_BLOCK below closes that scope; the inline unwind code that
-            # follows is NOT covered by the with's cleanup handler, preventing
-            # __exit__ from being called twice if it raises.  Only the first
-            # unwind site records the boundary; later early-exit paths that merge
-            # here keep the (coarser) earlier POP_BLOCK position.
-            inline_unwind = self.new_block()
-            self.use_next_block(inline_unwind)
-            if fblock.body_segment_end is None:
-                fblock.body_segment_end = inline_unwind
-                self.emit_op(_POP_BLOCK)  # end with-body scope on early exit
+            # end the with-body scope, so that the with's cleanup handler
+            # doesn't catch an exception raised by __exit__ below
+            self.emit_op(_POP_BLOCK)
             self.update_position(node.context_expr)
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)

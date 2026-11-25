@@ -981,7 +981,7 @@ class TestPycStuff:
         with opcode_path.open("rb") as f:
             h.update(f.read())
         assert h.hexdigest() == '3944b3bbad677b389a3a263ec53ad973bf484206b99eac2f891158b7f08d5509'
-        assert default_magic == 0xa0d01c0
+        assert default_magic == 0xa0d01d0
 
 
 
