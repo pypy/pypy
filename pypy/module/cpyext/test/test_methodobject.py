@@ -381,6 +381,18 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert type(c.__iter__).__doc__.startswith('instancemethod(function, instance)')
         assert mod.C.__next__.__doc__ == "usable docstring"
         assert mod.C.__next__.__text_signature__ == '($self, /)'
+        # a docstring installed via d_base must survive the PyType_Modified()
+        # that Cython makes right afterwards
+        assert mod.C.__len__.__doc__ == "C.__len__ docstring"
+        assert mod.C.__add__.__doc__ == "C.__add__ docstring"
+        assert mod.C.__getattr__.__doc__ == "C.__getattr__ docstring"
+        assert len(c) == 0
+        # a slot left at 0 in a subclass stays inherited, rather than being
+        # shadowed by a descriptor of the subclass's own
+        assert '__len__' not in mod.D.__dict__
+        assert mod.D.__len__ is mod.C.__len__
+        assert len(mod.D()) == 0
+
 
     def test_reduce_pickle_module(self):
         # Cython's default __reduce__ for cdef classes generates a

@@ -1781,6 +1781,16 @@ def resync_slot_wrappers(space, w_type, pto):
         if inherited_unchanged:
             continue
         func_voidp = rffi.cast(rffi.VOIDP, func)
+        w_existing = w_type.dict_w.get(method_name, None)
+        if isinstance(w_existing, W_PyCWrapperObject):
+            if (w_existing.w_objclass is w_type and
+                    w_existing.get_func_to_call() == func_voidp):
+                # An extension may have attached state, so keep exactly that
+                # wrapper
+                continue
+        elif w_existing is not None:
+            # Not a slot wrapper
+            continue
         w_type.dict_w[method_name] = wrapper_class(
             space, w_type, method_name, doc, func_voidp, type_name)
 
