@@ -186,11 +186,10 @@ def test_pow():
 
     # an intermediate overflow is not an error when the result is finite
     # or nan
-    z = (complex(-9318.197141869648, 7795.312708112051) **
-         complex(-7365.156002336608, 3018.3378603326))
-    assert z == 0j
-    z = (complex(-9587.682820670765, 4839.401621466675) **
-         complex(9971.542087206872, 9430.251343816974))
+    # |-1e10| ** -40 underflows and exp(pi * 400) overflows: 0 / inf
+    assert (-1e10+0j) ** complex(-40, 400) == 0j
+    # |-1e10| ** 40 and exp(pi * 400) both overflow: inf / inf
+    z = (-1e10+0j) ** complex(40, 400)
     assert z.real != z.real
     assert z.imag != z.imag
     assert (1e308+1e308j) ** -2.5 == 0j
