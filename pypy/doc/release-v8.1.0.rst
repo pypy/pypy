@@ -1,18 +1,18 @@
 ===============================================================
-PyPy v8.1.0: release of python 2.7 and 3.12 released 2026-XX-XX
+PyPy v8.1.1: release of python 2.7 and 3.12 released 2026-XX-XX
 ===============================================================
 
 ..
-  updated to 9775987f9c43ad2bbace1e2bf447af07e570b1a8
+  updated to a5c602929ad45ec1b67713ad25686f77dc1f0f5f
 
 .. note::
    This is a pre-release announcement. When the release actually happens, it
    will be announced on the PyPy blog_
 
-The PyPy team is proud to release version 8.1.0 of PyPy after the previous
+The PyPy team is proud to release version 8.1.1 of PyPy after the previous
 release on Oct 14, 2026. We have dropped 3.11. Increased compatibility with
 CPython's C API changed some of the structs exposed in the C headers, so we are
-bumping the version to 8.1. The past month has seen a lot of activity: people
+bumping the version to 8.1. We have seen a lot of activity: people
 have been using various tools to fuzz and analyse the interpreter and this has
 led to a lot of churn for edge case compatibility and crash protection. We have
 also started passing many more tests on all platforms, and have removed the last
@@ -95,6 +95,15 @@ Changelog
 RPython3
 --------
 
+- Refactor backticks, has_key, ``ur""``, and bare tuples in comprehensions
+  (:issue:`5740`)
+- ``print()`` instead of the ``print`` statement (:issue:`5741`, :issue:`5744`)
+- extregistry: build FlexibleWeakDict on object instead of DictMixin (:issue:`5749`)
+- alias ``__bool__`` and ``__next__`` to the Python 2 names (:issue:`5747`)
+- ``sorted()`` and Python 3 style iteration in host code (:issue:`5745`)
+- flow space looks up host built-ins through ``twothree.builtins`` (:issue:`5751`)
+- ``sys.maxsize`` instead of ``sys.maxint`` (:issue:`5746`)
+- rename stdlib modules, via Python 2.7 spellings or twothree (:issue:`5753`)
 
 
 For all python versions
@@ -102,21 +111,41 @@ For all python versions
 
 - Lazily import rpython.conftest (and hence pytest) during translation
   (:issue:`5654`)
-- Make ruleopt generate more compact and faster code (:issue:`5655`)
 
 Bugfixes
 ~~~~~~~~
 - aarch64: load float constants with a PC-relative LDR from a literal pool
   (:issue:`5649`)
+- aarch64: add missing ``finish_once`` in assembler's runner
+- aarch64: build ``+0.0`` and ``FMOV``-encodable float constants without a load (:issue:`5657`)
+- rordereddict: don't leave GC pointers in entries emptied in place (:issue:`5686`)
+- Windows: fix ``_ssl`` errors on 2.7
+- prevent race in cffi codegen
+- Move ``PYPY_JIT_DETECT_REENTRANCY``, used to print out a stack trace when
+  testing PyPy and an imminent crash is detected, to an env variable
+- Catch the reentrancy problem: defer asmmemmgr frees that reenter during a gc
+- macos: Delay async exception handling tripped during running finalizers until
+  the run is complete
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- rbigint: make shift loops vectorizable, no carry between iterations (:issue:`5707`)
+- rbigint: improve arithmetic, shifts, and float conversion (:issue:`5750`)
+- rbigint: vectorize bitwise operations (and/or/xor) (:issue:`5754`)
+- Make ruleopt generate more compact and faster code (:issue:`5655`)
+- Add integer simplifications for subtraction zero tests and left-shift
+  overflow checks (:issue:`5633`)
+- ruleopt IntBounds method contracts (:issue:`5732`)
+- port the integer comparison optimizations to the rule DSL (:issue:`5722`)
 
 Python 3.12
 -----------
 
 - Fix failing tests for windows64: ``-A`` test were not running at all, others
   were crashing
+- Windows: add enough of rvmprof to get faulthandler working (:issue:`5725`)
+- unicode.splitlines: add an ASCII fast path that scans bytes without decoding (:issue:`5719`)
 
 C API
 ~~~~~
@@ -189,3 +218,23 @@ Other bugfixes including missing compatibility
 - Windows: fix ``os.stat`` for a file that cannot be opened
 - Windows: fix and use winconsoleio by default
 - Pickler: use DEFAULT_PROTOCOL not HIGHEST_PROTOCOL (:issue:`5710`)
+- Refactor LZMACompressor, LZMADecompressor to define ``__new__`` rather than
+  ``__init__``
+- posix: raise rather than return errno (:issue:`5711`)
+- peepholer tests: turn jump + return into a return
+- Windows: fix unicode conversions in array module (:issue:`5715`)
+- Windows: simplify rpython unsetenv/delenv
+- pathlib: cache ``pathlib._str`` early to reduce recursion frames
+- Windows: make utime more precise via GetSystemTimePreciseAsFileTime
+- fix pickle/unpickle of range-iterators
+- Windows: modernize socket: use enums not macros, add a SIO_LOOPBACK_FAST_PATH
+  to ioctl_w, fix dup, drop TCP_KEEPALIVE
+- Rebuild exception subgroups exactly like CPython (:issue:`5713`)
+- math.log: improve the robustness of the algorithm and special-case 2 and 10. (:issue:`5700`)
+- implement more precise sum of floats following :issue:`python/cpython#100426` (:issue:`5720`)
+- fix crash when trying to pass a non-dict object to a __dict__ descriptor's
+  methods (:issue:`5733`)
+- Windows: fix ``_sqlite3`` error reporting
+- test_posix2: check major()/minor() of ``NODEV`` only on Linux, not macos (:issue:`5724`)
+- Windows: fix exit code when trapping KeyboardInterrupt
+- Windows: improve ``mmap`` error handling
