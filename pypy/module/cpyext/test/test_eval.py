@@ -495,6 +495,130 @@ class AppTestCall(AppTestCpythonExtensionBase):
         excinfo = raises(RecursionError, module.call_recursive)
         assert 'while calling recurse' in str(excinfo.value), str(excinfo.value)
 
+    @pytest.mark.skipif("not config.option.runappdirect", reason='-A only')
+    def test_recursion_through_c(self):
+        # issue 5810: a stack overflow inside a C-API call should be a
+        # RecursionError
+        module = self.import_extension('reenter', [
+            ("reenter", "METH_VARARGS",
+             """
+                PyObject *func, *arg, *scratch, *result;
+                volatile char frame[4096];
+                if (!PyArg_ParseTuple(args, "OO", &func, &arg))
+                    return NULL;
+                memset((char *)frame, 0, sizeof frame);
+                scratch = PyDict_New();
+                if (scratch == NULL)
+                    return NULL;
+                Py_DECREF(scratch);
+                result = PyObject_CallOneArg(func, arg);
+                frame[0] = frame[sizeof frame - 1];
+                return result;
+             """),
+            ("reenter_fetch", "METH_VARARGS",
+             """
+                PyObject *func, *arg, *result, *type, *value, *tb, *details;
+                volatile char frame[4096];
+                if (!PyArg_ParseTuple(args, "OO", &func, &arg))
+                    return NULL;
+                memset((char *)frame, 0, sizeof frame);
+                result = PyObject_CallOneArg(func, arg);
+                frame[0] = frame[sizeof frame - 1];
+                if (result != NULL)
+                    return result;
+                PyErr_Fetch(&type, &value, &tb);
+                details = PyDict_New();
+                if (details != NULL) {
+                    PyDict_SetItemString(details, "error",
+                                         value ? value : Py_None);
+                    Py_DECREF(details);
+                }
+                PyErr_Clear();
+                PyErr_Restore(type, value, tb);
+                return NULL;
+             """),
+            ], prologue="#include <string.h>")
+
+        def down(n):
+            return module.reenter(down, n - 1) if n else 0
+        raises(RecursionError, down, 100000)
+
+        def down_dict(d):
+            n = d['n']
+            return module.reenter(down_dict, {'n': n - 1}) if n else 0
+        raises(RecursionError, down_dict, {'n': 100000})
+
+        def down_fetch(n):
+            return module.reenter_fetch(down_fetch, n - 1) if n else 0
+        raises(RecursionError, down_fetch, 100000)
+
+    @pytest.mark.skipif("not config.option.runappdirect", reason='-A only')
+    def test_dealloc_near_stack_limit(self):
+        # issue 5810: a Py_DECREF deep in the stack must not fail, even when
+        # the dealloc is implemented in RPython (bytes_dealloc here)
+        module = self.import_extension('deepdealloc', [
+            ("prepare", "METH_O",
+             """
+                Py_ssize_t i, n = PyLong_AsSsize_t(args);
+                if (n < 0 || n > NPENDING) {
+                    PyErr_SetString(PyExc_ValueError, "bad count");
+                    return NULL;
+                }
+                for (i = 0; i < n; i++) {
+                    PyObject *b = PyBytes_FromStringAndSize(NULL, 10);
+                    if (b == NULL)
+                        return NULL;
+                    pending[npending++] = b;
+                }
+                Py_RETURN_NONE;
+             """),
+            ("release_all", "METH_NOARGS",
+             """
+                while (npending > 0)
+                    Py_DECREF(pending[--npending]);
+                Py_RETURN_NONE;
+             """),
+            ("reenter_release", "METH_VARARGS",
+             """
+                PyObject *func, *arg;
+                if (!PyArg_ParseTuple(args, "OO", &func, &arg))
+                    return NULL;
+                if (release_one() < 0)
+                    return NULL;
+                return PyObject_CallOneArg(func, arg);
+             """),
+            ], prologue="""
+                #include <string.h>
+                #define NPENDING 10000
+                static PyObject *pending[NPENDING];
+                static Py_ssize_t npending = 0;
+
+                /* the big buffer makes this the deepest point of each level,
+                   so the stack limit is first hit in the dealloc */
+                static int release_one(void) {
+                    volatile char frame[65536];
+                    memset((char *)frame, 0, sizeof frame);
+                    if (npending > 0) {
+                        Py_DECREF(pending[--npending]);
+                        if (PyErr_Occurred()) {
+                            PyErr_SetString(PyExc_SystemError,
+                                            "Py_DECREF set an exception");
+                            return -1;
+                        }
+                    }
+                    frame[0] = frame[sizeof frame - 1];
+                    return 0;
+                }
+            """)
+
+        def down(n):
+            return module.reenter_release(down, n - 1) if n else 0
+        module.prepare(10000)
+        try:
+            raises(RecursionError, down, 100000)
+        finally:
+            module.release_all()
+
     def test_build_class(self):
             """
             # make sure PyObject_Call generates a proper PyTypeObject,
