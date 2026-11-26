@@ -3,7 +3,7 @@ PyPy v8.1.1: release of python 2.7 and 3.12 released 2026-XX-XX
 ===============================================================
 
 ..
-  updated to a5c602929ad45ec1b67713ad25686f77dc1f0f5f
+  updated to 3cc8dde36581e48a6d0b21ebc0ffabe10476c399
 
 .. note::
    This is a pre-release announcement. When the release actually happens, it
@@ -104,6 +104,7 @@ RPython3
 - flow space looks up host built-ins through ``twothree.builtins`` (:issue:`5751`)
 - ``sys.maxsize`` instead of ``sys.maxint`` (:issue:`5746`)
 - rename stdlib modules, via Python 2.7 spellings or twothree (:issue:`5753`)
+- flowspace: decode bytecode into an instruction list before flowing (:issue:`5763`)
 
 
 For all python versions
@@ -111,6 +112,13 @@ For all python versions
 
 - Lazily import rpython.conftest (and hence pytest) during translation
   (:issue:`5654`)
+- macos: sign dylibs with an ad-hoc signature in packaging to allow using the
+  dylib (:issue:'5758`)
+- Windows: cache msvc compiler env when running heavy compilation tests,
+  massively speeds up test times
+- remove rpython unicode from pypy, rpython/rlib, and associated tests (:issue:`5759`)
+- packaging: speed up openssl ``'make install'``, extend macos gha translate timeout
+- Add proofs for missing cases in knownbits shrinking (:issue:`5809`)
 
 Bugfixes
 ~~~~~~~~
@@ -126,6 +134,19 @@ Bugfixes
 - Catch the reentrancy problem: defer asmmemmgr frees that reenter during a gc
 - macos: Delay async exception handling tripped during running finalizers until
   the run is complete
+- Windows: fix ``signal`` error handling
+- Windows: wrap more system calls that can abort with ``SuppressIPH``
+- Windows: resolve symlinks in ``resolvedirof``
+- Windows: use ``wchr`` entry points for ``os.spawnv*`` (:issue:`5738`)
+- Windows: better error reporting of waitstatus_to_exitcode (:issue:`5738`)
+- fix set corruption when ``__eq__`` mutates the set in ``difference_update``
+  and ``difference`` (:issue:`5765`)
+- change ppc-64 to powerpc64le (python2.7 only)
+- Don't rely on signed overflow when overallocating RPython lists
+  (:issue:`5773`, :issue:`5799`)
+- rsre: apply the zero-width protection of MIN_UNTIL to backtracked items
+  (:issue:`5773`, :issue:`5798`)
+- Windows: speed up GIL handoffs between threads (:issue:`5797`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -146,17 +167,54 @@ Python 3.12
   were crashing
 - Windows: add enough of rvmprof to get faulthandler working (:issue:`5725`)
 - unicode.splitlines: add an ASCII fast path that scans bytes without decoding (:issue:`5719`)
+- Allow importing cp312-abi3 c-extension modules, including building a
+  python3.dll mapping library on windows and hacking at wheel tags supported by
+  pip et.al to allow cp312-abi3 (:issue:`5578`)
 
 C API
 ~~~~~
 
+- Respect ``Py_TPFLAGS_SEQUENCE`` and ``Py_TPFLAGS_MAPPING`` in static types
+  (:issue:`5736`)
+- Fix type objects' refcount handling for subtypes of builtin types
+  (:issue:`5736`)
+- Copy all slots from the base ``pto`` (:issue:`5736`)
+- Properly handle all the different ways to hit ``tp_dealloc`` (:issue:`5756`)
+- Run ``tp_finalize`` and track it in the prefix like ``PyGC_HEAD``
+  (:issue:`5743`)
+- Run finalizers again after another collect to run both ``tp_dealloc`` and
+  ``tp_finalize`` (:issue:`5803`)
+- Refactor cdatetime to be compatible with cpython structs and headers (:issue:`5764`)
+- remove unused ``PyBytesObject.ob_sstate`` (:issue:`5764`)
+- Make len(bytesarray) and PyByteArray.ob_size match (:issue:`5764`)
+- Add ``Py_LIMITED_API`` to headers and hide functions when it is defined (:issue:`5764`)
+- Give interp-level builtins a ``PyCFunctionObject`` layout with a valid
+  ``m_ml``, so the ``PyCFunction_GET_*`` macros work (:issue:`5803`)
+- ``getsetdescr_attach``: fall back to the owning class when unbound (:issue:`5803`)
+- Decrement tick counter on c-extension callbacks to allow GIL release (:issue:`5803`)
+- testing: fix emulated GIL and untranslated GIL test in cpyext (:issue:`5803`)
+- make strides, shape on Py_Buffer be pointers to view-owned data for
+  compatibility with CPython for ABI3 (:issue:`5802`)
+- Add a fast path through ``wrap_call`` for vectorcall (:issue:`5802`)
+- Prefer running cpyext deallocators in the main thread (:issue:`5802`)
+- cdatetime: use internal attributes instead of public setters for W_Datetime* attach (:issue:`5805`)
+- Handle StackOverflow better in wraped cpyext calls (:issue:`5810`, :issue:`5811`)
+
+
 Testing
 ~~~~~~~
 
-- ctypes tests: don't call a non-variadic function with partial argtypes (:issue:`5652`)
+- ctypes tests: don't call a non-variadic function with partial argtypes
+  (:issue:`5652`)
 - cffi tests: port test_ffi_new_allocator_1 (:issue:`5651`)
 - Remove tests that replicate lib-python tests (:issue:`5672`)
-- rmmap: untranslated macOS arm64 JIT memory uses mprotect, not MAP_JIT (:issue:`5662`)
+- rmmap: untranslated macOS arm64 JIT memory uses mprotect, not MAP_JIT
+  (:issue:`5662`)
+- PyPY's ``switchinterval`` is much higher than CPython's, causing races in some
+  tests. Add explicit waits to improve reproducability
+- Backport ``_pytest`` changes to main (:issue:`5767`)
+- Add a delay after starting the first test worker thread to prevent cache races (:issue:`5800`)
+- Convert some app-level tests to new-style apptests (i.e. moving from test_abc.py to apptest_abc.py) (:issue:`5812`).
 
 Other bugfixes including missing compatibility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -230,11 +288,92 @@ Other bugfixes including missing compatibility
 - Windows: modernize socket: use enums not macros, add a SIO_LOOPBACK_FAST_PATH
   to ioctl_w, fix dup, drop TCP_KEEPALIVE
 - Rebuild exception subgroups exactly like CPython (:issue:`5713`)
-- math.log: improve the robustness of the algorithm and special-case 2 and 10. (:issue:`5700`)
-- implement more precise sum of floats following :issue:`python/cpython#100426` (:issue:`5720`)
+- math.log: improve the robustness of the algorithm and special-case 2 and 10.
+  (:issue:`5700`)
+- implement more precise sum of floats following :issue:`python/cpython#100426`
+  (:issue:`5720`)
 - fix crash when trying to pass a non-dict object to a __dict__ descriptor's
   methods (:issue:`5733`)
 - Windows: fix ``_sqlite3`` error reporting
-- test_posix2: check major()/minor() of ``NODEV`` only on Linux, not macos (:issue:`5724`)
+- test_posix2: check major()/minor() of ``NODEV`` only on Linux, not macos
+  (:issue:`5724`)
 - Windows: fix exit code when trapping KeyboardInterrupt
 - Windows: improve ``mmap`` error handling
+- Windows: fill in more details of ``_overlapped`` for error states
+- Windows: add listmounts (:issue:`5738`)
+- Accept arguments in ``Pickler.__new__`` (:issue:`5727`)
+- Add unused ``gc.callback`` for dask benchmark compatibility
+- Make a venv-of-venv climb through the ``pyvenv.cfg`` chain to find the base
+  pypy
+- pickler: break reducer cycles for cloudpickle compatibility
+- select: invalidate kqueue objects in a forked child (:issue:`5730`)
+- Fix ``__reduce__`` of exhausted dict and set iterators (:issue:`5733`,
+  :issue:`5735`)
+- Fix ``__reduce__`` of enumerate over a list and of exhausted tee iterators
+  (:issue:`5733`, :issue:`5737`)
+- pickle: fix unpickling of missing memo entries and non-UTF-8 text lines
+  (:issue:`5733`, :issue:`5780`)
+- Fix BytesIO and StringIO crashes on huge positions and on closing in
+  ``__index__`` (:issue:`5733`, :issue:`5739`)
+- Raise MemoryError when an array's byte size overflows
+  (:issue:`5733`, :issue:`5752`)
+- Raise ValueError when a buffered stream is detached during an operation
+  (:issue:`5733`, :issue:`5793`)
+- Convert the size before checking that a buffered stream is open
+  (:issue:`5733`, :issue:`5793`)
+- Keep using the same iterator in ``islice.__next__`` during reentrant calls
+  (:issue:`5733`, :issue:`5792`)
+- Clamp start and end in the built-in codec error handlers
+  (:issue:`5733`, :issue:`5796`)
+- tee: call ``iter()`` twice, ignore ``__copy__``, and call nothing for n == 0.
+  Also  objects for start or step that only define ``__index__``
+  (:issue:`5705`, :issue:`5702`)
+- itertools.count(): allow objects for start or step that only define ``__index__``
+  (:issue:`5705`, :issue:`5702`)
+- bytearray: Convert the item before reading the data in append/insert
+  (:issue:`5768`, :issue:`5702`)
+- sqlite3: read the backup error string with ``ffi.string()`` before decoding
+  it (:issue:`5731`)
+- Fix fatal AssertionError on multi-line fields in triple-quoted f-strings
+  (:issue:`5776`)
+- Build the nested f-string in ``test_fstring_nesting_limits`` without
+  recursion (:issue:`5790`)
+- tokenizer: Raise "invalid decimal literal" for bad float exponents in
+  Tokenizer and remove old tokenizer (:issue:`5777`)
+- tokenizer: Make DFA.recognize return the longest match (:issue:`5778`)
+- tokenizer: Prove the whitespace match is non-negative (:issue:`5778`)
+- Return the left operand's type from ``^`` when the left set is empty
+  (:issue:`5774`, :issue:`5729`)
+- Do not order equal steps in ``slice.__lt__``, add ``slice.__le__``,
+  ``__gt__`` and ``__ge__`` (:issue:`5773`, :issue:`5729`)
+- Check for a mapping before scanning a ``%(key)`` format (:issue:`5772`,
+  :issue:`5729`)
+- Check that the first argument of ``super()`` is a type whenever it is given
+  (:issue:`5770`, :issue:`5729`)
+- Return an ASCII repr unchanged from ``ascii()``
+  (:issue:`5771`, :issue:`5729`)
+- Accept and ignore arguments in ``_thread.RLock()``
+  (:issue:`5786`, :issue:`5729`)
+- Compute ``math.degrees()`` as ``x * (180 / pi)`` to improve accuracy
+  (:issue:`5784`, :issue:`5729`)
+- Take ``abs()`` of the converted value in one-argument ``math.gcd()``
+  (:issue:`5783`, :issue:`5729`)
+- Convert math.remainder() arguments like the other math functions
+  (:issue:`5782`, :issue:`5729`)
+- Store an exact int in itertools.count() for an int start with step 1
+  (:issue:`5785`, :issue:`5729`)
+- packaging: call ``build_cffi_imports`` with the target interpreter not the
+  host interpreter, add a cc -arch flag for macos x86-64 (:issue:`5791`)
+- marshal: pass the text of `TYPE_FLOAT`` and ``TYPE_COMPLEX`` to float() as
+  bytes not str (:issue:`5795`)
+- Check the length of the state in ``itertools.product.__setstate__`` (:issue:`5794`)
+- Fix compiler crash on break/continue/return out of try/except*/finally
+  (:issue:`5801`, :issue:`5806`)
+- Fix ``readinto()`` of BufferedRandom reading buffered data twice
+  (:issue:`5801`, :issue:`5813`)
+
+Speedups
+~~~~~~~~
+
+- Use a proxy for unicode dict keys that does not require wrapping them into
+  W_Unicode objects
