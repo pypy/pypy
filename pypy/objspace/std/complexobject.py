@@ -552,7 +552,11 @@ class W_ComplexObject(W_Root):
                 w_p = self.pow_small_int(int(r))
             else:
                 w_p = self.pow(w_exponent)
-            if math.isinf(w_p.realval) or math.isinf(w_p.imagval):
+            # a finite sum means both parts are finite; only otherwise is
+            # it worth telling an infinite part from a nan
+            total = w_p.realval + w_p.imagval
+            if total - total != 0.0 and (math.isinf(w_p.realval) or
+                                         math.isinf(w_p.imagval)):
                 raise OverflowError
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
