@@ -7,7 +7,7 @@ Combined releases
 .. toctree::
    :maxdepth: 1
 
-   release-v8.1.0.rst
+   release-v8.1.1.rst
    release-v8.0.1.rst
    release-v8.0.0.rst
    release-v7.3.23.rst

@@ -1,7 +1,6 @@
 from hypothesis import given, strategies as st
 
 from io import StringIO
-from os import linesep
 
 LINE_ENDINGS = [u'\n', u'\r', u'\r\n']
 
@@ -15,7 +14,8 @@ def test_simple(txt, newline):
         st.text(st.characters(blacklist_characters='\r\n'), min_size=1),
         st.sampled_from(LINE_ENDINGS))))
 def test_universal(values):
-    output_lines = [line + linesep for line, ending in values]
+    # newline=None translates to '\n', not to os.linesep
+    output_lines = [line + '\n' for line, ending in values]
     output = u''.join(output_lines)
 
     input = u''.join(line + ending for line, ending in values)

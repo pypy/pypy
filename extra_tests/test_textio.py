@@ -1,12 +1,11 @@
 from hypothesis import given, strategies as st
 
 from io import BytesIO, TextIOWrapper
-import os
 
 def translate_newlines(text):
+    # reading with newline=None translates to '\n', not to os.linesep
     text = text.replace('\r\n', '\n')
-    text = text.replace('\r', '\n')
-    return text.replace('\n', os.linesep)
+    return text.replace('\r', '\n')
 
 @st.composite
 def st_readline_universal(

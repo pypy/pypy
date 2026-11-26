@@ -140,13 +140,13 @@ def test_copy():
         assert d1 == d2
 
 def test_random():
-    import random, md5
+    import random
     for i in range(20):
         input = ''.join([chr(random.randrange(256))
                          for i in range(random.randrange(1000))])
         m1 = rmd5.RMD5()
         m1.update(input)
-        m2 = md5.new()
+        m2 = md5()
         m2.update(input)
         assert m2.hexdigest() == m1.hexdigest()
 

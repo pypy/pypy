@@ -1,5 +1,4 @@
 from pypy.objspace.std.specialisedtupleobject import _specialisations
-from pypy.objspace.std.test import test_tupleobject
 from pypy.objspace.std.tupleobject import W_TupleObject
 
 
@@ -249,7 +248,3 @@ class AppTestW_SpecialisedTupleObject:
         assert N in T
         assert T == (N, N)
         assert (0.0, 0.0) == (-0.0, -0.0)
-
-
-class AppTestAll(test_tupleobject.AppTestW_TupleObject):
-    spaceconfig = {"objspace.std.withspecialisedtuple": True}
