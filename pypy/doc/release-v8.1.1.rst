@@ -198,7 +198,7 @@ C API
 - Add a fast path through ``wrap_call`` for vectorcall (:issue:`5802`)
 - Prefer running cpyext deallocators in the main thread (:issue:`5802`)
 - cdatetime: use internal attributes instead of public setters for W_Datetime* attach (:issue:`5805`)
-- Handle StackOverflow better in wraped cpyext calls (:issue:`5810`, :issue:`5811`)
+- Handle StackOverflow better in wrapped cpyext calls (:issue:`5810`, :issue:`5811`)
 
 
 Testing
@@ -211,7 +211,7 @@ Testing
 - rmmap: untranslated macOS arm64 JIT memory uses mprotect, not MAP_JIT
   (:issue:`5662`)
 - PyPY's ``switchinterval`` is much higher than CPython's, causing races in some
-  tests. Add explicit waits to improve reproducability
+  tests. Add explicit waits to improve reproducibility
 - Backport ``_pytest`` changes to main (:issue:`5767`)
 - Add a delay after starting the first test worker thread to prevent cache races (:issue:`5800`)
 - Convert some app-level tests to new-style apptests (i.e. moving from test_abc.py to apptest_abc.py) (:issue:`5812`).
