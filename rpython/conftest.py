@@ -1,6 +1,7 @@
 import py, pytest
 from rpython.tool import leakfinder
 from rpython.tool.dump_on_kill import install as _install_dump_on_kill
+from rpython.tool.twothree import PY2
 
 pytest_plugins = 'rpython.tool.pytest.expecttest'
 
@@ -31,6 +32,9 @@ def braindead_deindent(self):
     return newsource
 
 py.code.Source.deindent = braindead_deindent
+
+def pytest_ignore_collect(path):
+    return not PY2 and path.basename.endswith('_py2.py')
 
 def pytest_report_header():
     return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)

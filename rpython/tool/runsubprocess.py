@@ -91,10 +91,10 @@ if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_
             # behavior as the child's stdin / stdout
             from io import TextIOWrapper
             child_stdin = TextIOWrapper(_child.stdin,
-                                        newline=sys.stdin.newlines,
+                                        newline=getattr(sys.stdin, 'newlines', None),
                                         write_through=True)
             child_stdout = TextIOWrapper(_child.stdout,
-                                         newline=sys.stdout.newlines)
+                                         newline=getattr(sys.stdout, 'newlines', None))
     spawn_subprocess()
 
     def cleanup_subprocess():
