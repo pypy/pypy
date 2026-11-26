@@ -217,6 +217,64 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         bound = mod.bindTo([])
         assert repr(bound).startswith("<built-in method bound of list object at ")
 
+    def test_pycfunction_get_macros(self):
+        # The PyCFunction_GET_* macros do the struct access inline instead of
+        # going through PyCFunction_Get*(), so they also have to work on the
+        # built-in functions that PyPy implements at interp-level, not just on
+        # the ones an extension module creates from a PyMethodDef.
+        # Cython does exactly this in its METH_FASTCALL detection:
+        #     PyCFunction_GET_FLAGS(getattr) & METH_FASTCALL
+        # which segfaults, because the object behind `getattr` has no
+        # PyCFunctionObject struct behind its PyObject_HEAD.
+        # See tests/run/fastcall.pyx in Cython.
+        mod = self.import_extension('foo', [
+            ('get_flags', 'METH_O',
+             '''
+             return PyLong_FromLong(PyCFunction_GET_FLAGS(args));
+             '''
+             ),
+            ('has_function', 'METH_O',
+             '''
+             return PyBool_FromLong(PyCFunction_GET_FUNCTION(args) != NULL);
+             '''
+             ),
+            ('meth_o', 'METH_O',
+             '''
+             return Py_NewRef(args);
+             '''
+             ),
+            ('call_varargs', 'METH_VARARGS',
+             '''
+             PyObject *f = PyTuple_GetItem(args, 0);
+             PyObject *rest = PyTuple_GetSlice(args, 1, PyTuple_Size(args));
+             PyObject *res;
+             if (!(PyCFunction_GET_FLAGS(f) & METH_VARARGS) ||
+                 PyCFunction_GET_FLAGS(f) & METH_KEYWORDS) {
+                 Py_DECREF(rest);
+                 Py_RETURN_NONE;
+             }
+             res = PyCFunction_GET_FUNCTION(f)(PyCFunction_GET_SELF(f), rest);
+             Py_DECREF(rest);
+             return res;
+             '''
+             ),
+            ])
+        METH_O = 0x0008
+        # an extension function: this is the case that already works
+        assert mod.get_flags(mod.meth_o) == METH_O
+        assert mod.has_function(mod.meth_o) is True
+        # an interp-level builtin: PyPy gives these their own type, but a C
+        # extension cannot tell them apart and reaches for the same struct.
+        # Reading uninitialised memory is what segfaults, so the assertion
+        # that matters is just that these return at all.
+        assert mod.get_flags(getattr) & ~0x0fff == 0
+        assert mod.has_function(getattr) is True
+        # and the function pointer is callable the way a METH_VARARGS
+        # PyCFunction is
+        if mod.get_flags(getattr) & 0x0001:
+            assert mod.call_varargs(getattr, 1, 'real') == 1
+            assert mod.call_varargs(len, [1, 2, 3]) == 3
+
     def test_function_as_method(self):
         # Unlike user functions, builtins don't become methods
         mod = self.import_extension('foo', [
@@ -323,6 +381,18 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert type(c.__iter__).__doc__.startswith('instancemethod(function, instance)')
         assert mod.C.__next__.__doc__ == "usable docstring"
         assert mod.C.__next__.__text_signature__ == '($self, /)'
+        # a docstring installed via d_base must survive the PyType_Modified()
+        # that Cython makes right afterwards
+        assert mod.C.__len__.__doc__ == "C.__len__ docstring"
+        assert mod.C.__add__.__doc__ == "C.__add__ docstring"
+        assert mod.C.__getattr__.__doc__ == "C.__getattr__ docstring"
+        assert len(c) == 0
+        # a slot left at 0 in a subclass stays inherited, rather than being
+        # shadowed by a descriptor of the subclass's own
+        assert '__len__' not in mod.D.__dict__
+        assert mod.D.__len__ is mod.C.__len__
+        assert len(mod.D()) == 0
+
 
     def test_reduce_pickle_module(self):
         # Cython's default __reduce__ for cdef classes generates a

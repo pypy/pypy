@@ -141,6 +141,81 @@ class AppTestThread(AppTestCpythonExtensionBase):
         # The intr_flag isn't tested here though
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    def test_poll_loop_in_c_yields_gil(self):
+        # A C extension that polls Python state in a loop has to let other
+        # threads run, otherwise the thread it is waiting for never gets to
+        # set the flag it is polling for.  The equivalent loop written in
+        # Python yields fine; only the C one starves.
+        #
+        # Cython compiles `while not done.is_set():` into exactly this shape,
+        # which is why these Cython tests hang on PyPy (both listed in
+        # Cython's tests/pypy_crash_bugs.txt):
+        #     tests/run/generator_thread_safety.pyx
+        #         test_value_into_generator, test_throw_into_generator
+        #     tests/run/threadsafe_generated.pyx
+        #         test_properties
+        # Adding a sleep(0) to those loops makes all three pass, which is
+        # what identifies this as the cause rather than a lock problem.
+        #
+        # Bounded by wall clock, so it reports starvation instead of hanging.
+        #
+        # NB: this PASSES untranslated -- the starvation only appears on a
+        # translated build.  To see it fail, run the same loop against a
+        # translated pypy:  ./pypy3.12-c pytest.py -D <this file>
+        # A standalone C version starves after ~5.5M PyObject_CallMethod
+        # calls in 4.85s without the setter thread running once, so this is
+        # not specific to Cython-generated code.
+        module = self.import_extension('foo', [
+            ("poll_until_set", "METH_VARARGS",
+             """
+                PyObject *ev;
+                int timeout;
+                long i = 0;
+                time_t deadline;
+                if (!PyArg_ParseTuple(args, "Oi", &ev, &timeout))
+                    return NULL;
+                deadline = time(NULL) + timeout;
+                while (time(NULL) < deadline) {
+                    PyObject *res;
+                    int is_set;
+                    i++;
+                    res = PyObject_CallMethod(ev, "is_set", NULL);
+                    if (res == NULL)
+                        return NULL;
+                    is_set = PyObject_IsTrue(res);
+                    Py_DECREF(res);
+                    if (is_set < 0)
+                        return NULL;
+                    if (is_set)
+                        return PyLong_FromLong(i);   /* saw it */
+                }
+                return PyLong_FromLong(-i);          /* starved */
+             """),
+            ],
+            prologue="#include <time.h>")
+        import threading, time
+
+        ev = threading.Event()
+        def setter():
+            time.sleep(0.05)
+            ev.set()
+        t = threading.Thread(target=setter)
+        t.start()
+        # Untranslated, the loop runs fewer bytecodes in 5s than the
+        # default check interval, so it would never yield the GIL at all.
+        import sys
+        old_interval = sys.getswitchinterval()
+        sys.setswitchinterval(1e-5)
+        try:
+            n = module.poll_until_set(ev, 5)
+        finally:
+            sys.setswitchinterval(old_interval)
+        t.join(10)
+        assert n > 0, (
+            "C poll loop never saw the event: ran %d iterations over 5s "
+            "while another thread was waiting to set it" % -n)
+
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     @pytest.mark.xfail(reason='segfaults', run=False)
     def test_tls(self):
         module = self.import_extension('foo', [

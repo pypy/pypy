@@ -804,6 +804,9 @@ def _parse_command_line(argv):
         sys.flags = type(oldflags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
+    # Keep builtins.__debug__ in sync with -O, like CPython does.
+    sys.modules['builtins'].__dict__['__debug__'] = not options['optimize']
+
     if getenv('PYTHON_DISABLE_REMOTE_DEBUG'):
         disable_remote_debug(options)
 

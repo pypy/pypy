@@ -86,6 +86,53 @@ def cfunction_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
+@bootstrap_function
+def init_builtinfunction(space):
+    # Interp-level builtins (getattr, len, ...) pass PyCFunction_Check(), so
+    # extensions use the PyCFunction_GET_* macros on them, which read the
+    # struct directly. Give them a PyCFunctionObject layout with a valid m_ml.
+    from pypy.interpreter.function import BuiltinFunction
+    make_typedescr(BuiltinFunction.typedef,
+                   basestruct=PyCFunctionObject.TO,
+                   attach=builtinfunction_attach,
+                   dealloc=builtinfunction_dealloc)
+
+@slot_function([PyObject, PyObject], PyObject)
+def builtinfunction_trampoline(space, w_self, w_args):
+    # METH_VARARGS ml_meth of an interp-level builtin: m_self is the function
+    return space.call(w_self, w_args)
+
+def builtinfunction_attach(space, py_obj, w_obj, w_userdata=None):
+    from pypy.interpreter.function import BuiltinFunction
+    from pypy.module.cpyext.slotdefs import llslot
+    assert isinstance(w_obj, BuiltinFunction)
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
+    ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
+    name = w_obj.name
+    if name is None:
+        name = '?'
+    ml.c_ml_name = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(name))
+    rffi.setintfield(ml, 'c_ml_flags', METH_VARARGS)
+    ml.c_ml_meth = llslot(space, builtinfunction_trampoline)
+    py_func.c_m_ml = ml
+    # borrowed self-pointer, so ml_meth(m_self, args, kw) calls this function
+    py_func.c_m_self = py_obj
+    py_func.c_m_module = make_ref(space, w_obj.w_module)
+
+@slot_function([PyObject], lltype.Void)
+def builtinfunction_dealloc(space, py_obj):
+    py_func = rffi.cast(PyCFunctionObject, py_obj)
+    ml = py_func.c_m_ml
+    if ml:
+        py_func.c_m_ml = lltype.nullptr(PyMethodDef)
+        rffi.free_charp(rffi.cast(rffi.CCHARP, ml.c_ml_name))
+        lltype.free(ml, flavor='raw')
+    # m_self is a borrowed pointer to py_obj itself, nothing to release
+    py_func.c_m_self = lltype.nullptr(PyObject.TO)
+    decref(space, py_func.c_m_module)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
+
 def cmethod_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_PyCMethodObject)
     py_func = rffi.cast(PyCFunctionObject, py_obj)

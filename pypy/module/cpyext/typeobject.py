@@ -219,6 +219,16 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     if not isinstance(w_obj, W_GetSetPropertyEx):
         assert isinstance(w_obj, GetSetProperty)
         py_getsetdef = make_GetSet(space, w_obj)
+        if w_userdata is None:
+            # Not reached via a type's tp_dict (see dict_attach), e.g. the
+            # getset descriptors of getset_descriptor itself, or one found
+            # through gc.get_objects(). Fall back to the owning class.
+            if w_obj.w_objclass is not None:
+                w_userdata = w_obj.w_objclass
+            elif w_obj.reqcls is not None:
+                w_userdata = space.gettypeobject(w_obj.reqcls.typedef)
+            else:
+                w_userdata = space.w_object
         assert space.isinstance_w(w_userdata, space.w_type)
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
         # now w_obj.getset is py_getsetdef, which was freshly allocated
@@ -1771,6 +1781,16 @@ def resync_slot_wrappers(space, w_type, pto):
         if inherited_unchanged:
             continue
         func_voidp = rffi.cast(rffi.VOIDP, func)
+        w_existing = w_type.dict_w.get(method_name, None)
+        if isinstance(w_existing, W_PyCWrapperObject):
+            if (w_existing.w_objclass is w_type and
+                    w_existing.get_func_to_call() == func_voidp):
+                # An extension may have attached state, so keep exactly that
+                # wrapper
+                continue
+        elif w_existing is not None:
+            # Not a slot wrapper
+            continue
         w_type.dict_w[method_name] = wrapper_class(
             space, w_type, method_name, doc, func_voidp, type_name)
 

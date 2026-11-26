@@ -699,13 +699,18 @@ class UserDelAction(AsyncAction):
         # called by perform() when we have to "perform" this action,
         # and also directly at the end of gc.collect).
         # 'running_finalizers' is a nesting count, because an app-level
-        # __del__ or weakref callback can get us back in here
+        # __del__ or weakref callback can get us back in here.
+        # Returns whether any finalizer was actually called: gc.collect()
+        # needs to know, because a W_Root finalized here only becomes
+        # visibly dead to the *next* collection.
         self.running_finalizers += 1
+        ran_any = False
         try:
             while True:
                 w_obj = self.space.finalizer_queue.next_dead()
                 if w_obj is None:
                     break
+                ran_any = True
                 self._call_finalizer(w_obj)
         finally:
             self.running_finalizers -= 1
@@ -715,6 +720,7 @@ class UserDelAction(AsyncAction):
                 ec = self.space.getexecutioncontext()
                 if ec.w_async_exception_type is not None:
                     self.space.actionflag.rearm_ticker()
+        return ran_any
 
     def gc_disabled(self, w_obj):
         # If we're running in 'gc.disable()' mode, record w_obj in the

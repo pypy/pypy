@@ -16,6 +16,7 @@ PyAPI_FUNC(void*) PyModule_GetState(PyObject*);
 
 
 PyAPI_FUNC(PyObject *) PyModuleDef_Init(struct PyModuleDef*);
+PyAPI_DATA(PyTypeObject) PyModuleDef_Type;
 
 /* for Py_mod_multiple_interpreters: */
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030c0000

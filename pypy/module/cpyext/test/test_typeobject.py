@@ -347,6 +347,39 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert hash(foo.UnicodeSubtype3(u'xyz')) == hash(u'xyz')
         assert foo.UnicodeSubtype3.__hash__ is str.__hash__
 
+    def test_unbound_getset_descriptor_to_c(self):
+        # A GetSetProperty only becomes a PyGetSetDescrObject once it is bound
+        # to a class, and the class is passed in as w_userdata when a type's
+        # tp_dict is built (see dict_attach in cpyext/dictobject.py).  That
+        # step is deliberately skipped for the type dict of GetSetProperty
+        # itself, because it would recurse -- so the getset descriptors of
+        # `getset_descriptor` never get a bound pair.  Handing one of them to
+        # C then reaches getsetdescr_attach() in cpyext/typeobject.py with
+        # w_userdata still None, which hits
+        #     assert space.isinstance_w(w_userdata, space.w_type)
+        # untranslated, and segfaults translated.
+        #
+        # Nothing exotic is needed to reach them: gc.get_objects() contains
+        # them, so any extension that walks the heap trips over this.  Cython
+        # does, in tests/memoryview/memoryview_in_subclasses.pyx, whose
+        # count_memoryviews() does
+        #     [... for o in gc.get_objects()]
+        # and segfaults before reaching any memoryview.
+        mod = self.import_extension('foo', [
+            ('type_name', 'METH_O',
+             '''
+             return PyUnicode_FromString(Py_TYPE(args)->tp_name);
+             '''
+             ),
+            ])
+        # an ordinary getset descriptor, bound to int: this already works
+        assert type(int.real).__name__ == 'getset_descriptor'
+        assert mod.type_name(int.real) == 'getset_descriptor'
+        # a getset descriptor of the getset_descriptor type itself
+        unbound = type(int.real).__dict__['__name__']
+        assert type(unbound).__name__ == 'getset_descriptor'
+        assert mod.type_name(unbound) == 'getset_descriptor'
+
     def test_descriptor(self):
         module = self.import_module("foo")
         prop = module.Property()

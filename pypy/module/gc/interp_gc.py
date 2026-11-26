@@ -43,13 +43,27 @@ def collect(space, generation=0):
     cache.clear()
 
     rgc.collect()
-    _run_finalizers(space)
+    ran_finalizer = _run_finalizers(space)
     if space.config.objspace.usemodules.cpyext:
         # perform dealloc callbacks now, instead of waiting for the next
         # AsyncAction to fire. Like the _run_finalizers call, this ensures
         # tp_dealloc will be called as part of gc.collect()
         from pypy.module.cpyext.state import _rawrefcount_perform
         _rawrefcount_perform(space)
+        if ran_finalizer:
+            # The W_Roots just finalized above were kept alive by the
+            # finalizer queue for the duration of the rgc.collect(), so that
+            # collection's rawrefcount pass could not yet see them as dead
+            # and next_dead() had nothing for _rawrefcount_perform() to
+            # decref.  Without one more round, the tp_dealloc of a type with
+            # both tp_finalize and tp_dealloc (a Cython cdef class with
+            # __del__ and __dealloc__) lands one gc.collect() later than on
+            # CPython, where refcounting runs the two back to back.
+            # Deliberately only one extra round, not a loop: a finalizer may
+            # resurrect its object, and gc.collect() must still terminate.
+            rgc.collect()
+            _run_finalizers(space)
+            _rawrefcount_perform(space)
 
 def _run_finalizers(space):
     # if we are running in gc.disable() mode but gc.collect() is called,
@@ -66,12 +80,11 @@ def _run_finalizers(space):
         # likely to have been added by rgc.collect() above, and actually
         # run them now.  This forces them to run before this function
         # returns, and also always in the enable_finalizers() mode.
-        space.user_del_action._run_finalizers()
+        # Returns whether any finalizer ran; see collect().
+        return space.user_del_action._run_finalizers()
     finally:
         if temp_reenable:
             disable_finalizers(space)
-
-    return space.newint(0)
 
 def enable(space):
     """Non-recursive version.  Enable major collections and finalizers.

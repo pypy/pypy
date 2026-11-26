@@ -120,6 +120,7 @@ class EmulatedGilHolder:
         self._tid = self._get_ident()
         self._lock = thread.allocate_lock()
         self._lock.acquire()
+        self._waiting = 0
 
     def _get_ident(self):
         from rpython.rlib import rthread
@@ -134,9 +135,26 @@ class EmulatedGilHolder:
 
     def acquire(self):
         assert self._tid != self._get_ident()
-        self._lock.acquire()
+        self._waiting += 1
+        try:
+            self._lock.acquire()
+        finally:
+            self._waiting -= 1
         assert self._tid == 0
         self._tid = self._get_ident()
+
+    def yield_thread(self):
+        # Like the C GIL's yield: if another thread is waiting, make sure
+        # it actually gets the lock, instead of releasing and immediately
+        # re-acquiring it ourselves (host locks are not fair).
+        if self._waiting == 0:
+            return
+        import time
+        self.release()
+        deadline = time.time() + 0.1
+        while self._tid == 0 and time.time() < deadline:
+            time.sleep(0.0001)
+        self.acquire()
 
     def get_holder(self):
         return self._tid
@@ -208,8 +226,9 @@ def yield_thread():
             rthread.gc_thread_run()
             _after_thread_switch()
     else:
-        release()
-        acquire()
+        allocate()
+        _emulated_gil_holder.yield_thread()
+        _after_thread_switch()
 yield_thread._gctransformer_hint_close_stack_ = True
 yield_thread._dont_reach_me_in_del_ = True
 yield_thread._dont_inline_ = True
