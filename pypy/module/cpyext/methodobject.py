@@ -33,6 +33,15 @@ PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 PyCMethodObject = cts.gettype('PyCMethodObject*')
 VectorcallFunc = cts.gettype('vectorcallfunc')
 
+@jit.dont_look_inside
+def check_c_stack_headroom(space):
+    # Refuse to enter C with less than 1/16 of the stack left, so the C code
+    # above us can still call the C-API to clean up after a RecursionError.
+    from rpython.rlib.rstack import stack_almost_full
+    if stack_almost_full():
+        raise oefmt(space.w_RecursionError,
+                    "maximum recursion depth exceeded")
+
 def get_vectorcall_func(py_callable):
     """Return the per-instance vectorcallfunc for py_callable if its type
     supports vectorcall (Py_TPFLAGS_HAVE_VECTORCALL set, tp_vectorcall_offset
@@ -142,6 +151,7 @@ class W_PyCFunctionObject(W_Root):
         return self.call(space, self.w_self, __args__)
 
     def call(self, space, w_self, __args__):
+        check_c_stack_headroom(space)
         try:
             return self._call(space, w_self, __args__)
         except CFunctionResultError as e:
@@ -395,6 +405,7 @@ class W_PyCWrapperObject(W_Root):
         self.qualname = type_name + "." + method_name
 
     def descr_call(self, space, w_self, __args__):
+        check_c_stack_headroom(space)
         return self.call(space, w_self, __args__)
 
     def call(self, space, w_self, __args__):
@@ -697,6 +708,7 @@ def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
             py_argnames = lltype.nullptr(PyObject.TO)
         else:
             py_argnames = as_pyobj(space, w_argnames)
+        check_c_stack_headroom(space)
         try:
             result = generic_cpy_call(space, func, py_func, py_args, nargsf,
                                       py_argnames)

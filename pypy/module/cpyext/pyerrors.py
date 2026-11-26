@@ -16,7 +16,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
-from rpython.rlib import rposix, jit
+from rpython.rlib import rposix, jit, rstackovf
 from rpython.rlib import rwin32
 from rpython.rlib.rarithmetic import widen
 
@@ -189,16 +189,28 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
 
     This function is normally only used by code that needs to handle exceptions or
     by code that needs to save and restore the error indicator temporarily."""
+    ptype[0] = lltype.nullptr(PyObject.TO)
+    pvalue[0] = lltype.nullptr(PyObject.TO)
+    ptraceback[0] = lltype.nullptr(PyObject.TO)
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
-        ptype[0] = make_ref(space, operror.w_type)
-        pvalue[0] = make_ref(space, operror.get_w_value(space))
-        ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
-    else:
-        ptype[0] = lltype.nullptr(PyObject.TO)
-        pvalue[0] = lltype.nullptr(PyObject.TO)
-        ptraceback[0] = lltype.nullptr(PyObject.TO)
+        try:
+            ptype[0] = make_ref(space, operror.w_type)
+            pvalue[0] = make_ref(space, operror.get_w_value(space))
+            ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
+        except rstackovf.StackOverflow:
+            rstackovf.check_stack_overflow()
+            # fetch nothing and leave the original exception pending
+            _clear_out_ref(space, ptype)
+            _clear_out_ref(space, pvalue)
+            _clear_out_ref(space, ptraceback)
+            state.set_exception(operror)
+
+def _clear_out_ref(space, p):
+    if p[0]:
+        decref(space, p[0])
+        p[0] = lltype.nullptr(PyObject.TO)
 
 @cpython_api([PyObject, PyObject, PyObject], lltype.Void, abi3=True)
 def PyErr_Restore(space, py_type, py_value, py_traceback):
