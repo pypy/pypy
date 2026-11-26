@@ -55,7 +55,7 @@ cffi_dependencies = {
               [
                ['./config', '--prefix=/usr', 'no-shared', 'no-tests', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+               ['make', 'install_sw', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
 
     'gdbm': (

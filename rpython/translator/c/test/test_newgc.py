@@ -1865,12 +1865,12 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             def __del__(self):
                 counter.val += 1
         def f(n):
-            # n <= 0: run with the gc enabled, allocating until x1 is freed,
-            # and return the number of MB it took (-1 if it was never freed).
-            # n > 0: run with the gc disabled, allocating n MB.  Return the
-            # number of objects freed while disabled, plus 10x the number
-            # freed after re-enabling the gc: the latter is a positive
-            # control, x1 must still be there and must still be garbage.
+            # n <= 0: run with the gc enabled, allocating 1MB at a time until
+            # x1 is freed, and return the number of MB it took (-1 if x1 was
+            # never freed).
+            #  n > 0: allocate n MB with the gc disabled, which
+            # must not free x1.  Return 1 if x1 was freed while the gc was
+            # disabled, plus 10 if it was freed after enabling it again.
             x1 = X()
             rgc.collect() # make x1 old
             assert not rgc.can_move(x1)
@@ -1879,45 +1879,48 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             if n > 0:
                 gc.disable()
                 assert not gc.isenabled()
-            # allocate (and keep alive) memory until a major collection
-            # happens.  How much that takes depends on the nursery size, so
-            # don't hardcode it: the enabled run measures it for us.
-            if n > 0:
                 limit = n
             else:
-                limit = 2000   # just a safety belt against allocating forever
+                limit = 500
             lst = []
             i = 0
             while i < limit:
+                lst.append(chr(i % 256) * (1024*1024))
                 i += 1
-                lst.append(chr(i%256) * (1024*1024))
                 if n <= 0 and counter.val:
                     break
             #
-            deleted_while_disabled = counter.val
-            #
-            gc.enable()
-            assert gc.isenabled()
             if n <= 0:
                 if counter.val:
                     return i
                 return -1
-            # x1 is still garbage, so re-enabling the gc must free it now
+            res = 0
+            if counter.val:
+                res = 1
+            #
+            counter.val = 0
+            gc.enable()
+            assert gc.isenabled()
+            # x1 is still garbage, so the gc must be able to free it now
             rgc.collect()
-            return deleted_while_disabled + 10 * counter.val
+            if counter.val:
+                res += 10
+            return res
         return f
 
     def test_enable_disable(self):
-        # first, run with normal gc, to see how much we have to allocate to
-        # trigger a major collection
-        mb = self.run("enable_disable", 0)
+        def myrunner(args):
+            env = os.environ.copy()
+            # the first major collection happens once 8 times the
+            # nursery size has been allocated
+            env['PYPY_GC_NURSERY'] = '1MB'
+            return subprocess.check_output(args, env=env)
+        mb = self.run("enable_disable", 0, runner=myrunner)
         assert mb > 0, 'x1 was never freed, even with the gc enabled'
-        #
-        # now allocate twice as much with gc.disable(): this should NOT free
-        # x1, but x1 must still be freed once the gc is enabled again
-        res = self.run("enable_disable", 2 * mb)
-        assert res == 10, 'freed %d while disabled, %d after enabling' % (
-            res % 10, res // 10)
+        # allocate twice as much with gc.disable() to force a major collection
+        res = self.run("enable_disable", 2 * mb, runner=myrunner)
+        assert not res & 1, 'x1 was freed while the gc was disabled'
+        assert res == 10, 'x1 was not freed after gc.enable()'
 
     def define_collect_step(self):
         class Counter(object):
