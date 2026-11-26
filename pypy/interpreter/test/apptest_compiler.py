@@ -280,6 +280,48 @@ def test_evaluate_argument_definition_order():
     assert f('a') == ('a', 3, 2, 1), repr(f('a'))
     assert f() == (4, 3, 2, 1), repr(f())
 
+def test_return_from_finally_with_exception_in_with():
+    class M:
+        def __enter__(self):
+            pass
+        def __exit__(self, *args):
+            log.append(args)
+            raise KeyError("exit")
+    def f():
+        with M():
+            try:
+                raise ValueError
+            finally:
+                return "result"
+    def g():
+        for i in range(2):
+            with M():
+                try:
+                    raise ValueError
+                finally:
+                    break
+    for func in f, g:
+        log = []
+        with raises(KeyError):
+            func()
+        assert log == [(None, None, None)]
+
+def test_outer_finally_raising_after_return_in_inner_finally():
+    log = []
+    def f():
+        try:
+            try:
+                raise KeyError
+            finally:
+                return
+        finally:
+            log.append("outer finally")
+            raise NameError
+    with raises(NameError) as excinfo:
+        f()
+    assert log == ["outer finally"]
+    assert excinfo.value.__context__ is None
+
 # the following couple of tests are from test_super.py in the stdlib
 
 def test_classcell():
