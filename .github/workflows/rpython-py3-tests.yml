@@ -1,0 +1,46 @@
+name: RPython Unit Tests on Python 3
+
+# Runs the parts of the rpython test suite that pass with PyPy 3.11 as the
+# host.  Add a directory to the "Run tests" step once all of its tests pass
+# there.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "rpython/**/*"
+      - "pytest.py"
+      - "_pytest/**/*"
+      - ".github/workflows/rpython-py3-tests.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "rpython/**/*"
+      - "pytest.py"
+      - "_pytest/**/*"
+      - ".github/workflows/rpython-py3-tests.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: rpython-py3-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: flowspace (PyPy 3.11)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: "pypy3.11"
+    - name: Run tests
+      env:
+        PYTHONPATH: .
+      # rpython/pytest.ini asks for --assert=reinterp, which replaces the
+      # built-in AssertionError and does not work on Python 3
+      run: pypy3 pytest.py --assert=plain rpython/flowspace rpython/rtyper/tool
