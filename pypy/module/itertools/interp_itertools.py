@@ -32,6 +32,17 @@ def W_Twoarg__new__(space, w_subtype, W_Base, name, __args__):
 class W_Count(W_Root):
     def __init__(self, space, w_firstval, w_step):
         self.space = space
+        if (space.isinstance_w(w_firstval, space.w_int) and
+                space.isinstance_w(w_step, space.w_int) and
+                space.eq_w(w_step, space.newint(1))):
+            # like CPython's fast mode: a start that fits in a machine word
+            # becomes an exact int, and so does the step
+            try:
+                w_firstval = space.newint(space.int_w(w_firstval))
+                w_step = space.newint(1)
+            except OperationError as e:
+                if not e.match(space, space.w_OverflowError):
+                    raise
         self.w_c = w_firstval
         self.w_step = w_step
 
