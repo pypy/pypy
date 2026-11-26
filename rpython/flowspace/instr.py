@@ -589,3 +589,154 @@ class PrintItem(Instr):
 class PrintNewline(Instr):
     def eval(self, ctx):
         ctx.appcall(rpython_print_newline)
+
+
+# ____________________________________________________________
+# Python 3 calls, functions and containers
+
+class Call(Instr):
+    """Call with the values of the keyword arguments on top of the stack,
+    above the star argument, which is above the positional arguments."""
+    def __init__(self, nargs, kwnames=(), has_star=False):
+        self.nargs = nargs
+        self.kwnames = kwnames
+        self.has_star = has_star
+
+    def eval(self, ctx):
+        values = ctx.popvalues(len(self.kwnames))
+        keywords = dict(zip(self.kwnames, values))
+        w_star = ctx.popvalue() if self.has_star else None
+        arguments = ctx.popvalues(self.nargs)
+        w_function = ctx.popvalue()
+        ctx.pushvalue(ctx.call_function(w_function, arguments, keywords,
+                                        w_star))
+
+
+class MakeFunctionWithDefaults(Instr):
+    """Like MakeFunction, with the default values in a tuple."""
+    def eval(self, ctx):
+        w_codeobj = ctx.popvalue()
+        w_defaults = ctx.popvalue()
+        if not isinstance(w_defaults, Constant):
+            raise FlowingError("Dynamically created function must"
+                               " have constant default values.")
+        defaults = [const(value) for value in w_defaults.value]
+        ctx.pushvalue(ctx.newfunction(w_codeobj, defaults))
+
+
+class BuildMapFromItems(Instr):
+    """Build a dict from 'count' (key, value) pairs on the stack."""
+    def __init__(self, count):
+        self.count = count
+
+    def eval(self, ctx):
+        items = ctx.popvalues(2 * self.count)
+        w_dict = op.newdict().eval(ctx)
+        for i in range(self.count):
+            op.setitem(w_dict, items[2 * i], items[2 * i + 1]).eval(ctx)
+        ctx.pushvalue(w_dict)
+
+
+class BuildConstKeyMap(Instr):
+    """Build a dict from the constant 'keys' and as many values on the
+    stack."""
+    def __init__(self, keys):
+        self.keys = keys
+
+    def eval(self, ctx):
+        values = ctx.popvalues(len(self.keys))
+        w_dict = op.newdict().eval(ctx)
+        for key, w_value in zip(self.keys, values):
+            op.setitem(w_dict, const(key), w_value).eval(ctx)
+        ctx.pushvalue(w_dict)
+
+
+class PopJumpIfNone(JumpInstr):
+    """Pop the top item and jump if it being None is 'cond'."""
+    def __init__(self, cond, target):
+        self.cond = cond
+        self.target = target
+
+    def eval(self, ctx):
+        w_value = ctx.popvalue()
+        if ctx.guessbool(op.is_(w_value, w_None).eval(ctx)) == self.cond:
+            return self.target
+
+
+# ____________________________________________________________
+# Python 3.11 exception tables
+
+class PushExcInfo(Instr):
+    """Starts a handler of FlowCode.handlers, which FlowContext.unroll()
+    enters with the Raise signal on top of the stack: make it the current
+    exception and save the previous one below it."""
+    def eval(self, ctx):
+        signal = ctx.popvalue()
+        if ctx.last_exception is None:
+            ctx.pushvalue(w_None)
+        else:
+            ctx.pushvalue(Raise(ctx.last_exception))
+        ctx.pushvalue(signal)
+        ctx.last_exception = signal.w_exc
+
+
+class PopExcept(Instr):
+    def eval(self, ctx):
+        w_previous = ctx.popvalue()
+        if isinstance(w_previous, Raise):
+            ctx.last_exception = w_previous.w_exc
+        else:
+            ctx.last_exception = None
+
+
+class CheckExcMatch(Instr):
+    def eval(self, ctx):
+        w_check_class = ctx.popvalue()
+        signal = ctx.peekvalue()
+        ctx.pushvalue(ctx.cmp_exc_match(signal.w_exc.w_type, w_check_class))
+
+
+class JumpIfNotExcMatch(JumpInstr):
+    def eval(self, ctx):
+        w_check_class = ctx.popvalue()
+        signal = ctx.popvalue()
+        if not ctx.exception_match(signal.w_exc.w_type, w_check_class):
+            return self.target
+
+
+class StoreException(Instr):
+    """Pop the exception being handled and store its value in a local
+    variable."""
+    def __init__(self, index):
+        self.index = index
+
+    def eval(self, ctx):
+        signal = ctx.popvalue()
+        ctx.pushvalue(signal.w_exc.w_value)
+        StoreFast(self.index).eval(ctx)
+
+
+class Reraise(Instr):
+    def eval(self, ctx):
+        raise ctx.popvalue()
+
+
+class BeforeWith(Instr):
+    def eval(self, ctx):
+        w_manager = ctx.peekvalue()
+        w_exit = op.getattr(w_manager, const("__exit__")).eval(ctx)
+        ctx.settopvalue(w_exit)
+        w_enter = op.getattr(w_manager, const('__enter__')).eval(ctx)
+        ctx.pushvalue(op.simple_call(w_enter).eval(ctx))
+
+
+class WithExceptStart(Instr):
+    """Call the __exit__ found below the exception, the previous exception
+    and the instruction offset. As in WithCleanup, it cannot suppress the
+    exception."""
+    def eval(self, ctx):
+        w_exc = ctx.peekvalue().w_exc
+        w_exitfunc = ctx.peekvalue(3)
+        op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
+                       ).eval(ctx)
+        ctx.pushvalue(const(False))
