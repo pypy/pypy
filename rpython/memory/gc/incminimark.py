@@ -528,7 +528,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             # Estimate this number conservatively
             bigobj = self.nonlarge_max + 1
-            self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+            self.max_number_of_pinned_objects = self.nursery_size // (bigobj * 2)
 
     def enable(self):
         self.enabled = True

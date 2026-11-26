@@ -1,5 +1,6 @@
 import py
 from rpython.rlib.objectmodel import not_rpython
+from rpython.tool.twothree import with_metaclass
 
 class Node(object):
     def view(self):
@@ -137,5 +138,6 @@ class CreateDispatchDictionaryMetaclass(type):
         dct["dispatch"] = make_dispatch_function(**dispatch_table)
         return type.__new__(cls, name_, bases, dct)
 
-class RPythonVisitor(object):
-    __metaclass__ = CreateDispatchDictionaryMetaclass
+class RPythonVisitor(with_metaclass(CreateDispatchDictionaryMetaclass,
+                                    object)):
+    pass

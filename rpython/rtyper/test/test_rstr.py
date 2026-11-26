@@ -11,6 +11,7 @@ from rpython.rtyper.rtyper import TyperError
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.annlowlevel import llstr, hlstr
 from rpython.rtyper.llinterp import LLAssertFailure
+from rpython.tool.twothree import xrange
 
 
 def test_parse_fmt():

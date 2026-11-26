@@ -15,6 +15,7 @@ from rpython.rlib.debug import ll_assert
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.twothree import unichr
 
 # ~~~ NOTE ~~~
 # The exact value returned by a function is NOT DEFINED. The returned value is

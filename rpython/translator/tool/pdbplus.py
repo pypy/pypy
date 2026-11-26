@@ -5,6 +5,7 @@ import types
 import code
 import sys
 from rpython.flowspace.model import FunctionGraph
+from rpython.tool.twothree import ClassType, cmp, get_function
 
 class NoTTY(Exception):
     pass
@@ -181,12 +182,12 @@ if obj is a class or ClassDef the class definition graph is shown"""
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
-            obj = obj.im_func
+            obj = get_function(obj)
         if isinstance(obj, types.FunctionType):
             page = graphpage.LocalizedCallGraphPage(translator, self._allgraphs(obj))
         elif isinstance(obj, FunctionGraph):
             page = graphpage.FlowGraphPage(translator, [obj])
-        elif isinstance(obj, (type, types.ClassType)):
+        elif isinstance(obj, (type, ClassType)):
             classdef = self._getcdef(obj)
             if classdef is None:
                 return
@@ -235,7 +236,7 @@ find a stack frame that has a certain variable (the default is "graph")
             obj = [obj]
         clsdefs = []
         for x in obj:
-            if isinstance(x, (type, types.ClassType)):
+            if isinstance(x, (type, ClassType)):
                 cdef = self._getcdef(x)
                 if cdef is None:
                     continue
@@ -312,7 +313,7 @@ the list of the read positions functions is set to var or _."""
         obj = self._getobj(arg)
         if obj is None:
             return
-        if isinstance(obj, (type, types.ClassType)):
+        if isinstance(obj, (type, ClassType)):
             obj = self._getcdef(obj)
             if obj is None:
                 return
@@ -363,7 +364,7 @@ show flow graph for function obj, obj can be an expression or a dotted name
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
-            obj = obj.im_func
+            obj = get_function(obj)
         if isinstance(obj, types.FunctionType):
             graphs = self._allgraphs(obj)
         elif isinstance(obj, FunctionGraph):
@@ -393,7 +394,7 @@ show localized call-graph for function obj, obj can be an expression or a dotted
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
-            obj = obj.im_func
+            obj = get_function(obj)
         if isinstance(obj, types.FunctionType):
             graphs = self._allgraphs(obj)
         elif isinstance(obj, FunctionGraph):

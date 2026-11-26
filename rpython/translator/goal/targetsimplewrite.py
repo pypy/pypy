@@ -1,4 +1,5 @@
 import os
+from rpython.tool.twothree import xrange
 
 def main(iterations=1):
     dest = os.open('/dev/null', os.O_RDWR, 0o777)

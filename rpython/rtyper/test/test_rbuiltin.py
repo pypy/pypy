@@ -14,6 +14,7 @@ from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool import udir
 from rpython.translator.translator import graphof
+from rpython.tool.twothree import unicode
 
 IS_PYPY = "__pypy__" in sys.builtin_module_names
 MACOS = sys.platform == "darwin"
@@ -236,7 +237,7 @@ class TestRbuiltin(BaseRtypingTest):
 
     def test_os_read(self):
         tmpfile = str(udir.udir.join("os_read_test"))
-        f = file(tmpfile, 'w')
+        f = open(tmpfile, 'w')
         f.write('hello world')
         f.close()
         def fn():
@@ -248,7 +249,7 @@ class TestRbuiltin(BaseRtypingTest):
     def test_os_lseek(self):
         self._skip_llinterpreter("os.lseek")
         tmpfile = str(udir.udir.join("os_lseek_test"))
-        f = file(tmpfile, 'w')
+        f = open(tmpfile, 'w')
         f.write('0123456789')
         f.close()
         SEEK_SET = 0

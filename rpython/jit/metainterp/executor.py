@@ -13,6 +13,7 @@ from rpython.jit.metainterp import resoperation
 from rpython.jit.metainterp.resoperation import rop, opname
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter, NULL
 from rpython.jit.codewriter import longlong
+from rpython.tool.twothree import get_function
 
 # ____________________________________________________________
 
@@ -392,7 +393,7 @@ def _make_execute_list():
             if hasattr(BlackholeInterpreter, name):
                 func = make_execute_function(
                     key.lower(),
-                    getattr(BlackholeInterpreter, name).im_func)
+                    get_function(getattr(BlackholeInterpreter, name)))
                 if func is not None:
                     execute[value] = func
                     continue

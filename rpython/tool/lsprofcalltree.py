@@ -114,7 +114,7 @@ def main(args):
             pass
     finally:
         kg = KCacheGrind(prof)
-        kg.output(file(options.outfile, 'w'))
+        kg.output(open(options.outfile, 'w'))
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

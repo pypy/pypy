@@ -57,7 +57,7 @@ def test_retval_None():
     assert graph.startblock.exits[0].args[0].concretetype == Void
 
 def test_ll_calling_ll():
-    import test_llann
+    from rpython.rtyper.test import test_llann
     tst = test_llann.TestLowLevelAnnotateTestCase()
     a, vTs = tst.test_ll_calling_ll()
     rt = RPythonTyper(a)
@@ -65,7 +65,7 @@ def test_ll_calling_ll():
     assert [vT.concretetype for vT in vTs] == [Void] * 4
 
 def test_ll_calling_ll2():
-    import test_llann
+    from rpython.rtyper.test import test_llann
     tst = test_llann.TestLowLevelAnnotateTestCase()
     a, vTs = tst.test_ll_calling_ll2()
     rt = RPythonTyper(a)

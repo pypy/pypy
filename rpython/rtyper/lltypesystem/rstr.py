@@ -19,6 +19,7 @@ from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
     AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
     AbstractUnicodeRepr)
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.twothree import basestring
 
 # ____________________________________________________________
 #

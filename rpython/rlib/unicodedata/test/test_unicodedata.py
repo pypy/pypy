@@ -9,6 +9,7 @@ from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0,
     unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0,
     unicodedb_14_0_0, unicodedb_15_0_0)
+from rpython.tool.twothree import unichr
 
 
 class TestUnicodeData(object):
@@ -145,7 +146,7 @@ class TestUnicodeData1100(object):
             # u"\U0002B740"
             177984: "CJK UNIFIED IDEOGRAPH-2B740",
             }
-        for un, name in additions.iteritems():
+        for un, name in additions.items():
             assert unicodedb_11_0_0.name(un) == name
             assert unicodedb_11_0_0.isprintable(un)
 

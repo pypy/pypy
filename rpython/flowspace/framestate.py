@@ -44,7 +44,8 @@ class FrameState(object):
         exc = self.last_exception
         if exc is not None:
             exc = FSException(_copy(exc.w_type), _copy(exc.w_value))
-        return FrameState(map(_copy, self.locals_w), map(_copy, self.stack),
+        return FrameState([_copy(w) for w in self.locals_w],
+                [_copy(w) for w in self.stack],
                 exc, self.blocklist, self.next_pos)
 
     def getvariables(self):

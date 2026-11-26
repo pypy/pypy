@@ -17,6 +17,7 @@ from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
 from rpython.annotator.model import AnnotatorError
+from rpython.tool.twothree import unichr, unicode, xrange
 
 
 def constpropagate(func, args_s, s_result):
@@ -193,12 +194,13 @@ from rpython.tool.twothree import builtins
 # iteration would change the dict being iterated over
 for name, value in list(globals().items()):
     if name.startswith('builtin_'):
-        # unicode and unichr are not built-ins on Python 3
-        if (name[8:] in ('unicode', 'unichr')
+        # unicode, unichr and xrange are not built-ins on Python 3
+        if (name[8:] in ('unicode', 'unichr', 'xrange')
                 and not hasattr(builtins, 'unicode')):
             continue
         original = getattr(builtins, name[8:])
         BUILTIN_ANALYZERS[original] = value
+BUILTIN_ANALYZERS[unichr] = builtin_unichr
 
 
 @analyzer_for(getattr(object.__init__, 'im_func', object.__init__))

@@ -39,6 +39,8 @@ import rpython
 from rpython.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype, doubledispatch
 from rpython.rlib.rarithmetic import r_uint, base_int, r_singlefloat, r_longfloat
+from functools import reduce
+from rpython.tool.twothree import get_class, get_function, unicode, with_metaclass
 
 
 class State(object):
@@ -48,16 +50,16 @@ class State(object):
     allow_int_to_float = True
 TLS = State()
 
-class SomeObject(object):
+class SomeObject(with_metaclass(extendabletype, object)):
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
-    __metaclass__ = extendabletype
     immutable = False
     knowntype = object
 
     def __init__(self):
         assert type(self) is not SomeObject
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.__dict__  == other.__dict__)
@@ -166,6 +168,7 @@ class SomeFloat(SomeObject):
                         # pretend it's a float.
     immutable = True
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if (type(self) is SomeFloat and type(other) is SomeFloat and
             self.is_constant() and other.is_constant()):
@@ -234,7 +237,7 @@ class SomeBool(SomeInteger):
 
     def set_knowntypedata(self, knowntypedata):
         assert not hasattr(self, 'knowntypedata')
-        for key, value in knowntypedata.items():
+        for key, value in list(knowntypedata.items()):
             if not value:
                 del knowntypedata[key]
         if knowntypedata:
@@ -262,6 +265,7 @@ class SomeStringOrUnicode(SomeObject):
     def can_be_none(self):
         return self.can_be_None
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -335,6 +339,7 @@ class SomeList(SomeObject):
     def __init__(self, listdef):
         self.listdef = listdef
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -377,6 +382,7 @@ class SomeDict(SomeObject):
     def __init__(self, dictdef):
         self.dictdef = dictdef
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -633,9 +639,9 @@ class SomeBuiltin(SomeObject):
     def __init__(self, analyser, s_self=None, methodname=None):
         if isinstance(analyser, MethodType):
             analyser = descriptor.InstanceMethod(
-                analyser.im_func,
-                analyser.im_self,
-                analyser.im_class)
+                get_function(analyser),
+                analyser.__self__,
+                get_class(analyser))
         self.analyser = analyser
         self.s_self = s_self
         self.methodname = methodname
@@ -650,9 +656,9 @@ class SomeBuiltinMethod(SomeBuiltin):
     def __init__(self, analyser, s_self, methodname):
         if isinstance(analyser, MethodType):
             analyser = descriptor.InstanceMethod(
-                analyser.im_func,
-                analyser.im_self,
-                analyser.im_class)
+                get_function(analyser),
+                analyser.__self__,
+                get_class(analyser))
         self.analyser = analyser
         self.s_self = s_self
         self.methodname = methodname

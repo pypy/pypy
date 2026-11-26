@@ -8,6 +8,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.conftest import option
 from rpython.rlib import rgc
+from rpython.tool.twothree import get_function
 
 
 class TestFinalizerAnalyzer(object):
@@ -59,7 +60,7 @@ class TestFinalizerAnalyzer(object):
         def f():
             return A()
 
-        r = self.analyze(f, [], A.__del__.im_func)
+        r = self.analyze(f, [], get_function(A.__del__))
         assert not r
 
     def test_c_call(self):
@@ -108,7 +109,7 @@ class TestFinalizerAnalyzer(object):
         def f():
             A()
 
-        r = self.analyze(f, [], A.__del__.im_func)
+        r = self.analyze(f, [], get_function(A.__del__))
         assert r
 
     def test_must_be_light_finalizer_decorator(self):

@@ -69,10 +69,10 @@ def format_assembler(ssarepr):
                     if len(asm) == 3:
                         print('->', repr(asm[-1]), file=output)
                     else:
-                        lst = map(repr, asm[1:-2])
+                        lst = [repr(x) for x in asm[1:-2]]
                         print(', '.join(lst), '->', repr(asm[-1]), file=output)
                 else:
-                    lst = map(repr, asm[1:])
+                    lst = [repr(x) for x in asm[1:]]
                     if asm[0] == '-live-': lst.sort()
                     print(', '.join(lst), file=output)
             else:

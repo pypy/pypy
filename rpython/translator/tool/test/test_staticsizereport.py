@@ -1,6 +1,7 @@
 from rpython.translator.c.test.test_genc import compile
 from rpython.translator.tool.staticsizereport import group_static_size, guess_size
 from rpython.rtyper.lltypesystem import llmemory, lltype, rffi
+from rpython.tool.twothree import xrange
 
 class TestStaticSizeReport(object):
     def test_simple(self):
@@ -19,7 +20,7 @@ class TestStaticSizeReport(object):
         func = compile(f, [int])
         size, num = group_static_size(func.builder.db,
                                       func.builder.db.globalcontainers())
-        for key, value in num.iteritems():
+        for key, value in num.items():
             if "staticsizereport.A" in str(key) and "vtable" not in str(key):
                 assert value == 101
 

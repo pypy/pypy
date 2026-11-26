@@ -5,6 +5,7 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.rtyper.lltypesystem import lltype, rlist
 from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.translator.c.support import cdecl
+from rpython.tool.twothree import builtins
 
 
 def predeclare_exception_data(exctransformer, rtyper):
@@ -29,7 +30,7 @@ def predeclare_exception_data(exctransformer, rtyper):
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
         name = exccls.__name__
-        if exccls.__module__ != 'exceptions':
+        if exccls.__module__ not in ('exceptions', builtins.__name__):
             name = '%s_%s' % (exccls.__module__.replace('.', '__'), name)
         yield ('RPyExc_%s' % name, exc_llvalue)
 

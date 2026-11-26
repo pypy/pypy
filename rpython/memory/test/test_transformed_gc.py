@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import py
-import inspect
 
 from rpython.rlib.objectmodel import compute_hash, compute_identity_hash
 from rpython.translator.c import gc
@@ -19,6 +18,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.rtyper import llinterp_backend
 from rpython.memory.gc.hook import GcHooks
+from rpython.tool.twothree import get_function, getargspec
 
 
 WORD = LONG_BIT // 8
@@ -73,7 +73,7 @@ class GCTest(object):
                 continue
             definefunc = getattr(cls, fullname)
             _, name = fullname.split('_', 1)
-            func_fixup = definefunc.im_func(cls)
+            func_fixup = get_function(definefunc)(cls)
             cleanup = None
             if isinstance(func_fixup, tuple):
                 func, cleanup, fixup = func_fixup
@@ -84,7 +84,7 @@ class GCTest(object):
             if cleanup:
                 cleanup.__name__ = "clean_%s" % name
 
-            nargs = len(inspect.getargspec(func)[0])
+            nargs = len(getargspec(func)[0])
             name_to_func[name] = len(funcs0)
             if nargs == 2:
                 funcs2.append(func)

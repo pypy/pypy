@@ -84,7 +84,7 @@ def setup():
         #endif
         #endif"""]
     field_names = dict.fromkeys(INSPECT)
-    for fmtchar, ctype in INSPECT.iteritems():
+    for fmtchar, ctype in INSPECT.items():
         field_name = ctype.replace(" ", "_").replace("*", "star")
         field_names[fmtchar] = field_name
         pre_include_bits.append("""

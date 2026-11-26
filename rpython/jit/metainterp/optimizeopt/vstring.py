@@ -13,6 +13,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, rstr
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.tool.twothree import unichr, unicode
 
 
 MAX_CONST_LEN = 100

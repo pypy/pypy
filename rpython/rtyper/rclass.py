@@ -20,6 +20,7 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
     Repr, getgcflavor, inputconst, warning, mangle)
+from rpython.tool.twothree import ClassType, StandardError
 
 
 class FieldListAccessor(object):
@@ -28,7 +29,7 @@ class FieldListAccessor(object):
         assert type(fields) is dict
         self.TYPE = TYPE
         self.fields = fields
-        for x in fields.itervalues():
+        for x in fields.values():
             assert isinstance(x, ImmutableRanking)
 
     def all_immutable_fields(self):
@@ -221,7 +222,7 @@ class ClassRepr(Repr):
         return r_subclass.getruntime(self.lowleveltype)
 
     def convert_const(self, value):
-        if not isinstance(value, (type, types.ClassType)):
+        if not isinstance(value, (type, ClassType)):
             raise TyperError("not a class: %r" % (value,))
         bk = self.rtyper.annotator.bookkeeper
         return self.convert_desc(bk.getdesc(value))
@@ -779,7 +780,7 @@ class InstanceRepr(Repr):
         if value is None:
             return self.null_instance()
         if isinstance(value, types.MethodType):
-            value = value.im_self   # bound method -> instance
+            value = value.__self__   # bound method -> instance
         bk = self.rtyper.annotator.bookkeeper
         try:
             classdef = bk.getuniqueclassdef(value.__class__)
@@ -1118,14 +1119,15 @@ def attr_reverse_size(args):
     # "likely size", as reported by rffi.sizeof(), to minimize padding
     # holes in C.  Fields should first be sorted by name, just to minimize
     # randomness, and then (stably) sorted by 'attr_reverse_size'.
+    # the fields of unknown size go first, as None sorted first on Python 2
     _, T = args
     if T is lltype.Void:
-        return None
+        return (0, 0)
     from rpython.rtyper.lltypesystem.rffi import sizeof
     try:
-        return -sizeof(T)
+        return (1, -sizeof(T))
     except StandardError:
-        return None
+        return (0, 0)
 
 # ____________________________________________________________
 #

@@ -7,10 +7,12 @@ from rpython.rtyper.lltypesystem.lltype import GcOpaqueType
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.memory.lltypelayout import convert_offset_to_int
 from rpython.rtyper.lltypesystem import llgroup
+from rpython.tool.twothree import cmp, ordering_from_cmp
 
 class Info:
     pass
 
+@ordering_from_cmp
 class ModuleReport:
     def __init__(self, modulename, totalsize, typereports):
         self.modulename = modulename
@@ -23,6 +25,7 @@ class ModuleReport:
     def __cmp__(self, other):
         return cmp((self.totalsize, self.modulename), (other.totalsize, other.modulename))
 
+@ordering_from_cmp
 class TypeReport:
     def __init__(self, typename, size, numobjects):
         self.typename = typename
@@ -170,7 +173,7 @@ def aggregate_values_by_module_and_type(database, count_modules_separately=False
             continue
         nodes_set = modules.setdefault(guess_module(graph) or '<unknown>', set())
         nodes_set.update(values_to_nodes(database, node.funcgen.all_cached_consts))
-    modules = modules.items()
+    modules = list(modules.items())
     # make sure that gc modules are reported latest to avoid them eating all objects
     def gc_module_key(tup):
         if "module.gc" in tup[0]:

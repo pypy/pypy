@@ -37,7 +37,7 @@ class types(object):
     @classmethod
     def _import(cls):
         prefix = 'ffi_type_'
-        for key, value in clibffi.__dict__.iteritems():
+        for key, value in clibffi.__dict__.items():
             if key.startswith(prefix):
                 name = key[len(prefix):]
                 setattr(cls, name, value)

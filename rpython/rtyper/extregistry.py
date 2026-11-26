@@ -1,5 +1,6 @@
 import weakref
 from rpython.tool.uid import Hashable
+from rpython.tool.twothree import with_metaclass
 
 
 class AutoRegisteringType(type):
@@ -29,8 +30,7 @@ class AutoRegisteringType(type):
         selfcls._register(EXT_REGISTRY_BY_TYPE, key)
 
 
-class ExtRegistryEntry(object):
-    __metaclass__ = AutoRegisteringType
+class ExtRegistryEntry(with_metaclass(AutoRegisteringType, object)):
 
     def __init__(self, type, instance=None):
         self.type = type

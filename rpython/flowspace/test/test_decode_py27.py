@@ -4,6 +4,10 @@ import types
 
 import pytest
 
+from rpython.tool.twothree import PY2
+if not PY2:
+    pytest.skip("Python 2 bytecode", allow_module_level=True)
+
 from rpython.flowspace import instr as I
 from rpython.flowspace.decode_py27 import Py2Decoder
 from rpython.flowspace.decode_py27 import OPMAP, EXTENDED_ARG

@@ -11,6 +11,7 @@ from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, l
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.test import snippet
 from rpython.translator.c.test.test_genc import compile
+from rpython.tool.twothree import unichr
 
 
 class TestTypedTestCase(object):

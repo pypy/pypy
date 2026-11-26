@@ -9,6 +9,7 @@ from rpython.translator.platform import platform as target_platform
 from rpython.rlib.rarithmetic import intmask, r_uint, widen
 import os,sys
 from textwrap import dedent
+from rpython.tool.twothree import long
 
 _POSIX = os.name == "posix"
 _WIN32 = sys.platform == "win32"
@@ -1224,7 +1225,9 @@ if _WIN32:
 
 class cConfig:
     pass
-cConfig.__dict__.update(platform.configure(CConfig))
+# a class __dict__ is read-only on Python 3
+for _key, _value in platform.configure(CConfig).items():
+    setattr(cConfig, _key, _value)
 
 sockaddr_ptr.TO.become(cConfig.sockaddr)
 addrinfo_ptr.TO.become(cConfig.addrinfo)

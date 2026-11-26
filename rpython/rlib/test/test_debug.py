@@ -10,6 +10,7 @@ from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              check_not_access_directly)
 from rpython.rlib import debug
 from rpython.rtyper.test.test_llinterp import interpret, gengraph
+from rpython.tool.twothree import unichr
 
 @pytest.fixture
 def debuglog(monkeypatch):

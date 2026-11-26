@@ -4,6 +4,7 @@ from __future__ import print_function
 import sys, os
 import itertools
 from collections import defaultdict
+from rpython.tool.twothree import unichr
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -196,7 +197,7 @@ def read_unicodedata(files):
 
     # Collect ranges
     ranges = {}
-    for name, (start, data) in rangeFirst.iteritems():
+    for name, (start, data) in rangeFirst.items():
         end = rangeLast[name]
         ranges[(start, end)] = ['0000', None] + data[2:]
 
@@ -223,7 +224,7 @@ def read_unicodedata(files):
             table.set_linebreak(char)
 
     # Expand ranges
-    for (first, last), data in ranges.iteritems():
+    for (first, last), data in ranges.items():
         for code in range(first, last + 1):
             table.add_char(code, data)
 
@@ -271,7 +272,7 @@ def read_unicodedata(files):
             table.add_char(code, defaultChar)
 
     extra_numeric = read_unihan(files['unihan'])
-    for code, value in extra_numeric.iteritems():
+    for code, value in extra_numeric.items():
         table.clone_char(code).numeric = value
 
     table.special_casing = {}
@@ -710,7 +711,7 @@ def write_character_names(outfile, table, base_mod):
     names = dict((table.get_char(code).name, code)
                  for code in table.all_codes()
                  if table.get_char(code).name)
-    sorted_names_codes = sorted(names.iteritems())
+    sorted_names_codes = sorted(names.items())
     if base_mod is None:
         d = dawg.build_compression_dawg(outfile, names)
         outfile.print_code("# the following dictionary is used by modules that take this as a base")
@@ -733,14 +734,14 @@ def write_character_names(outfile, table, base_mod):
         dawg.build_compression_dawg(outfile, corrected_names_dict)
 
         removed_names = []
-        for name, code in sorted(base_mod._orig_names.iteritems()):
+        for name, code in sorted(base_mod._orig_names.items()):
             if name not in names:
                 removed_names.append((name, code))
         assert not removed_names
 
 def writeUnicodedata(version, version_tuple, table, outfile, base):
     if base:
-        outfile.print_code('import %s as base_mod' % base)
+        outfile.print_code('from rpython.rlib.unicodedata import %s as base_mod' % base)
         base_mod = __import__(base)
     else:
         outfile.print_code("base_mod = None")

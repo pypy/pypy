@@ -20,6 +20,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.translator.translator import TranslationContext
 from rpython.translator.unsimplify import split_block
+from rpython.tool.twothree import get_function
 
 
 def getargtypes(annotator, values):
@@ -690,7 +691,7 @@ def setup_extra_builtin(rtyper, oopspec_name, nb_args, extra=None):
     try:
         wrapper = globals()[name]
     except KeyError:
-        wrapper = getattr(LLtypeHelpers, name).im_func
+        wrapper = get_function(getattr(LLtypeHelpers, name))
     if extra is not None:
         wrapper = wrapper(*extra)
     return wrapper

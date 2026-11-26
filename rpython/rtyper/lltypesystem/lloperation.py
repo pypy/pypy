@@ -128,14 +128,14 @@ class Entry(ExtRegistryEntry):
 def enum_ops_without_sideeffects(raising_is_ok=False):
     """Enumerate operations that have no side-effects
     (see also enum_foldable_ops)."""
-    for opname, opdesc in LL_OPERATIONS.iteritems():
+    for opname, opdesc in LL_OPERATIONS.items():
         if not opdesc.sideeffects:
             if not opdesc.canraise or raising_is_ok:
                 yield opname
 
 def enum_foldable_ops(_ignored=None):
     """Enumerate operations that can be constant-folded."""
-    for opname, opdesc in LL_OPERATIONS.iteritems():
+    for opname, opdesc in LL_OPERATIONS.items():
         if opdesc.canfold:
             assert not opdesc.canraise
             yield opname
@@ -635,13 +635,13 @@ LL_OPERATIONS = {
 # Post-processing
 
 # Stick the opnames into the LLOp instances
-for opname, opdesc in LL_OPERATIONS.iteritems():
+for opname, opdesc in LL_OPERATIONS.items():
     opdesc.opname = opname
 del opname, opdesc
 
 # Also export all operations in an attribute-based namespace.
 # Example usage from LL helpers:  z = llop.int_add(Signed, x, y)
 
-for opname, opdesc in LL_OPERATIONS.iteritems():
+for opname, opdesc in LL_OPERATIONS.items():
     setattr(llop, opname, opdesc)
 del opname, opdesc

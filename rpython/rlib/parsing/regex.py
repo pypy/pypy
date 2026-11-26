@@ -210,8 +210,8 @@ class LexingOrExpression(RegularExpression):
                     result_nfa.add_transition(start_state, newstate)
                 if final:
                     result_nfa.add_transition(newstate, final_state)
-            for state, subtransitions in nfa.transitions.iteritems():
-                for input, states in subtransitions.iteritems():
+            for state, subtransitions in nfa.transitions.items():
+                for input, states in subtransitions.items():
                     newstate = state_map[state]
                     newstates = [state_map[s] for s in states]
                     for newtargetstate in newstates:

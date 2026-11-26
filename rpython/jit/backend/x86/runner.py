@@ -85,7 +85,7 @@ class AbstractX86CPU(AbstractLLCPU):
         from rpython.jit.backend.tool.viewcode import machine_code_dump
         data = []
         label_list = [(offset, name) for name, offset in
-                      looptoken._x86_ops_offset.iteritems()]
+                      looptoken._x86_ops_offset.items()]
         label_list.sort()
         addr = looptoken._x86_rawstart
         src = rffi.cast(rffi.CCHARP, addr)

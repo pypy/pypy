@@ -13,6 +13,7 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned
 from rpython.rtyper.lltypesystem.llarena import RoundedUpForAllocation
 from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.translator.c.support import cdecl, barebonearray
+from rpython.tool.twothree import unicode
 
 
 SUPPORT_INT128 = hasattr(rffi, '__INT128_T')

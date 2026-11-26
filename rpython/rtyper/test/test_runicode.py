@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem.rstr import LLHelpers, UNICODE
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_rstr import AbstractTestRstr
 import py
+from rpython.tool.twothree import unichr, unicode
 
 # ====> test_rstr.py
 

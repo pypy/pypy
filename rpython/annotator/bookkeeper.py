@@ -27,6 +27,8 @@ from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
+from rpython.tool.twothree import (ClassType, get_class, get_function,
+    is_builtin_type, long, range_bounds, unicode, xrange)
 
 
 BUILTIN_ANALYZERS = {}
@@ -191,7 +193,7 @@ class Bookkeeper(object):
         for s_value in s_values:
             listdef.generalize(s_value)
         if flags:
-            assert flags.keys() == ['range_step']
+            assert list(flags) == ['range_step']
             listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
@@ -215,9 +217,8 @@ class Bookkeeper(object):
         """The most precise SomeValue instance that contains the
         immutable value x."""
         # convert unbound methods to the underlying function
-        if hasattr(x, 'im_self') and x.im_self is None:
-            x = x.im_func
-            assert not hasattr(x, 'im_self')
+        if isinstance(x, types.MethodType) and x.__self__ is None:
+            x = get_function(x)       # Python 2 only
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -225,15 +226,17 @@ class Bookkeeper(object):
             return result
         if tp is bool:
             result = SomeBool()
-        elif tp is int:
-            result = SomeInteger(nonneg = x>=0)
         elif tp is long:
+            # first: on Python 3 long is int, and only the range check
+            # tells an int from what Python 2 made a long
             if -sys.maxsize-1 <= x <= sys.maxsize:
                 x = int(x)
                 result = SomeInteger(nonneg = x>=0)
             else:
                 # XXX: better error reporting?
                 raise ValueError("seeing a prebuilt long (value %s)" % hex(x))
+        elif tp is int:
+            result = SomeInteger(nonneg = x>=0)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             no_nul = not '\x00' in x
             if len(x) == 1:
@@ -261,6 +264,22 @@ class Bookkeeper(object):
                 self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
+                result.const_box = key
+                return result
+        elif tp is xrange:
+            # a prebuilt range: Python 3's range, Python 2's xrange.  It is
+            # a list that comes from range(), as the result of a call is.
+            key = Constant(x)
+            try:
+                return self.immutable_cache[key]
+            except KeyError:
+                listdef = ListDef(self)
+                listdef.listitem.range_step = range_bounds(x)[2]
+                if len(x):
+                    listdef.generalize(SomeInteger(
+                        nonneg=x[0] >= 0 and x[-1] >= 0))
+                result = SomeList(listdef)
+                self.immutable_cache[key] = result
                 result.const_box = key
                 return result
         elif (tp is dict or tp is r_dict or
@@ -315,11 +334,11 @@ class Bookkeeper(object):
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
-            if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
+            if isinstance(x, types.MethodType):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
                 # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self)
-                result = s_self.find_method(x.im_func.__name__)
+                s_self = self.immutablevalue(x.__self__)
+                result = s_self.find_method(get_function(x).__name__)
             elif hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
                 s_self = self.immutablevalue(x.__self__)
@@ -337,7 +356,7 @@ class Bookkeeper(object):
             # a SomePBC().  Otherwise it's just SomeInstance().
             result = SomePBC([self.getdesc(x)])
         elif hasattr(x, '__class__') \
-                 and x.__class__.__module__ != '__builtin__':
+                 and not is_builtin_type(x.__class__):
             if hasattr(x, '_cleanup_'):
                 x._cleanup_()
             classdef = self.getuniqueclassdef(x.__class__)
@@ -364,33 +383,33 @@ class Bookkeeper(object):
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
                 result = self.newfuncdesc(pyobj)
-            elif isinstance(pyobj, (type, types.ClassType)):
+            elif isinstance(pyobj, (type, ClassType)):
                 if pyobj is object:
                     raise AnnotatorError("ClassDesc for object not supported")
-                if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
+                if is_builtin_type(pyobj): # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
                     result = ClassDesc(self, pyobj)
             elif isinstance(pyobj, types.MethodType):
-                if pyobj.im_self is None:   # unbound
-                    return self.getdesc(pyobj.im_func)
-                if hasattr(pyobj.im_self, '_cleanup_'):
-                    pyobj.im_self._cleanup_()
-                if hasattr(pyobj.im_self, '_freeze_'):  # method of frozen
-                    assert pyobj.im_self._freeze_() is True
+                if pyobj.__self__ is None:   # unbound, Python 2 only
+                    return self.getdesc(get_function(pyobj))
+                if hasattr(pyobj.__self__, '_cleanup_'):
+                    pyobj.__self__._cleanup_()
+                if hasattr(pyobj.__self__, '_freeze_'):  # method of frozen
+                    assert pyobj.__self__._freeze_() is True
                     result = description.MethodOfFrozenDesc(self,
-                        self.getdesc(pyobj.im_func),            # funcdesc
-                        self.getdesc(pyobj.im_self))            # frozendesc
+                        self.getdesc(get_function(pyobj)),            # funcdesc
+                        self.getdesc(pyobj.__self__))            # frozendesc
                 else: # regular method
                     origincls, name = origin_of_meth(pyobj)
-                    classdef = self.getuniqueclassdef(pyobj.im_class)
-                    classdef.see_instance(pyobj.im_self)
-                    assert pyobj == getattr(pyobj.im_self, name), (
-                        "%r is not %s.%s ??" % (pyobj, pyobj.im_self, name))
+                    classdef = self.getuniqueclassdef(get_class(pyobj))
+                    classdef.see_instance(pyobj.__self__)
+                    assert pyobj == getattr(pyobj.__self__, name), (
+                        "%r is not %s.%s ??" % (pyobj, pyobj.__self__, name))
                     # emulate a getattr to make sure it's on the classdef
                     classdef.find_attribute(name)
                     result = self.getmethoddesc(
-                        self.getdesc(pyobj.im_func),            # funcdesc
+                        self.getdesc(get_function(pyobj)),            # funcdesc
                         self.getuniqueclassdef(origincls),      # originclassdef
                         classdef,                               # selfclassdef
                         name)
@@ -580,9 +599,9 @@ class Bookkeeper(object):
         return self.annotator.warning(msg)
 
 def origin_of_meth(boundmeth):
-    func = boundmeth.im_func
+    func = get_function(boundmeth)
     candname = func.__name__
-    for cls in inspect.getmro(boundmeth.im_class):
+    for cls in inspect.getmro(get_class(boundmeth)):
         dict = cls.__dict__
         if dict.get(candname) is func:
             return cls, candname

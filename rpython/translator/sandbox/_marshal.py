@@ -9,6 +9,7 @@ This module contains functions that can read and write Python values in a binary
 
 import types
 from _codecs import utf_8_decode, utf_8_encode
+from rpython.tool.twothree import long, unicode
 
 try:
     intern

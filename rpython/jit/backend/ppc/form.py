@@ -12,7 +12,7 @@ class FormException(Exception):
 class Instruction(object):
     def __init__(self, fields):
         self.fields = fields
-        self.lfields = [k for (k,v) in fields.iteritems()
+        self.lfields = [k for (k,v) in fields.items()
                         if isinstance(v, str)]
         #if not self.lfields:
         #    self.assemble() # for error checking only
@@ -56,7 +56,7 @@ class IBoundDupDesc(IBoundDesc):
     def calc_fields(self, args, kw):
         s = super(IBoundDupDesc, self)
         fieldvalues, sparefields = s.calc_fields(args, kw)
-        for k, v in self.desc.dupfields.iteritems():
+        for k, v in self.desc.dupfields.items():
             fieldvalues[k] = fieldvalues[v]
         return fieldvalues, sparefields
 
@@ -80,7 +80,7 @@ class IDesc(object):
 
     def default(self, **defs):
         assert len(defs) == 1
-        f, v = defs.items()[0]
+        f, v = list(defs.items())[0]
         self.defaults = self.defaults + ((self.fieldmap[f], v),)
         return self
 
@@ -88,7 +88,7 @@ class IDesc(object):
         s = self.specializations.copy()
         ms = {}
         ds = {}
-        for fname, v in more_specializatons.iteritems():
+        for fname, v in more_specializatons.items():
             field = self.fieldmap[fname]
             if field not in self.fields:
                 raise FormException("don't know about '%s' here" % field)

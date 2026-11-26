@@ -7,6 +7,7 @@ from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, 
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
+from rpython.tool.twothree import getargspec, is_builtin_type, long, unicode
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -170,9 +171,8 @@ def loop_invariant(func):
     return func
 
 def _get_args(func):
-    import inspect
 
-    args, varargs, varkw, defaults = inspect.getargspec(func)
+    args, varargs, varkw, defaults = getargspec(func)
     assert varargs is None and varkw is None
     assert not defaults
     return args
@@ -721,7 +721,7 @@ class JitDriver(object):
                     elif isinstance(value, (list, dict)):
                         kind = '2:REF'
                     elif (hasattr(value, '__class__')
-                          and value.__class__.__module__ != '__builtin__'):
+                          and not is_builtin_type(value.__class__)):
                         if hasattr(value, '_freeze_'):
                             continue   # value._freeze_() is better not called
                         elif getattr(value, '_alloc_flavor_', 'gc') == 'gc':
@@ -889,7 +889,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         if self.instance.__name__ == 'jit_merge_point':
             self.annotate_hooks(**kwds_s)
 
-        driver = self.instance.im_self
+        driver = self.instance.__self__
         keys = sorted(kwds_s.keys())
         expected = ['s_' + name for name in driver.greens + driver.reds
                                 if '.' not in name]
@@ -922,7 +922,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
-        driver = self.instance.im_self
+        driver = self.instance.__self__
         h = self.annotate_hook
         h(driver.get_printable_location, driver.greens, **kwds_s)
         h(driver.get_location, driver.greens, **kwds_s)
@@ -950,7 +950,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
 
     def specialize_call(self, hop, **kwds_i):
         from rpython.rtyper.lltypesystem import lltype
-        driver = self.instance.im_self
+        driver = self.instance.__self__
         # Use the union collected across all markers, since isinstance()
         # can narrow an argument at can_enter_jit to a subclass of the
         # corresponding jit_merge_point argument.
@@ -1016,7 +1016,7 @@ class ExtLoopHeader(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
-        driver = self.instance.im_self
+        driver = self.instance.__self__
         hop.exception_cannot_occur()
         vlist = [hop.inputconst(lltype.Void, 'loop_header'),
                  hop.inputconst(lltype.Void, driver)]

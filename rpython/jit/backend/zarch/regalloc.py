@@ -32,6 +32,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.tool.twothree import get_function
 
 LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
@@ -1384,7 +1385,7 @@ if not we_are_translated():
         total_count += 1
         methname = 'prepare_%s' % key
         if hasattr(Regalloc, methname):
-            func = getattr(Regalloc, methname).im_func
+            func = get_function(getattr(Regalloc, methname))
             prepare_oplist[value] = func
             implemented_count += 1
         else:

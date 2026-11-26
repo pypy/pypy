@@ -14,7 +14,7 @@ class TaggedInstanceRepr(InstanceRepr):
 
     def _setup_repr(self):
         InstanceRepr._setup_repr(self)
-        flds = self.allinstancefields.keys()
+        flds = list(self.allinstancefields)
         flds.remove('__class__')
         if self.is_parent:
             if flds:

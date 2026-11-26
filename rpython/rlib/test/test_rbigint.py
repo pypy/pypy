@@ -4,6 +4,7 @@ import operator
 import sys, os
 import math
 from random import random, randint, sample
+from rpython.tool.twothree import long, xrange
 
 try:
     import pytest
@@ -73,8 +74,8 @@ def makelong_long_sequences(data, ndigits):
 
 MAXDIGITS = 15
 digitsizes = strategies.sampled_from(
-    range(1, MAXDIGITS+1) +
-    range(KARATSUBA_CUTOFF, KARATSUBA_CUTOFF + 14) +
+    list(range(1, MAXDIGITS+1)) +
+    list(range(KARATSUBA_CUTOFF, KARATSUBA_CUTOFF + 14)) +
     [KARATSUBA_CUTOFF * 3, KARATSUBA_CUTOFF * 1000]
 )
 
@@ -119,7 +120,7 @@ def gen_signs(l):
             yield s
             yield -s
 
-long_vals_not_too_big = range(17) + [
+long_vals_not_too_big = list(range(17)) + [
         37, 39, 50,
         127, 128, 129, 511, 512, 513, sys.maxsize, sys.maxsize + 1,
         12345678901234567890,
@@ -129,7 +130,7 @@ long_vals_not_too_big = range(17) + [
 long_vals = long_vals_not_too_big + [
         1 << 100, 3 ** 10000]
 
-int_vals = range(33) + [
+int_vals = list(range(33)) + [
         1000,
         0x11111111, 0x11111112, 8888,
         9999, sys.maxsize, 2 ** 19, 2 ** 18 - 1

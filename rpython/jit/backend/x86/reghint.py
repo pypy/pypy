@@ -165,7 +165,7 @@ class X86RegisterHints(object):
 
 oplist = [X86RegisterHints.not_implemented_op] * rop._LAST
 
-for name, value in X86RegisterHints.__dict__.iteritems():
+for name, value in X86RegisterHints.__dict__.items():
     if name.startswith('consider_'):
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())

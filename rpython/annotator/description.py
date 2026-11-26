@@ -7,6 +7,7 @@ from rpython.annotator.argument import rawshape, ArgErr, simple_args
 from rpython.tool.sourcetools import valid_identifier
 from rpython.tool.pairtype import extendabletype
 from rpython.annotator.model import AnnotatorError, s_ImpossibleValue, unionof
+from rpython.tool.twothree import with_metaclass
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -129,8 +130,7 @@ class ClassAttrFamily(object):
 
 # ____________________________________________________________
 
-class Desc(object):
-    __metaclass__ = extendabletype
+class Desc(with_metaclass(extendabletype, object)):
 
     def __init__(self, bookkeeper, pyobj=None):
         self.bookkeeper = bookkeeper
@@ -487,7 +487,7 @@ class MethodDesc(Desc):
         # only keep the intersection of all the flags, that's good enough
         lst = list(descs)
         commonflags = lst[0].flags.copy()
-        for key, value in commonflags.items():
+        for key, value in list(commonflags.items()):
             for desc in lst[1:]:
                 if key not in desc.flags or desc.flags[key] != value:
                     del commonflags[key]

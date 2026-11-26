@@ -10,8 +10,9 @@ Try:
 from __future__ import print_function
 
 import sys
+from rpython.tool.twothree import long
 print(sys.path)
-import new
+import types
 import operator
 import py
 import re
@@ -25,7 +26,7 @@ tmpfile = str(udir.join('dump.tmp'))
 
 # hack hack
 import rpython.tool
-mod = new.module('rpython.tool.udir')
+mod = types.ModuleType('rpython.tool.udir')
 mod.udir = udir
 sys.modules['rpython.tool.udir'] = mod
 rpython.tool.udir = mod
@@ -152,6 +153,7 @@ class CodeRange(object):
         return _cmp
     __lt__ = cmpop(operator.lt)
     __le__ = cmpop(operator.le)
+    __hash__ = object.__hash__
     __eq__ = cmpop(operator.eq)
     __ne__ = cmpop(operator.ne)
     __gt__ = cmpop(operator.gt)

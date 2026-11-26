@@ -1,6 +1,7 @@
 import py, pytest
 from rpython.tool import leakfinder
 from rpython.tool.dump_on_kill import install as _install_dump_on_kill
+from rpython.tool.twothree import PY2
 
 pytest_plugins = 'rpython.tool.pytest.expecttest'
 
@@ -31,6 +32,9 @@ def braindead_deindent(self):
     return newsource
 
 py.code.Source.deindent = braindead_deindent
+
+def pytest_ignore_collect(path):
+    return not PY2 and path.basename.endswith('_py2.py')
 
 def pytest_report_header():
     return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
@@ -96,7 +100,7 @@ def pytest_addoption(parser):
     group.addoption('--view', action="store_true", dest="view", default=False,
            help="view translation tests' flow graphs with Pygame")
     group.addoption('-P', '--platform', action="store", dest="platform",
-                    type="string", default="host",
+                    default="host",
            help="set up tests to use specified platform as compile/run target")
     group = parser.getgroup("JIT options")
     group.addoption('--viewloops', action="store_true",
@@ -117,7 +121,7 @@ class LeakFinder:
     """
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_setup(self, item):
-        if not isinstance(item, py.test.collect.Function):
+        if not isinstance(item, pytest.Function):
             return
         if not getattr(item.obj, 'dont_track_allocations', False):
             leakfinder.start_tracking_allocations()
@@ -126,13 +130,13 @@ class LeakFinder:
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_call(self, item):
-        if not isinstance(item, py.test.collect.Function):
+        if not isinstance(item, pytest.Function):
             return
         item._success = True
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_teardown(self, item):
-        if not isinstance(item, py.test.collect.Function):
+        if not isinstance(item, pytest.Function):
             return
         if (not getattr(item.obj, 'dont_track_allocations', False)
             and leakfinder.TRACK_ALLOCATIONS):

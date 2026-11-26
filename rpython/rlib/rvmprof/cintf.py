@@ -215,7 +215,7 @@ def setup():
 
 class CInterface(object):
     def __init__(self, namespace):
-        for k, v in namespace.iteritems():
+        for k, v in namespace.items():
             setattr(self, k, v)
 
     def _freeze_(self):

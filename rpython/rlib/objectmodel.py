@@ -15,6 +15,7 @@ from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.flowspace.model import Constant
+from rpython.tool.twothree import getargspec, unicode
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -149,7 +150,7 @@ def enforceargs(*types_, **kwds):
             if isinstance(arg, list):
                 return [get_type_descr_of_argument(arg[0])]
             elif isinstance(arg, dict):
-                key, value = next(arg.iteritems())
+                key, value = next(iter(arg.items()))
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
             else:
                 return type(arg)
@@ -189,7 +190,7 @@ def enforceargs(*types_, **kwds):
                                  typecheck=typecheck,
                                  we_are_translated=we_are_translated)
         #
-        srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+        srcargs, srcvarargs, srckeywords, defaults = getargspec(f)
         if kwds:
             types = tuple([kwds.get(arg) for arg in srcargs])
         else:
@@ -887,7 +888,7 @@ class r_dict(object):
     iterkeys = __iter__
 
     def itervalues(self):
-        return self._dict.itervalues()
+        return iter(self._dict.values())
 
     def iteritems(self):
         for dk, value in self._dict.items():
@@ -965,7 +966,7 @@ def iterkeys_with_hash(d):
     return d.iterkeys_with_hash()
 
 def _iteritems_with_hash_untranslated(d):
-    for k, v in d.iteritems():
+    for k, v in d.items():
         yield (k, v, _expected_hash(d, k))
 
 @specialize.call_location()
@@ -1076,7 +1077,7 @@ def dict_to_switch(d, inline=True, default=NO_DEFAULT):
             return key[0]
 
     cached_size = len(d)
-    unrolling_iteritems = unrolling_iterable(d.iteritems())
+    unrolling_iteritems = unrolling_iterable(d.items())
 
     def lookup(query):
         if we_are_translated():

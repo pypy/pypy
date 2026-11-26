@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 from rpython.tool.twothree import thread
+from rpython.tool.twothree import xrange
 
 class MonitorList(list):
     def append(self, obj):

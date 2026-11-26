@@ -19,6 +19,7 @@ import os
 import errno
 import platform
 import stat
+from rpython.tool.twothree import xrange
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"

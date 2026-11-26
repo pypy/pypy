@@ -8,6 +8,7 @@ from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rfloat import NAN, INFINITY
 from rpython.translator.c.test.test_genc import compile
+from rpython.tool.twothree import xrange
 
 
 class TestFloatSpecific:

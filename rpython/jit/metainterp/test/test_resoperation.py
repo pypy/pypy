@@ -9,6 +9,7 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
         SIZEOF_FLOAT as FLOAT_WORD)
 from rpython.jit.backend.llsupport.descr import ArrayDescr
+from rpython.tool.twothree import get_function
 
 def test_arity_mixins():
     cases = [
@@ -38,17 +39,17 @@ def test_concrete_classes():
     cls = rop.opclasses[rop.rop.INT_ADD]
     assert issubclass(cls, rop.PlainResOp)
     assert issubclass(cls, rop.BinaryOp)
-    assert cls.getopnum.im_func(cls) == rop.rop.INT_ADD
+    assert get_function(cls.getopnum)(cls) == rop.rop.INT_ADD
 
     cls = rop.opclasses[rop.rop.CALL_N]
     assert issubclass(cls, rop.ResOpWithDescr)
     assert issubclass(cls, rop.N_aryOp)
-    assert cls.getopnum.im_func(cls) == rop.rop.CALL_N
+    assert get_function(cls.getopnum)(cls) == rop.rop.CALL_N
 
     cls = rop.opclasses[rop.rop.GUARD_TRUE]
     assert issubclass(cls, rop.GuardResOp)
     assert issubclass(cls, rop.UnaryOp)
-    assert cls.getopnum.im_func(cls) == rop.rop.GUARD_TRUE
+    assert get_function(cls.getopnum)(cls) == rop.rop.GUARD_TRUE
 
 def test_mixins_in_common_base():
     INT_ADD = rop.opclasses[rop.rop.INT_ADD]

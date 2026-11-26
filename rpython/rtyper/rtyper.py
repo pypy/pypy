@@ -12,6 +12,7 @@ fixpoint computation part.
 """
 
 import os
+import types
 
 import py, math
 
@@ -30,6 +31,7 @@ from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
+from rpython.tool.twothree import get_function
 
 
 class RTyperBackend(object):
@@ -95,7 +97,9 @@ class RPythonTyper(object):
     def add_wrapper(self, clsdef):
         # record that this class has a wrapper, and what the __init__ is
         cls = clsdef.classdesc.pyobj
-        init = getattr(cls.__init__, 'im_func', None)
+        init = get_function(cls.__init__)
+        if not isinstance(init, types.FunctionType):
+            init = None     # object.__init__
         self.classes_with_wrapper[cls] = init
 
     def set_wrapper_context(self, obj):
@@ -593,10 +597,10 @@ class RPythonTyper(object):
                 s = lltype_to_annotation(s)
             args_s.append(s)
         # hack for bound methods
-        if hasattr(ll_function, 'im_func'):
+        if hasattr(ll_function, '__func__'):
             bk = self.annotator.bookkeeper
-            args_s.insert(0, bk.immutablevalue(ll_function.im_self))
-            ll_function = ll_function.im_func
+            args_s.insert(0, bk.immutablevalue(ll_function.__self__))
+            ll_function = get_function(ll_function)
         helper_graph = annotate_lowlevel_helper(self.annotator,
                                                 ll_function, args_s,
                                                 policy=self.lowlevel_ann_policy)
@@ -864,11 +868,11 @@ class LowLevelOpList(list):
             self.rtyper.call_all_setups()  # compute ForwardReferences now
 
             # hack for bound methods
-            if hasattr(ll_function, 'im_func'):
+            if hasattr(ll_function, '__func__'):
                 bk = rtyper.annotator.bookkeeper
-                args_s.insert(0, bk.immutablevalue(ll_function.im_self))
-                newargs_v.insert(0, inputconst(Void, ll_function.im_self))
-                ll_function = ll_function.im_func
+                args_s.insert(0, bk.immutablevalue(ll_function.__self__))
+                newargs_v.insert(0, inputconst(Void, ll_function.__self__))
+                ll_function = get_function(ll_function)
 
         graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s,
                                          rtyper.lowlevel_ann_policy)

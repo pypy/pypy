@@ -7,6 +7,7 @@ from rpython.rlib.parsing.regex import StringExpression, RangeExpression
 from rpython.rlib.parsing.lexer import Lexer, DummyLexer
 from rpython.rlib.parsing.deterministic import compress_char_set, DFA
 import string
+from functools import reduce
 
 set = py.builtin.set
 
@@ -27,8 +28,13 @@ for i in range(256):
     #     if x is a lower case letter, it is converted to upper case.
     #     Then bit 6 of the character (hex 40) is inverted.
     #     Thus, \cz => 0x1A, \c{ => 0x3B, \c; => 0x7B.
+    # only ASCII letters change case, as they do in a Python 2 byte string;
+    # on Python 3, chr(0xdf).upper() is 'SS'
+    c = chr(i)
+    if 'a' <= c <= 'z':
+        c = c.upper()
     escaped = "c%s" % chr(i)
-    ESCAPES[escaped] = chr(ord(chr(i).upper()) ^ 0x40)
+    ESCAPES[escaped] = chr(ord(c) ^ 0x40)
 
 def unescape_muncher(string):
     """Return a tuple, representing the first character of the string
@@ -1973,8 +1979,8 @@ def test_generate():
     s = "# GENERATED CODE BETWEEN THIS LINE AND ITS OTHER OCCURENCE\n".lower()
     pre, gen, after = oldcontent.split(s)
 
-    from pypackrat import PyPackratSyntaxParser
-    from makepackrat import TreeOptimizer, ParserBuilder
+    from rpython.rlib.parsing.pypackrat import PyPackratSyntaxParser
+    from rpython.rlib.parsing.makepackrat import TreeOptimizer, ParserBuilder
     p = PyPackratSyntaxParser(syntax)
     t = p.file()
     t = t.visit(TreeOptimizer())

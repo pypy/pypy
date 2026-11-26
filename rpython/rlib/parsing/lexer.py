@@ -10,6 +10,7 @@ class Token(object):
     def copy(self):
         return self.__class__(self.name, self.source, self.source_pos)
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         # for testing only
         return self.__dict__ == other.__dict__
@@ -31,6 +32,7 @@ class SourcePos(object):
     def copy(self):
         return SourcePos(self.i, self.lineno, self.columnno)
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         # for testing only
         return self.__dict__ == other.__dict__

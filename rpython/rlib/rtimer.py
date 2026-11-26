@@ -2,6 +2,7 @@ from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rlib.rarithmetic import intmask, longlongmask
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.twothree import long
 
 _is_64_bit = r_uint.BITS > 32
 

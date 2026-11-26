@@ -8,7 +8,7 @@ from rpython.jit.backend.arm.test.support import requires_arm_as
 from rpython.jit.backend.arm.test.support import get_as_version
 from rpython.jit.backend.arm.test.support import define_test
 from rpython.jit.backend.arm.test.support import gen_test_function
-from gen import assemble
+from rpython.jit.backend.arm.test.gen import assemble
 import py
 
 requires_arm_as()
@@ -348,7 +348,7 @@ def build_tests():
         except KeyError:
             print('No test generator for %s instructions' % name)
             continue
-        for key, value in getattr(instructions, name).iteritems():
+        for key, value in getattr(instructions, name).items():
             for test_case in func(key, value):
                 define_test(cls, key, test_case, name)
 build_tests()

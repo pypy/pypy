@@ -140,7 +140,7 @@ def gen_assignments(assignments):
 
     while dest2src:
         progress = False
-        for dst in dest2src.keys():
+        for dst in list(dest2src.keys()):
             if dst not in srccount:
                 src, typename = dest2src.pop(dst)
                 yield '%s = %s;' % (dst, src)

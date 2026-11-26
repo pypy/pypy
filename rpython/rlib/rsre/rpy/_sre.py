@@ -1,6 +1,7 @@
 from rpython.rlib.rsre import rsre_char, rsre_core, rsre_constants
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.tool.twothree import unicode
 
 VERSION = "2.7.6"
 MAGIC = 20031017

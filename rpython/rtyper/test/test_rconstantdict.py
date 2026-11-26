@@ -1,6 +1,7 @@
 import py
 from rpython.rlib.objectmodel import r_dict
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.tool.twothree import unichr
 
 class TestRconstantdict(BaseRtypingTest):
 

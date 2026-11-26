@@ -8,6 +8,7 @@ from rpython.flowspace.model import summary
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from rpython.conftest import option
+from rpython.tool.twothree import get_function
 
 
 class V(object):
@@ -307,7 +308,7 @@ class TestVirtualizable(BaseRtypingTest):
             return a.meth1(100)
 
         t, typer, graph = self.gengraph(f, [int])
-        g_graph = t._graphof(A.g.im_func)
+        g_graph = t._graphof(get_function(A.g))
 
         self.replace_force_virtualizable(typer, [g_graph])
 

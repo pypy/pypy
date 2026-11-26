@@ -6,6 +6,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rarithmetic import (
     r_uint, r_longlong, r_ulonglong, r_singlefloat)
 from rpython.rlib.objectmodel import compute_hash
+from rpython.tool.twothree import long
 
 class TestSnippet(object):
 

@@ -5,6 +5,7 @@ from rpython.annotator import specialize
 from rpython.rtyper.lltypesystem.lltype import typeOf
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
+from rpython.tool.twothree import get_function
 
 
 class MyBase:
@@ -2005,7 +2006,7 @@ def test_hlinvoke_method_hltype():
 
     Impl_def = a.bookkeeper.getdesc(Impl).getuniqueclassdef()
     Impl_f_desc = a.bookkeeper.getmethoddesc(
-        a.bookkeeper.getdesc(Impl.f.im_func),
+        a.bookkeeper.getdesc(get_function(Impl.f)),
         Impl_def,
         Impl_def,
         'f')

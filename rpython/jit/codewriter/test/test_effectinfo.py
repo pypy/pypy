@@ -20,7 +20,7 @@ class FakeCPU(object):
 def test_no_oopspec_duplicate():
     # check that all the various EffectInfo.OS_* have unique values
     oopspecs = set()
-    for name, value in EffectInfo.__dict__.iteritems():
+    for name, value in EffectInfo.__dict__.items():
         if name.startswith('OS_'):
             assert value not in oopspecs
             oopspecs.add(value)

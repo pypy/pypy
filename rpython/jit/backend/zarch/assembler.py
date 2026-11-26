@@ -36,6 +36,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.backend.zarch import vector_ext
+from rpython.tool.twothree import get_function
 
 class JitFrameTooDeep(Exception):
     pass
@@ -1620,5 +1621,5 @@ for key, value in rop.__dict__.items():
         continue
     methname = 'emit_%s' % key
     if hasattr(AssemblerZARCH, methname):
-        func = getattr(AssemblerZARCH, methname).im_func
+        func = get_function(getattr(AssemblerZARCH, methname))
         asm_operations[value] = func

@@ -31,7 +31,7 @@ def make_func(name, desc):
             sig.append(field.name)
             fieldvalues.append((field, field.name))
     if isinstance(desc, IDupDesc):
-        for destfield, srcfield in desc.dupfields.iteritems():
+        for destfield, srcfield in desc.dupfields.items():
             fieldvalues.append((destfield, srcfield.name))
     body = ['v = r_uint(0)']
     assert 'v' not in sig # that wouldn't be funny
@@ -74,7 +74,7 @@ def make_rassembler(cls):
     # to get newer code :-(
     bases = [make_rassembler(b) for b in cls.__bases__]
     ns = {}
-    for k, v in cls.__dict__.iteritems():
+    for k, v in cls.__dict__.items():
         if isinstance(v, IDesc):
             v = make_func(k, v)
         ns[k] = v

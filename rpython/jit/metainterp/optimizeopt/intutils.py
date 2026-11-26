@@ -55,6 +55,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.info import AbstractInfo, INFO_NONNULL,\
      INFO_UNKNOWN, INFO_NULL
 from rpython.jit.metainterp.history import ConstInt
+from rpython.tool.twothree import is_long, long
 
 
 MAXINT = maxint
@@ -1228,7 +1229,7 @@ class IntBound(AbstractInfo):
         assert not isinstance(value, IntBound)
 
         if not we_are_translated():
-            assert not isinstance(value, long)
+            assert not is_long(value)
         if not isinstance(value, int):
             if (self.lower == MININT and self.upper == MAXINT):
                 return True # workaround for address as int

@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os, sys
+from rpython.tool.twothree import raw_input
 
 def restart_process():
     import sys

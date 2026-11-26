@@ -9,6 +9,7 @@ from rpython.rlib import rposix, rposix_stat, rstring
 import os, sys
 import errno
 import py
+from rpython.tool.twothree import unicode
 
 def rposix_requires(funcname):
     return pytest.mark.skipif(not hasattr(rposix, funcname),
@@ -19,7 +20,7 @@ win_only = pytest.mark.skipif("os.name != 'nt'")
 class TestPosixFunction:
     def test_access(self):
         filename = str(udir.join('test_access.txt'))
-        fd = file(filename, 'w')
+        fd = open(filename, 'w')
         fd.close()
 
         for mode in os.R_OK, os.W_OK, os.X_OK, os.R_OK | os.W_OK | os.X_OK:
@@ -153,7 +154,7 @@ class TestPosixFunction:
         arg = '%s -c "print 1+1" > %s' % (sys.executable, filename)
         data = rposix.system(arg)
         assert data == 0
-        with file(filename) as f:
+        with open(filename) as f:
             assert f.read().strip() == '2'
         os.unlink(filename)
 
@@ -358,7 +359,7 @@ class BasePosixUnicodeOrAscii:
     def setup_method(self, method):
         self.ufilename = self._get_filename()
         try:
-            f = file(self.ufilename, 'w')
+            f = open(self.ufilename, 'w')
         except UnicodeEncodeError:
             py.test.skip("encoding not good enough")
         f.write("test")

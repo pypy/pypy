@@ -139,7 +139,7 @@ class TestSourcePos(object):
     def test_copy(self):
         base = SourcePos(1, 2, 3)
         attributes = {'i':4, 'lineno': 5, 'columnno': 6}
-        for attr, new_val in attributes.iteritems():
+        for attr, new_val in attributes.items():
             copy = base.copy()
             assert base==copy
             setattr(copy, attr, new_val)    # change one attribute
@@ -149,7 +149,7 @@ class TestToken(object):
     def test_copy(self):
         base = Token('test', 'spource', SourcePos(1,2,3))
         attributes = {'name': 'xxx', 'source': 'yyy', 'source_pos': SourcePos(4,5,6)}
-        for attr, new_val in attributes.iteritems():
+        for attr, new_val in attributes.items():
             copy = base.copy()
             assert base==copy
             setattr(copy, attr, new_val)    # change one attribute

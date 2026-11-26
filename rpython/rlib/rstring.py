@@ -10,6 +10,7 @@ from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, 
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
+from rpython.tool.twothree import unicode, xrange
 
 
 # -------------- public API for string functions -----------------------
@@ -779,7 +780,7 @@ def _adaptive_find(value, base, n, needle, m, mode):
                 i += mlast
             else:
                 hits += j + 1
-                if hits > m / 4 and w - i > 2000:
+                if hits > m // 4 and w - i > 2000:
                     cut, period, gap, is_periodic, table = \
                         _twoway_preprocess(needle, m)
                     if mode != SEARCH_COUNT:

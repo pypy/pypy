@@ -12,6 +12,7 @@ from __future__ import print_function
 import sys, re
 from rpython.rlib.debug import DebugLog
 from rpython.tool import progressbar
+from rpython.tool.twothree import cmp
 
 def parse_log_file(filename, verbose=True):
     f = open(filename, 'r')
@@ -323,7 +324,7 @@ def get_timesummary_single_image(totaltimes, totaltime0, componentdict,
     # subkeys in totaltimes and adding them to the superkeys specified
     # in componentdict.
     totaltimes = totaltimes.copy()
-    for key, value in totaltimes.items():
+    for key, value in list(totaltimes.items()):
         if key in componentdict:
             continue
         del totaltimes[key]

@@ -1,4 +1,5 @@
 from rpython.tool.algo.unionfind import UnionFind
+from rpython.tool.twothree import xrange
 
 
 def test_cleanup():

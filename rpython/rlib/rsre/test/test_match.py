@@ -4,6 +4,7 @@ import re, random, py
 from rpython.rlib.rsre import rsre_char, rsre_constants
 from rpython.rlib.rsre.rpy import get_code, VERSION
 from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
+from rpython.tool.twothree import unichr
 
 
 def get_code_and_re(regexp):

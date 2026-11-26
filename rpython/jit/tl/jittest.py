@@ -11,6 +11,7 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llstr
 from rpython.jit.metainterp import warmspot
 from rpython.tool import runsubprocess
+from rpython.tool.twothree import reload
 
 os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
 reload(runsubprocess)

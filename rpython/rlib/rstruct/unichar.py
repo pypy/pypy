@@ -3,6 +3,7 @@ Helpers to pack and unpack a unicode character into raw bytes.
 """
 
 import sys
+from rpython.tool.twothree import unichr
 
 UNICODE_SIZE = 4
 BIGENDIAN = sys.byteorder == "big"

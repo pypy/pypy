@@ -369,7 +369,7 @@ def break_cycles_v(vertices, edges):
             for cycle in cycles:
                 cycledepth = max([v_depths[edge.source] for edge in cycle])
                 allcycles.append((cycledepth, cycle))
-            allcycles.sort()
+            allcycles.sort(key=lambda item: item[0])
             # consider all cycles starting from the ones with smallest depth
             removed = set()
             for _, cycle in allcycles:
@@ -380,7 +380,8 @@ def break_cycles_v(vertices, edges):
                     pass   # this cycle was already broken
                 else:
                     # break this cycle by removing the furthest vertex
-                    max_depth, max_vertex = max(choices)
+                    max_depth, max_vertex = max(
+                        choices, key=lambda choice: choice[0])
                     del v_depths[max_vertex]
                     del edges[max_vertex]
                     yield max_vertex

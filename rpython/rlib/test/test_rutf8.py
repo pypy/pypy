@@ -5,6 +5,7 @@ from hypothesis import given, strategies, settings, example
 
 from rpython.rlib import rutf8, runicode
 from rpython.rlib.unicodedata import unicodedb_12_1_0
+from rpython.tool.twothree import unichr, xrange
 
 
 @given(strategies.characters(), strategies.booleans())

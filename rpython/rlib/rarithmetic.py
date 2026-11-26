@@ -42,6 +42,7 @@ from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.rlib.objectmodel import specialize, not_rpython
+from rpython.tool.twothree import long
 
 """
 Long-term target:
@@ -897,7 +898,7 @@ def uint_mul_high(a, b):
 uint_mul_high.oopspec = "int.uint_mul_high(a, b)"
 
 def _uint_mul_high(a, b):
-    DIGIT = LONG_BIT / 2
+    DIGIT = LONG_BIT // 2
     MASK = (1 << DIGIT) - 1
 
     ah = a >> DIGIT

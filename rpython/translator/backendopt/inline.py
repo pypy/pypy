@@ -621,15 +621,18 @@ def auto_inlining(translator, threshold=None,
     for graph1, graph2 in callgraph:
         callers.setdefault(graph2, {})[graph1] = True
         callees.setdefault(graph1, {})[graph2] = True
-    # the -len(callers) change is OK
-    heap = [(0.0, -len(callers[graph]), graph) for graph in callers]
+    # the -len(callers) change is OK.  Python 3 cannot compare graphs, so
+    # ties are broken by the order in which the graphs came
+    order = dict((graph, i) for i, graph in enumerate(callers))
+    heap = [(0.0, -len(callers[graph]), order[graph], graph)
+            for graph in callers]
     valid_weight = {}
     try_again = {}
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
     raise_analyzer = RaiseAnalyzer(translator)
     count = 0
     while heap:
-        weight, _, graph = heap[0]
+        weight, _, _, graph = heap[0]
         if not valid_weight.get(graph):
             if always_inline(graph):
                 weight, fixed = 0.0, True
@@ -645,7 +648,8 @@ def auto_inlining(translator, threshold=None,
                 if not (weight < 1e9):
                     weight = 1e9
             #print '  + cost %7.2f %50s' % (weight, graph.name)
-            heapreplace(heap, (weight, -len(callers[graph]), graph))
+            heapreplace(heap, (weight, -len(callers[graph]), order[graph],
+                               graph))
             valid_weight[graph] = True
             if not fixed:
                 try_again[graph] = 'initial'
@@ -657,9 +661,9 @@ def auto_inlining(translator, threshold=None,
             # at the start of the heap
             finished = True
             for i in range(len(heap)):
-                graph = heap[i][2]
+                graph = heap[i][3]
                 if not valid_weight.get(graph):
-                    heap[i] = (0.0, heap[i][1], graph)
+                    heap[i] = (0.0,) + heap[i][1:]
                     finished = False
             if finished:
                 break
@@ -698,7 +702,8 @@ def auto_inlining(translator, threshold=None,
                     # been modified.  Maybe now we can inline it into further
                     # parents?
                     del try_again[parentgraph]
-                    heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
+                    heappush(heap, (0.0, -len(callers[parentgraph]),
+                                    order[parentgraph], parentgraph))
                 valid_weight[parentgraph] = False
 
     invalid = [(graph, msg) for graph, msg in try_again.items()

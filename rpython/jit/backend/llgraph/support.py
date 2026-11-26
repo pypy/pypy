@@ -5,6 +5,7 @@ from rpython.jit.metainterp.history import getkind
 
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.tool.twothree import long
 
 IS_32_BIT = r_ulonglong is not r_uint
 

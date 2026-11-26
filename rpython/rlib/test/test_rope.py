@@ -3,6 +3,7 @@ from __future__ import print_function
 import py
 import random, sys
 from rpython.rlib.rope import *
+from rpython.tool.twothree import cmp, unichr
 
 def make_random_string(operations=10, slicing=True, print_seed=True,
                        unicode=False):

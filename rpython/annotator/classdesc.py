@@ -13,6 +13,8 @@ from rpython.annotator.model import (
     SomeString, SomeImpossibleValue, SomeList, HarmlesslyBlocked)
 from rpython.annotator.description import (
     Desc, FunctionDesc, MethodDesc, NODEFAULT)
+from rpython.tool.twothree import (basestring, builtins, get_function,
+    is_builtin_type)
 
 
 # The main purpose of a ClassDef is to collect information about class/instance
@@ -451,7 +453,7 @@ class InstanceSource(object):
         return s_value
 
     def all_instance_attributes(self):
-        result = getattr(self.obj, '__dict__', {}).keys()
+        result = list(getattr(self.obj, '__dict__', {}))
         tp = self.obj.__class__
         if isinstance(tp, type):
             for basetype in tp.__mro__:
@@ -473,7 +475,7 @@ def is_mixin(cls):
 
 def is_primitive_type(cls):
     from rpython.rlib.rarithmetic import base_int
-    return cls.__module__ == '__builtin__' or issubclass(cls, base_int)
+    return is_builtin_type(cls) or issubclass(cls, base_int)
 
 
 class BuiltinTypeDesc(object):
@@ -514,7 +516,7 @@ class ClassDesc(Desc):
             raise AnnotatorError("cannot use directly the class %r because "
                                  "it is a _mixin_" % (cls,))
 
-        assert cls.__module__ != '__builtin__'
+        assert not is_builtin_type(cls)
         baselist = list(cls.__bases__)
 
         # special case: skip BaseException, and pretend
@@ -628,7 +630,7 @@ class ClassDesc(Desc):
             # pretend that built-in exceptions have no __init__,
             # unless explicitly specified in builtin.py
             from rpython.annotator.builtin import BUILTIN_ANALYZERS
-            value = getattr(value, 'im_func', value)
+            value = get_function(value)
             if value not in BUILTIN_ANALYZERS:
                 return
         self.classdict[name] = Constant(value)
@@ -737,7 +739,7 @@ class ClassDesc(Desc):
 
     def is_builtin_exception_class(self):
         if self.is_exception_class():
-            if self.pyobj.__module__ == 'exceptions':
+            if self.pyobj.__module__ in ('exceptions', builtins.__name__):
                 return True
             if issubclass(self.pyobj, AssertionError):
                 return True

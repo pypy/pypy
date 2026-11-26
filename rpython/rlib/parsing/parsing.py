@@ -4,6 +4,7 @@ import py
 from rpython.rlib.parsing.lexer import SourcePos
 from rpython.rlib.parsing.tree import Node, Symbol, Nonterminal
 from rpython.rlib.objectmodel import not_rpython
+from rpython.tool.twothree import get_function
 
 class Rule(object):
     def __init__(self, nonterminal, expansions):
@@ -16,6 +17,7 @@ class Rule(object):
 #    def __hash__(self):
 #        return hash(self.getkey())
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return self.getkey() == other.getkey()
 
@@ -196,7 +198,7 @@ class PackratParser(object):
         changed = True
         while changed:
             changed = False
-            for nonterminal, follow in follows.iteritems():
+            for nonterminal, follow in follows.items():
                 for nt in follow:
                     subfollow = follows[nt]
                     update = subfollow - follow
@@ -204,7 +206,7 @@ class PackratParser(object):
                         changed = True
                         follow.update(update)
                         break
-        for nonterminal, follow in follows.iteritems():
+        for nonterminal, follow in follows.items():
             if nonterminal in follow:
                 print("nonterminal %s is in its own follow %s" % (nonterminal, follow))
                 return True
@@ -235,7 +237,7 @@ class ParserCompiler(object):
         # XXX
         parsetable = self.parser.parsetablefactory([], self.parser)
         kls.terminal_equality = func_with_new_name(
-            parsetable.terminal_equality.im_func,
+            get_function(parsetable.terminal_equality),
             "terminal_equality_compileable")
         return kls
 
@@ -330,7 +332,7 @@ class ParserCompiler(object):
         self.nonterminal_to_rule = {} # dummy
         self.startsymbol = "" # dummy
         self.parsetablefactory = None # dummy"""]
-        for symbol, number in self.symbol_to_number.iteritems():
+        for symbol, number in self.symbol_to_number.items():
             if self.parser.is_nonterminal(symbol):
                 name = "matched_nonterminals%s" % number
             else:

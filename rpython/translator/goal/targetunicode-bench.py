@@ -2,6 +2,7 @@
 from rpython.rlib import rutf8
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
+from rpython.tool.twothree import unichr, unicode
 
 l = ["u" * 100 + str(i) for i in range(100)]
 u_l = [unicode("u" * 100 + str(i)) for i in range(100)]

@@ -6,6 +6,7 @@ from rpython.rlib.unicodedata import unicodedb
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit, nonconst
+from rpython.tool.twothree import unichr, unicode
 
 
 # We always use MAXUNICODE = 0x10ffff when unicode objects use utf8,

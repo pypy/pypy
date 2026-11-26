@@ -6,6 +6,7 @@ from rpython.rlib.debug import debug_print
 from rpython.rlib.jit import (JitDriver, dont_look_inside, we_are_jitted,
     promote_string, promote_unicode)
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.tool.twothree import unichr, unicode
 
 
 class StringTests:

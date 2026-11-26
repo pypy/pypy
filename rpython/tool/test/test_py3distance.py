@@ -63,3 +63,11 @@ def test_sys_maxint():
     assert count('sys_maxint', 'x = sys.maxint\ny = sys.maxsize\n') == 1
     assert count('sys_maxint', 'from sys import maxint\n') == 1
     assert count('sys_maxint', 'from sys import maxsize\n') == 0
+
+
+def test_py2_builtin_imported_from_twothree_is_not_counted():
+    assert count('py2_builtin', 'x = long(1) + unicode(2)\n') == 2
+    assert count('py2_builtin', 'from rpython.tool.twothree import long\n'
+                                'x = long(1) + unicode(2)\n') == 1
+    assert count('py2_builtin', 'from functools import reduce\n'
+                                'x = reduce(f, y)\n') == 0
