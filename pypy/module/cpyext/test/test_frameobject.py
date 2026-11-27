@@ -203,6 +203,28 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                 }
                 return PyLong_FromLong(num);
              """),
+            ("frame_getcode", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return (PyObject *)PyFrame_GetCode((PyFrameObject *)args);
+             """),
+            ("frame_getback", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                PyFrameObject *back = PyFrame_GetBack((PyFrameObject *)args);
+                if (back == NULL) {
+                    if (PyErr_Occurred())
+                        return NULL;
+                    Py_RETURN_NONE;
+                }
+                return (PyObject *)back;
+             """),
             ("frame_unstable_getcode", "METH_O",
              """
                 if (!PyFrame_Check(args)) {
@@ -245,6 +267,12 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         lasti = module.frame_getlasti(frame)
         assert abs(frame.f_lasti - lasti) < 40
         assert frame.f_lineno == module.frame_getlinenumber(frame)
+        assert frame.f_code == module.frame_getcode(frame)
+        assert frame.f_back is module.frame_getback(frame)
+        outermost = frame
+        while outermost.f_back is not None:
+            outermost = outermost.f_back
+        assert module.frame_getback(outermost) is None
         assert frame.f_code == module.frame_unstable_getcode(frame)
         unstable_lasti = module.frame_unstable_getlasti(frame)
         assert abs(frame.f_lasti - unstable_lasti) < 40
@@ -256,6 +284,45 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         gen = getgenframe()
         frame = next(gen)
         assert gen == module.frame_getgenerator(frame)
+
+    def test_frame_getback_skips_hidden(self):
+        try:
+            from __pypy__ import hidden_applevel
+        except ImportError:
+            skip("only runs on top of pypy")
+        module = self.import_extension('foo', [
+            ("frame_getback", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                PyFrameObject *back = PyFrame_GetBack((PyFrameObject *)args);
+                if (back == NULL) {
+                    if (PyErr_Occurred())
+                        return NULL;
+                    Py_RETURN_NONE;
+                }
+                return (PyObject *)back;
+             """),
+            ])
+        import sys
+
+        def inner():
+            frame = sys._getframe()
+            return module.frame_getback(frame), frame.f_back
+
+        @hidden_applevel
+        def hidden():
+            return inner()
+
+        def outer():
+            return hidden(), sys._getframe()
+
+        (back, f_back), outer_frame = outer()
+        # the hidden frame between inner() and outer() is skipped
+        assert f_back is outer_frame
+        assert back is outer_frame
 
     def test_frame_getvar(self):
         module = self.import_extension('foo', [

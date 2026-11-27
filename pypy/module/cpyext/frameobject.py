@@ -102,6 +102,16 @@ def PyTraceBack_Here(space, w_frame):
 def PyTraceBack_Check(space, w_obj):
     return isinstance(w_obj, PyTraceback)
 
+@cpython_api([PyFrameObject], PyCodeObject, abi3=True)
+def PyFrame_GetCode(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.getcode()
+
+@cpython_api([PyFrameObject], PyFrameObject)
+def PyFrame_GetBack(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.get_f_back()
+
 @cpython_api([PyFrameObject], PyObject)
 def PyFrame_GetGlobals(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame)
