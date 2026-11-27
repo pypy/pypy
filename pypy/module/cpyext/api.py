@@ -751,7 +751,7 @@ SYMBOLS_ABI3_EXTRA = [
     'PyErr_SyntaxLocationEx', 'PyEval_AcquireLock', 'PyEval_EvalFrame',
     'PyEval_EvalFrameEx', 'PyEval_ReleaseLock', 'PyExceptionClass_Name',
     'PyFloat_GetInfo', 'PyFloat_GetMax', 'PyFloat_GetMin',
-    'PyFrame_GetCode', 'PyImport_AppendInittab',
+    'PyImport_AppendInittab',
     'PyImport_ExecCodeModuleObject',
     'PyImport_ExecCodeModuleWithPathnames', 'PyImport_GetImporter',
     'PyImport_ImportFrozenModule', 'PyImport_ImportFrozenModuleObject',

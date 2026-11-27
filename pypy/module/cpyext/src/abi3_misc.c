@@ -53,12 +53,6 @@ PyAPI_FUNC(int) PyDict_MergeFromSeq2(PyObject *d, PyObject *seq2, int override)
     return -1;
 }
 
-PyAPI_FUNC(PyCodeObject *) PyFrame_GetCode(PyFrameObject *frame)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyFrame_GetCode() is not implemented in PyPy");
-    return NULL;
-}
-
 PyAPI_FUNC(const char *) PyExceptionClass_Name(PyObject * _a0)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyExceptionClass_Name() is not implemented in PyPy");
