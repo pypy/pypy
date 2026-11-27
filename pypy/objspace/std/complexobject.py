@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     DTSF_STR_PRECISION, formatd, string_to_float)
-from rpython.rlib.special_value import NAN
+from rpython.rlib.special_value import INF, NAN
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib import objectmodel
 
@@ -216,12 +216,23 @@ def c_pow(x, y):
             raise ZeroDivisionError
         rr, ir = (0.0, 0.0)
     else:
-        vabs = math.hypot(a_r, a_i)
-        len = math.pow(vabs, b_r)
+        # an intermediate value that overflows is infinite, as in C;
+        # descr_pow() raises if the result is
+        try:
+            vabs = math.hypot(a_r, a_i)
+        except OverflowError:
+            vabs = INF
+        try:
+            len = math.pow(vabs, b_r)
+        except OverflowError:
+            len = INF
         at = math.atan2(a_i, a_r)
         phase = at * b_r 
         if b_i != 0.0:
-            len *= math.exp(-(at * b_i))
+            try:
+                len *= math.exp(-(at * b_i))
+            except OverflowError:
+                len *= INF
             phase += b_i * math.log(vabs)
         try:
             rr = len * math.cos(phase)
@@ -541,6 +552,12 @@ class W_ComplexObject(W_Root):
                 w_p = self.pow_small_int(int(r))
             else:
                 w_p = self.pow(w_exponent)
+            # a finite sum means both parts are finite; only otherwise is
+            # it worth telling an infinite part from a nan
+            total = w_p.realval + w_p.imagval
+            if total - total != 0.0 and (math.isinf(w_p.realval) or
+                                         math.isinf(w_p.imagval)):
+                raise OverflowError
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "0.0 to a negative or complex power")

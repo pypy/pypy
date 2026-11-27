@@ -184,6 +184,17 @@ def test_pow():
     x, y = 9j, 33j**3
     raises(OverflowError, lambda: x**y)
 
+    # an intermediate overflow is not an error when the result is finite
+    # or nan
+    # |-1e10| ** -40 underflows and exp(pi * 400) overflows: 0 / inf
+    assert (-1e10+0j) ** complex(-40, 400) == 0j
+    # |-1e10| ** 40 and exp(pi * 400) both overflow: inf / inf
+    z = (-1e10+0j) ** complex(40, 400)
+    assert z.real != z.real
+    assert z.imag != z.imag
+    assert (1e308+1e308j) ** -2.5 == 0j
+    raises(OverflowError, pow, 1e200+1j, 2)
+
 
 def test_boolcontext():
     for i in range(100):
