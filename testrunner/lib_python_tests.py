@@ -16,7 +16,8 @@ popen = subprocess.Popen(
      "--pypy=pypy/goal/pypy-c",
      "--timeout=1324",   # make it easy to search for
      "--duration=10",
-     "--resultlog=cpython.log", "lib-python",
+     "--resultlog=cpython.log",
+     "--junitxml=cpython.junit.xml", "lib-python",
      ] + sys.argv[1:],
     cwd=rootdir)
 

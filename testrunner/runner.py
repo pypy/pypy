@@ -1,6 +1,7 @@
 import sys, os, signal, thread, Queue, time
 import py
 import subprocess, optparse
+from xml.etree import ElementTree
 
 if sys.platform == 'win32':
     PROCESS_TERMINATE = 0x1
@@ -185,6 +186,9 @@ def getsignalname(n):
             return name
     return 'signal %d' % (n,)
 
+def junitname(logfname):
+    return '%s.junit' % (logfname,)
+
 def execute_test(cwd, test, out, logfname, interp, test_driver,
                  do_dry_run=False, timeout=None,
                  _win32=(sys.platform=='win32')):
@@ -192,7 +196,7 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
              '--continue-on-collection-errors',
-             #'--junitxml=%s.junit' % logfname,
+             '--junitxml=%s' % junitname(logfname),
              test]
 
     args = map(str, args)
@@ -210,12 +214,44 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
 
     return exitcode
 
-def should_report_failure(logdata):
+def junit_has_failures(junitdata):
+    """Parse a pytest --junitxml report.  Return None if it is not a valid
+    report (missing, truncated because pytest crashed or was killed...),
+    otherwise True if it records at least one failure or error."""
+    if not junitdata:
+        return None
+    try:
+        root = ElementTree.fromstring(junitdata)
+    except Exception:     # ParseError (py2.7) or a ValueError/SyntaxError
+        return None
+    if root.tag == 'testsuites':
+        suites = list(root.findall('testsuite'))
+    elif root.tag == 'testsuite':
+        suites = [root]
+    else:
+        return None
+    if not suites:
+        return None
+    for suite in suites:
+        for attr in ('failures', 'errors'):
+            try:
+                if int(suite.get(attr, '0')) > 0:
+                    return True
+            except ValueError:
+                return None
+    return False
+
+def should_report_failure(logdata, junitdata=None):
     # When we have an exitcode of 1, it might be because of failures
     # that occurred "regularly", or because of another crash of py.test.
-    # We decide heuristically based on logdata: if it looks like it
+    # If a valid junit-xml report is available, we trust it: a regular
+    # failure is a report that records some failure or error.  Otherwise
+    # we decide heuristically based on logdata: if it looks like it
     # contains "F", "E" or "P" then it's a regular failure, otherwise
     # we have to report it.
+    has_failures = junit_has_failures(junitdata)
+    if has_failures is not None:
+        return not has_failures
     for line in logdata.splitlines():
         if (line.startswith('F ') or
             line.startswith('E ') or
@@ -223,11 +259,11 @@ def should_report_failure(logdata):
             return False
     return True
 
-def interpret_exitcode(exitcode, test, logdata=""):
+def interpret_exitcode(exitcode, test, logdata="", junitdata=None):
     extralog = ""
     if exitcode not in (0, 5):
         failure = True
-        if exitcode != 1 or should_report_failure(logdata):
+        if exitcode != 1 or should_report_failure(logdata, junitdata):
             if exitcode > 0:
                 msg = "Exit code %d." % exitcode
             elif exitcode == TIMEDOUT:
@@ -287,8 +323,14 @@ def worker(num, n, run_param, testdirs, result_queue):
             logdata = logfname.read(READ_MODE)
         else:
             logdata = ""
+        junitfname = py.path.local(junitname(logfname))
+        if junitfname.check(file=1):
+            junitdata = junitfname.read(READ_MODE)
+        else:
+            junitdata = ""
 
-        failure, extralog = interpret_exitcode(exitcode, test, logdata)
+        failure, extralog = interpret_exitcode(exitcode, test, logdata,
+                                               junitdata)
 
         if extralog:
             logdata += extralog
