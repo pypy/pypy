@@ -1196,11 +1196,16 @@ def _type_realize(space, py_obj):
         base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
 
+    # Like CPython's PyType_Ready, ready tp_base first: from_ref() below can't
+    # realize a static base whose ob_type is still NULL.
+    base_pto = py_type.c_tp_base
+    if not widen(base_pto.c_tp_flags) & Py_TPFLAGS_READY:
+        type_realize(space, rffi.cast(PyObject, base_pto))
+
     basicsize = widen(py_type.c_tp_basicsize)
     if basicsize < 0:
         # PEP 697 base-relative size, as nanobind's emulated
         # PyType_FromMetaclass stores into tp_basicsize before PyType_Ready
-        base_pto = py_type.c_tp_base
         if (base_pto.c_tp_itemsize and
                 not (widen(base_pto.c_tp_flags) & Py_TPFLAGS_ITEMS_AT_END) and
                 not (widen(py_type.c_tp_flags) & Py_TPFLAGS_ITEMS_AT_END)):
@@ -1251,7 +1256,6 @@ def _type_realize(space, py_obj):
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    base = py_type.c_tp_base
     return w_obj
 
 def finish_type_1(space, pto, bases_w=None):
