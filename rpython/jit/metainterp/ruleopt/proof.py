@@ -59,7 +59,7 @@ class CouldNotProve(ProofProblem):
         detail = []
         res.append("counterexample given by Z3:")
         res.append("counterexample values:")
-        for name, bound in prover.name_to_intbound.iteritems():
+        for name, bound in prover.name_to_intbound.items():
             if name in prover.glue_conditions_added:
                 realbound = IntBound(model.evaluate(bound.lower).as_signed_long(),
                                       model.evaluate(bound.upper).as_signed_long(),

@@ -1,6 +1,7 @@
 import weakref
 from threading import local as _local
-from types import MethodType, NoneType
+from types import MethodType
+NoneType = type(None)
 
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
 from rpython.annotator.model import (

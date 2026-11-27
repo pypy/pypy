@@ -165,7 +165,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 p[i] = rffi.cast(A.OF, r.random_integer())
         else:
             for i in range(length):
-                for fname, TP in A.OF._flds.iteritems():
+                for fname, TP in A.OF._flds.items():
                     setattr(p[i], fname, rffi.cast(TP, r.random_integer()))
         return p
 

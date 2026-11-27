@@ -1285,7 +1285,7 @@ class MappingSpace(object):
         else:
             ll_key = ll_tuple.item0
             ll_value = ll_tuple.item1
-            for key, value in self.reference.iteritems():
+            for key, value in self.reference.items():
                 if self.ll_key(key) == ll_key:
                     assert self.ll_value(value) == ll_value
                     del self.reference[key]
@@ -1299,7 +1299,7 @@ class MappingSpace(object):
 
     def fullcheck(self):
         assert self.ll_len(self.l_dict) == len(self.reference)
-        for key, value in self.reference.iteritems():
+        for key, value in self.reference.items():
             assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
                 self.ll_value(value))
         for key in self.removed_keys:

@@ -19,7 +19,7 @@ class TestStaticSizeReport(object):
         func = compile(f, [int])
         size, num = group_static_size(func.builder.db,
                                       func.builder.db.globalcontainers())
-        for key, value in num.iteritems():
+        for key, value in num.items():
             if "staticsizereport.A" in str(key) and "vtable" not in str(key):
                 assert value == 101
 

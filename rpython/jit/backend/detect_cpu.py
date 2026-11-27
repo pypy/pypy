@@ -34,7 +34,7 @@ def detect_model_from_c_compiler():
         MODEL_PPC_64: ['__powerpc64__'],
         MODEL_S390_64:['__s390x__'],
     }
-    for k, v in mapping.iteritems():
+    for k, v in mapping.items():
         for macro in v:
             if not getdefined(macro, ''):
                 continue
