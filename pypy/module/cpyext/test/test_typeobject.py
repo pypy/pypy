@@ -4137,6 +4137,56 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         e = raises(TypeError, SubB)
         assert str(e.value) == "cannot create 'SubB' instances"
 
+    def test_ready_unready_static_base(self):
+        # A static base that was never readied still has a NULL ob_type.
+        # PyType_Ready on the subclass must ready it first, like CPython does,
+        # instead of failing an assertion in from_ref() (seen with pywin32).
+        # Readying goes up the whole chain: Derived -> Mid -> Base, none of
+        # them readied beforehand.
+        module = self.import_extension('foo_unready_base', [
+            ("bases_ready", "METH_NOARGS",
+             """
+                 return Py_BuildValue("(OO)",
+                     (Base_Type.tp_flags & Py_TPFLAGS_READY) ? Py_True : Py_False,
+                     (Mid_Type.tp_flags & Py_TPFLAGS_READY) ? Py_True : Py_False);
+             """),
+            ], prologue="""
+            static PyTypeObject Base_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_unready_base.Base",
+                sizeof(PyObject),
+                0,
+            };
+            static PyTypeObject Mid_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_unready_base.Mid",
+                sizeof(PyObject),
+                0,
+            };
+            static PyTypeObject Derived_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_unready_base.Derived",
+                sizeof(PyObject),
+                0,
+            };
+            """, more_init="""
+            Base_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+            Mid_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+            Mid_Type.tp_base = &Base_Type;
+            Derived_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+            Derived_Type.tp_base = &Mid_Type;
+            if (PyType_Ready(&Derived_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Derived", (PyObject *)&Derived_Type);
+        """)
+        assert module.bases_ready() == (True, True)
+        mid, = module.Derived.__bases__
+        assert mid.__name__ == "Mid"
+        base, = mid.__bases__
+        assert base.__name__ == "Base"
+        assert type(mid) is type
+        assert type(base) is type
+        assert module.Derived.__mro__ == (module.Derived, mid, base, object)
+
     def test_multi_inherit_missing_basetype_flag(self):
         # Mirrors numpy gh-23737: combining a C type that does *not* set
         # Py_TPFLAGS_BASETYPE (like np.flexible, whose instance layout adds
