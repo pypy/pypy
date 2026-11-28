@@ -17,6 +17,7 @@ from rpython.flowspace.operation import op
 from rpython.flowspace.bytecode import BytecodeCorruption
 
 w_None = const(None)
+ModuleNotFoundError = getattr(builtins, 'ModuleNotFoundError', ImportError)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -196,6 +197,7 @@ class FlowContext(object):
 
         self.init_closure(func.__closure__)
         self.last_offset = 0
+        self.last_pos = 0
 
         self.init_locals_stack(code)
 
@@ -302,8 +304,11 @@ class FlowContext(object):
             self.recorder.guessexception(self, *exceptions)
 
     def has_exc_handler(self):
-        return any(isinstance(block, (ExceptBlock, FinallyBlock))
-                for block in self.blockstack)
+        if any(isinstance(block, (ExceptBlock, FinallyBlock))
+               for block in self.blockstack):
+            return True
+        handler = self.code.find_handler(self.last_pos)
+        return handler is not None and handler.catches
 
     def build_flow(self):
         graph = self.graph
@@ -397,6 +402,7 @@ class FlowContext(object):
     def handle_instr(self, pos):
         instr = self.code.instrs[pos]
         self.last_offset = instr.offset
+        self.last_pos = pos
         try:
             next_pos = instr.eval(self)
         except FlowSignal as signal:
@@ -409,6 +415,14 @@ class FlowContext(object):
             if isinstance(signal, block.handles):
                 return block.handle(self, signal)
             block.cleanupstack(self)
+        if isinstance(signal, Raise):
+            handler = self.code.find_handler(self.last_pos)
+            if handler is not None:
+                self.dropvaluesuntil(handler.depth)
+                if handler.lasti:
+                    self.pushvalue(w_None)
+                self.pushvalue(signal)
+                return handler.target
         return signal.nomoreblocks(self)
 
     def appcall(self, func, *args_w):
@@ -655,7 +669,7 @@ class Raise(FlowSignal):
 
     def nomoreblocks(self, ctx):
         w_exc = self.w_exc
-        if w_exc.w_type == const(ImportError):
+        if w_exc.w_type in (const(ImportError), const(ModuleNotFoundError)):
             msg = 'ImportError is raised in RPython: %s' % (
                 getattr(w_exc.w_value, 'value', '<not a constant message>'),)
             raise ImportError(msg)

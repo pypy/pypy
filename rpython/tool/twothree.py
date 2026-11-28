@@ -12,6 +12,8 @@ translation toolchain has to keep working during bootstrapping.
 
 import sys
 
+PY2 = sys.version_info[0] == 2
+
 if sys.version_info[0] == 2:
     import __builtin__ as builtins
 else:
