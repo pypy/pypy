@@ -50,13 +50,32 @@ class LineTable(object):
         return self.linenos[bisect_right(self.offsets, offset) - 1]
 
 
+class Handler(object):
+    """An entry of the exception table of Python 3.11.
+
+    An exception raised by the instructions from 'start' up to 'end' continues
+    at 'target', with the stack cut down to 'depth' items. On top of these came
+    the offset of the instruction, if 'lasti', and the exception.
+    'catches' is False for a handler that only cleans up and re-raises.
+    """
+
+    def __init__(self, start, end, target, depth, lasti, catches):
+        self.start = start
+        self.end = end
+        self.target = target
+        self.depth = depth
+        self.lasti = lasti
+        self.catches = catches
+
+
 class FlowCode(object):
     """
     A host code object decoded into a list of instructions (see instr.py)
     """
 
     def __init__(self, signature, nlocals, varnames, freevars, flags,
-                 filename, name, firstlineno, instrs, linetable):
+                 filename, name, firstlineno, instrs, linetable,
+                 handlers=()):
         assert nlocals >= 0
         self.signature = signature
         self.nlocals = nlocals
@@ -68,6 +87,14 @@ class FlowCode(object):
         self.firstlineno = firstlineno
         self.instrs = instrs
         self.linetable = linetable
+        self.handlers = handlers
+
+    def find_handler(self, pos):
+        """The innermost Handler for the instruction at 'pos', or None."""
+        for handler in self.handlers:
+            if handler.start <= pos < handler.end:
+                return handler
+        return None
 
     @property
     def formalargcount(self):
