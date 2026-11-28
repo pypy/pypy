@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rgc, jit, rutf8, rstackovf
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import widen
+from rpython.rlib.rarithmetic import widen, intmask, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -46,6 +46,7 @@ eci = ExternalCompilationInfo(
         srcdir.join('xmltok.c'),
         srcdir.join('xmltok_impl.c'),
         srcdir.join('xmltok_ns.c'),
+        srcdir.join('xcs.c'),
     ] + [srcdir.join(f) for f in _random_files]
 )
 
@@ -413,15 +414,12 @@ XML_GetErrorCode = expat_external(
 XML_ErrorString = expat_external(
     'XML_ErrorString', [rffi.INT],
     rffi.CONST_CCHARP)
-XML_GetCurrentLineNumber = expat_external(
-    'XML_GetCurrentLineNumber', [XML_Parser], rffi.INT)
-XML_GetErrorLineNumber = XML_GetCurrentLineNumber
-XML_GetCurrentColumnNumber = expat_external(
-    'XML_GetCurrentColumnNumber', [XML_Parser], rffi.INT)
-XML_GetErrorColumnNumber = XML_GetCurrentColumnNumber
-XML_GetCurrentByteIndex = expat_external(
-    'XML_GetCurrentByteIndex', [XML_Parser], rffi.INT)
-XML_GetErrorByteIndex = XML_GetCurrentByteIndex
+XML_GetCurrentLineNumber64 = expat_external(
+    'XML_GetCurrentLineNumber64', [XML_Parser], rffi.ULONGLONG)
+XML_GetCurrentColumnNumber64 = expat_external(
+    'XML_GetCurrentColumnNumber64', [XML_Parser], rffi.ULONGLONG)
+XML_GetCurrentByteIndex64 = expat_external(
+    'XML_GetCurrentByteIndex64', [XML_Parser], rffi.LONGLONG)
 
 XML_FreeContentModel = expat_external(
     'XML_FreeContentModel', [XML_Parser, lltype.Ptr(XML_Content)], lltype.Void)
@@ -433,6 +431,15 @@ if XML_COMBINED_VERSION >= 20600:
         'XML_SetReparseDeferralEnabled', [XML_Parser, rffi.UCHAR], rffi.UCHAR)
 XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CONST_CCHARP)
+
+@specialize.argtype(1)
+def newint64(space, value):
+    if isinstance(value, r_ulonglong):
+        if value <= r_ulonglong(sys.maxint):
+            return space.newint(intmask(value))
+    elif -sys.maxint - 1 <= value <= sys.maxint:
+        return space.newint(intmask(value))
+    return space.newlong_from_rarith_int(value)
 
 def get_expat_version(space):
     return space.newtext(rffi.constcharp2str(XML_ExpatVersion()))
@@ -870,14 +877,15 @@ information passed to the ExternalEntityRefHandler."""
 
     def set_error(self, space, code):
         err = rffi.constcharp2str(XML_ErrorString(code))
-        lineno = XML_GetCurrentLineNumber(self.itself)
-        colno = XML_GetCurrentColumnNumber(self.itself)
-        msg = "%s: line %d, column %d" % (err, lineno, colno)
+        w_lineno = newint64(space, XML_GetCurrentLineNumber64(self.itself))
+        w_colno = newint64(space, XML_GetCurrentColumnNumber64(self.itself))
+        msg = "%s: line %s, column %s" % (err, space.text_w(space.str(w_lineno)),
+                                          space.text_w(space.str(w_colno)))
         w_errorcls = space.fromcache(Cache).w_error
         w_error = space.call_function(w_errorcls, space.newtext(msg))
         space.setattr(w_error, space.newtext("code"), space.newint(code))
-        space.setattr(w_error, space.newtext("offset"), space.newint(colno))
-        space.setattr(w_error, space.newtext("lineno"), space.newint(lineno))
+        space.setattr(w_error, space.newtext("offset"), w_colno)
+        space.setattr(w_error, space.newtext("lineno"), w_lineno)
 
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
@@ -896,13 +904,13 @@ information passed to the ExternalEntityRefHandler."""
         return space.newint(XML_GetErrorCode(self.itself))
 
     def descr_ErrorLineNumber(self, space):
-        return space.newint(XML_GetErrorLineNumber(self.itself))
+        return newint64(space, XML_GetCurrentLineNumber64(self.itself))
 
     def descr_ErrorColumnNumber(self, space):
-        return space.newint(XML_GetErrorColumnNumber(self.itself))
+        return newint64(space, XML_GetCurrentColumnNumber64(self.itself))
 
     def descr_ErrorByteIndex(self, space):
-        return space.newint(XML_GetErrorByteIndex(self.itself))
+        return newint64(space, XML_GetCurrentByteIndex64(self.itself))
 
     def get_buffer_size(self, space):
         return space.newint(self.buffer_size)

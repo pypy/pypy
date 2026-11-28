@@ -50,14 +50,22 @@
 #define XML_GetBase                     PyExpat_XML_GetBase
 #define XML_GetBuffer                   PyExpat_XML_GetBuffer
 #define XML_GetCurrentByteCount         PyExpat_XML_GetCurrentByteCount
+#define XML_GetCurrentByteCount64       PyExpat_XML_GetCurrentByteCount64
 #define XML_GetCurrentByteIndex         PyExpat_XML_GetCurrentByteIndex
+#define XML_GetCurrentByteIndex64       PyExpat_XML_GetCurrentByteIndex64
 #define XML_GetCurrentColumnNumber      PyExpat_XML_GetCurrentColumnNumber
+#define XML_GetCurrentColumnNumber64    PyExpat_XML_GetCurrentColumnNumber64
 #define XML_GetCurrentLineNumber        PyExpat_XML_GetCurrentLineNumber
+#define XML_GetCurrentLineNumber64      PyExpat_XML_GetCurrentLineNumber64
 #define XML_GetErrorCode                PyExpat_XML_GetErrorCode
 #define XML_GetFeatureList              PyExpat_XML_GetFeatureList
 #define XML_GetIdAttributeIndex         PyExpat_XML_GetIdAttributeIndex
 #define XML_GetInputContext             PyExpat_XML_GetInputContext
+#define XML_GetInputContext64           PyExpat_XML_GetInputContext64
 #define XML_GetParsingStatus            PyExpat_XML_GetParsingStatus
+#define XML_GetPropertyBool             PyExpat_XML_GetPropertyBool
+#define XML_GetPropertyDouble           PyExpat_XML_GetPropertyDouble
+#define XML_GetPropertyUInt64           PyExpat_XML_GetPropertyUInt64
 #define XML_GetSpecifiedAttributeCount  PyExpat_XML_GetSpecifiedAttributeCount
 #define XmlGetUtf16InternalEncoding     PyExpat_XmlGetUtf16InternalEncoding
 #define XmlGetUtf16InternalEncodingNS   PyExpat_XmlGetUtf16InternalEncodingNS
@@ -103,11 +111,15 @@
 #define XML_SetExternalEntityRefHandler PyExpat_XML_SetExternalEntityRefHandler
 #define XML_SetExternalEntityRefHandlerArg  PyExpat_XML_SetExternalEntityRefHandlerArg
 #define XML_SetHashSalt                 PyExpat_XML_SetHashSalt
+#define XML_SetHashSalt16Bytes          PyExpat_XML_SetHashSalt16Bytes
 #define XML_SetNamespaceDeclHandler     PyExpat_XML_SetNamespaceDeclHandler
 #define XML_SetNotationDeclHandler      PyExpat_XML_SetNotationDeclHandler
 #define XML_SetNotStandaloneHandler     PyExpat_XML_SetNotStandaloneHandler
 #define XML_SetParamEntityParsing       PyExpat_XML_SetParamEntityParsing
 #define XML_SetProcessingInstructionHandler PyExpat_XML_SetProcessingInstructionHandler
+#define XML_SetPropertyBool             PyExpat_XML_SetPropertyBool
+#define XML_SetPropertyDouble           PyExpat_XML_SetPropertyDouble
+#define XML_SetPropertyUInt64           PyExpat_XML_SetPropertyUInt64
 #define XML_SetReparseDeferralEnabled   PyExpat_XML_SetReparseDeferralEnabled
 #define XML_SetReturnNSTriplet          PyExpat_XML_SetReturnNSTriplet
 #define XML_SetSkippedEntityHandler     PyExpat_XML_SetSkippedEntityHandler
@@ -136,6 +148,12 @@
 #define writeRandomBytes_getentropy     PyExpat_writeRandomBytes_getentropy
 #define writeRandomBytes_getrandom_nonblock PyExpat_writeRandomBytes_getrandom_nonblock
 #define writeRandomBytes_rand_s         PyExpat_writeRandomBytes_rand_s
+/* Added in Expat 2.9.0: xcs.c is a separate translation unit. */
+#define xcscmp                          PyExpat_xcscmp
+#define xcslen                          PyExpat_xcslen
+#define xcsncmp                         PyExpat_xcsncmp
+#define g_reparseDeferralEnabledDefault PyExpat_g_reparseDeferralEnabledDefault
+#define _INTERNAL_trim_to_complete_utf8_characters PyExpat__INTERNAL_trim_to_complete_utf8_characters
 
 
 #endif /* !PYEXPATNS_H */
