@@ -20,6 +20,25 @@ class AppTestPyexpat:
 
         pyexpat.ExpatError("error")
 
+    def test_location(self):
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        pos = []
+        def start(name, attrs):
+            pos.append((name, p.CurrentLineNumber, p.CurrentColumnNumber,
+                        p.CurrentByteIndex))
+        p.StartElementHandler = start
+        exc = raises(pyexpat.ExpatError, p.Parse, '<a>\n  <b/>\n</c>', True)
+        assert pos == [('a', 1, 0, 0), ('b', 2, 2, 6)]
+        assert str(exc.value) == 'mismatched tag: line 3, column 2'
+        assert (exc.value.lineno, exc.value.offset) == (3, 2)
+        assert (p.ErrorLineNumber, p.ErrorColumnNumber, p.ErrorByteIndex) == (3, 2, 13)
+        assert type(p.ErrorByteIndex) is int
+
+    def test_version_vendored(self):
+        import pyexpat
+        assert pyexpat.version_info >= (2, 9, 0)
+
     def test_attributes(self):
         import pyexpat
         p = pyexpat.ParserCreate()

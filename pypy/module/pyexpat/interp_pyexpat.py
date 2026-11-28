@@ -4,34 +4,50 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rgc, jit, rutf8
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
+from rpython.translator import cdir
 
 import sys
 import weakref
 import py
 
-if sys.platform == "win32":
-    libname = 'libexpat'
-    pre_include_bits = ["#define XML_STATIC"]
-else:
-    libname = 'expat'
-    pre_include_bits = []
-eci = ExternalCompilationInfo(
-    libraries=[libname],
-    library_dirs=platform.preprocess_library_dirs([]),
-    includes=['expat.h'],
-    include_dirs=platform.preprocess_include_dirs([]),
-    pre_include_bits = pre_include_bits,
-    )
+srcdir = py.path.local(__file__).dirpath().join('src', 'expat')
 
-eci = rffi_platform.configure_external_library(
-    libname, eci,
-    [dict(prefix='expat-',
-          include_dir='lib', library_dir='win32/bin/release'),
-     ])
+# XML_DTD/XML_GE gate some prototypes in __expat.h; match expat_config.h
+pre_include_bits = ["#define XML_DTD 1", "#define XML_GE 1"]
+if sys.platform == "win32":
+    pre_include_bits.append("#define XML_STATIC")
+
+# Since expat 2.8.0 the entropy source lives in a separate translation unit
+# selected by the HAVE_* / XML_DEV_URANDOM macros in expat_config.h.  Compile
+# the file(s) that match this platform's config so the writeRandomBytes_*
+# symbol referenced by xmlparse.c is defined.
+if sys.platform == 'darwin':
+    _random_files = ['random_arc4random_buf.c']
+elif sys.platform == 'win32':
+    _random_files = ['random_rand_s.c']
+else:
+    # glibc >= 2.17 uses HAVE_SYSCALL_GETRANDOM, older glibc uses
+    # XML_DEV_URANDOM; compile both, the unused one links harmlessly.
+    _random_files = ['random_getrandom.c', 'random_dev_urandom.c']
+
+eci = ExternalCompilationInfo(
+    includes=['__expat.h', 'pyexpatns.h'],  # avoid conflicts with system libraries
+    include_dirs=[str(srcdir), cdir],
+    pre_include_bits = pre_include_bits,
+    separate_module_files=[
+        srcdir.join('xmlparse.c'),
+        srcdir.join('xmlrole.c'),
+        srcdir.join('xmltok.c'),
+        srcdir.join('xmltok_impl.c'),
+        srcdir.join('xmltok_ns.c'),
+        srcdir.join('xcs.c'),
+    ] + [srcdir.join(f) for f in _random_files]
+)
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
@@ -132,6 +148,7 @@ XML_Encoding_Ptr = lltype.Ptr(XML_Encoding)
 
 def expat_external(*a, **kw):
     kw['compilation_info'] = eci
+    a = ("PyExpat_" + a[0],) + a[1:]
     return rffi.llexternal(*a, **kw)
 
 INTERNED_CCHARP = "INTERNED"
@@ -382,15 +399,12 @@ XML_GetErrorCode = expat_external(
 XML_ErrorString = expat_external(
     'XML_ErrorString', [rffi.INT],
     rffi.CONST_CCHARP)
-XML_GetCurrentLineNumber = expat_external(
-    'XML_GetCurrentLineNumber', [XML_Parser], rffi.INT)
-XML_GetErrorLineNumber = XML_GetCurrentLineNumber
-XML_GetCurrentColumnNumber = expat_external(
-    'XML_GetCurrentColumnNumber', [XML_Parser], rffi.INT)
-XML_GetErrorColumnNumber = XML_GetCurrentColumnNumber
-XML_GetCurrentByteIndex = expat_external(
-    'XML_GetCurrentByteIndex', [XML_Parser], rffi.INT)
-XML_GetErrorByteIndex = XML_GetCurrentByteIndex
+XML_GetCurrentLineNumber64 = expat_external(
+    'XML_GetCurrentLineNumber64', [XML_Parser], rffi.ULONGLONG)
+XML_GetCurrentColumnNumber64 = expat_external(
+    'XML_GetCurrentColumnNumber64', [XML_Parser], rffi.ULONGLONG)
+XML_GetCurrentByteIndex64 = expat_external(
+    'XML_GetCurrentByteIndex64', [XML_Parser], rffi.LONGLONG)
 
 XML_FreeContentModel = expat_external(
     'XML_FreeContentModel', [XML_Parser, lltype.Ptr(XML_Content)], lltype.Void)
@@ -400,6 +414,15 @@ XML_ExternalEntityParserCreate = expat_external(
 
 XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CONST_CCHARP)
+
+@specialize.argtype(1)
+def newint64(space, value):
+    if isinstance(value, r_ulonglong):
+        if value <= r_ulonglong(sys.maxint):
+            return space.newint(intmask(value))
+    elif -sys.maxint - 1 <= value <= sys.maxint:
+        return space.newint(intmask(value))
+    return space.newlong_from_rarith_int(value)
 
 def get_expat_version(space):
     return space.newtext(rffi.constcharp2str(XML_ExpatVersion()))
@@ -720,14 +743,15 @@ information passed to the ExternalEntityRefHandler."""
 
     def set_error(self, space, code):
         err = rffi.constcharp2str(XML_ErrorString(code))
-        lineno = XML_GetCurrentLineNumber(self.itself)
-        colno = XML_GetCurrentColumnNumber(self.itself)
-        msg = "%s: line %d, column %d" % (err, lineno, colno)
+        w_lineno = newint64(space, XML_GetCurrentLineNumber64(self.itself))
+        w_colno = newint64(space, XML_GetCurrentColumnNumber64(self.itself))
+        msg = "%s: line %s, column %s" % (err, space.text_w(space.str(w_lineno)),
+                                          space.text_w(space.str(w_colno)))
         w_errorcls = space.fromcache(Cache).w_error
         w_error = space.call_function(w_errorcls, space.newtext(msg))
         space.setattr(w_error, space.newtext("code"), space.newint(code))
-        space.setattr(w_error, space.newtext("offset"), space.newint(colno))
-        space.setattr(w_error, space.newtext("lineno"), space.newint(lineno))
+        space.setattr(w_error, space.newtext("offset"), w_colno)
+        space.setattr(w_error, space.newtext("lineno"), w_lineno)
 
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
@@ -736,13 +760,13 @@ information passed to the ExternalEntityRefHandler."""
         return space.newint(XML_GetErrorCode(self.itself))
 
     def descr_ErrorLineNumber(self, space):
-        return space.newint(XML_GetErrorLineNumber(self.itself))
+        return newint64(space, XML_GetCurrentLineNumber64(self.itself))
 
     def descr_ErrorColumnNumber(self, space):
-        return space.newint(XML_GetErrorColumnNumber(self.itself))
+        return newint64(space, XML_GetCurrentColumnNumber64(self.itself))
 
     def descr_ErrorByteIndex(self, space):
-        return space.newint(XML_GetErrorByteIndex(self.itself))
+        return newint64(space, XML_GetCurrentByteIndex64(self.itself))
 
     def get_buffer_size(self, space):
         return space.newint(self.buffer_size)
